@@ -138,7 +138,7 @@ function toggleSb() {
 
 function login() {
   var e = document.getElementById('em').value.trim(), p = document.getElementById('pw').value;
-  if (e === 'product@kerv.ai' && p === 'roadmap') {
+  if (e === 'bruna' && p === 'Bruna2026') {
     document.getElementById('auth').classList.add('gone');
     setTimeout(function() { document.getElementById('auth').style.display = 'none'; }, 300);
     document.getElementById('app').classList.add('show');
@@ -173,6 +173,6 @@ document.getElementById('pw').addEventListener('keydown', function(e) { if (e.ke
 document.getElementById('em').addEventListener('keydown', function(e) { if (e.key === 'Enter') login(); });
 
 // Auto-login
-document.getElementById('em').value = 'product@kerv.ai';
-document.getElementById('pw').value = 'roadmap';
+document.getElementById('em').value = 'bruna';
+document.getElementById('pw').value = 'Bruna2026';
 login();
