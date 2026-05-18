@@ -4768,11 +4768,16 @@ function txToggleAdModalOd() {
 }
 
 function txBuildOdPanelHtml() {
-  var S    = '#d946ef';
-  var GLOW = 'filter:drop-shadow(0 0 4px #d946ef) drop-shadow(0 0 11px rgba(217,70,239,0.38))';
+  var S = '#d946ef';
 
-  // Convert a bounding box {t,l,w,h} (% of image dims) into a 9-point organic
-  // polygon in SVG space (viewBox 0 0 100 56.25 = 16:9 matching the container)
+  // SVG filter for neon glow — self-contained, not clipped by overflow:hidden
+  var DEFS = '<defs><filter id="od-glow" x="-40%" y="-40%" width="180%" height="180%">'
+    + '<feGaussianBlur in="SourceGraphic" stdDeviation="1" result="b1"/>'
+    + '<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b2"/>'
+    + '<feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>'
+    + '</filter></defs>';
+
+  // 9-point organic polygon from bounding box, in viewBox "0 0 100 56.25"
   function bpoly(b) {
     var l=b.l, t=b.t*.5625, w=b.w, h=b.h*.5625, r=l+w, bo=t+h;
     return [
@@ -4784,14 +4789,15 @@ function txBuildOdPanelHtml() {
   }
 
   return TX_AD_FRAMES.map(function(f, i) {
-    var polysHtml = f.boxes.map(function(b) {
+    // Max 2 polygons per frame
+    var polysHtml = f.boxes.slice(0,2).map(function(b) {
       return '<polygon points="'+bpoly(b)+'" fill="rgba(217,70,239,0.07)" stroke="'+S
-        +'" stroke-width="1.4" vector-effect="non-scaling-stroke" style="'+GLOW+'"/>';
+        +'" stroke-width="1.4" vector-effect="non-scaling-stroke" filter="url(#od-glow)"/>';
     }).join('');
 
     var svgHtml = '<svg style="position:absolute;inset:0;width:100%;height:100%"'
       +' viewBox="0 0 100 56.25" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
-      + polysHtml + '</svg>';
+      + DEFS + polysHtml + '</svg>';
 
     var objsHtml = f.objects.map(function(o) {
       var col = o.c >= 95 ? '#4ade80' : o.c >= 80 ? '#fbbf24' : '#94a3b8';
