@@ -3997,6 +3997,59 @@ function mp2InjectRefineStyles() {
   document.head.appendChild(s);
 }
 
+var MP2_REFINE_MOMENT_LABELS = ['Grocery Haul','Family Dinner','Healthy Eating','Fresh Produce','Meal Prep','Weekend BBQ','Snack Time','Baking & Sweets','Beverages','Quick & Easy'];
+
+function mp2InitRefineScatter(momentName) {
+  txLoadHighcharts(function() {
+    var container = document.getElementById('mp2-refine-scatter-chart');
+    if (!container) return;
+    var nm = momentName.toLowerCase();
+    var selIdx = 0;
+    for (var i = 0; i < MP2_REFINE_MOMENT_LABELS.length; i++) {
+      var words = MP2_REFINE_MOMENT_LABELS[i].toLowerCase().split(' ');
+      if (words.some(function(w) { return nm.indexOf(w) !== -1; })) { selIdx = i; break; }
+    }
+    function bp(x,y,z,n) {
+      var g=y>=80;
+      return {x:x,y:y,z:z,name:n,color:g?'rgba(34,197,94,0.55)':'rgba(234,179,8,0.55)',marker:{lineColor:g?'#16a34a':'#ca8a04',lineWidth:1.5}};
+    }
+    var bubbleData = [
+      bp(0,94,14,'Grocery & Supermarket'),bp(0,88,12,'Food & Drink'),       bp(0,82,11,'Family Meals'),
+      bp(1,91,14,'Cooking'),              bp(1,86,13,'Food & Drink'),        bp(1,78,11,'Healthy Living'),
+      bp(2,95,14,'Healthy Eating'),       bp(2,90,13,'Grocery & Supermarket'),bp(2,83,12,'Nutrition'),bp(2,74,10,'Fitness'),
+      bp(3,93,14,'Grocery & Supermarket'),bp(3,87,13,'Produce'),             bp(3,81,12,'Organic Food'),
+      bp(4,89,13,'Cooking'),              bp(4,84,12,'Meal Planning'),       bp(4,76,11,'Food & Drink'),
+      bp(5,85,13,'Outdoor Dining'),       bp(5,79,11,'Grilling'),            bp(5,68,10,'Summer Food'),
+      bp(6,80,12,'Snacks'),               bp(6,72,10,'Beverages'),           bp(6,65,9,'Convenience Food'),
+      bp(7,88,13,'Baking'),               bp(7,82,12,'Desserts'),            bp(7,70,10,'Cooking'),
+      bp(8,92,14,'Beverages'),            bp(8,86,13,'Grocery & Supermarket'),bp(8,78,11,'Healthy Drinks'),
+      bp(9,90,14,'Cooking'),              bp(9,83,12,'Food & Drink'),        bp(9,73,10,'Quick Meals')
+    ];
+    Highcharts.chart('mp2-refine-scatter-chart', {
+      chart:{type:'bubble',backgroundColor:'transparent',plotBorderWidth:0,height:null,margin:[10,12,72,12],animation:{duration:400},style:{fontFamily:'inherit'}},
+      title:{text:null},legend:{enabled:false},credits:{enabled:false},exporting:{enabled:false},
+      xAxis:{
+        categories:MP2_REFINE_MOMENT_LABELS,
+        gridLineWidth:1,gridLineColor:'#f1f5f9',lineWidth:0,tickLength:0,title:{text:null},
+        labels:{style:{fontSize:'8px',color:'#64748b'},rotation:-45,y:12},
+        plotBands:[{from:selIdx-0.5,to:selIdx+0.5,color:'rgba(0,0,0,0.055)',zIndex:0}]
+      },
+      yAxis:{min:55,max:100,gridLineWidth:1,gridLineColor:'#f1f5f9',title:{text:null},labels:{enabled:false}},
+      tooltip:{
+        useHTML:true,backgroundColor:'#1e293b',borderColor:'#334155',borderRadius:8,
+        style:{color:'#e2e8f0',fontSize:'11px'},
+        formatter:function(){
+          return '<b style="color:#f8fafc">'+this.point.name+'</b><br/>'
+            +'<span style="color:#94a3b8">Moment: </span>'+MP2_REFINE_MOMENT_LABELS[this.x]+'<br/>'
+            +'<span style="color:#94a3b8">Relevance: </span><b style="color:'+(this.y>=80?'#4ade80':'#fbbf24')+'">'+(this.y>=80?'High':'Standard')+'</b>';
+        }
+      },
+      plotOptions:{bubble:{minSize:4,maxSize:16,sizeBy:'width',marker:{fillOpacity:0.6,lineWidth:1.5},states:{hover:{halo:{size:3}}},dataLabels:{enabled:false}}},
+      series:[{name:'IAB Taxonomy',data:bubbleData,color:'#818cf8',marker:{lineColor:'#6366f1'}}]
+    });
+  });
+}
+
 function mp2OpenMomentModal(name, score, assets) {
   if (document.getElementById('tx-moment-modal')) return;
   mp2InjectRefineStyles();
@@ -4012,7 +4065,7 @@ function mp2OpenMomentModal(name, score, assets) {
   modal.id = 'tx-moment-modal';
   modal.className = 'tx-modal-overlay';
   modal.innerHTML =
-    '<div class="tx-modal" onclick="event.stopPropagation()" style="width:820px;max-width:calc(100vw - 32px)">'
+    '<div class="tx-modal" onclick="event.stopPropagation()" style="width:1100px;max-width:calc(100vw - 32px)">'
 
     // Header
     + '<div class="tx-modal-header">'
@@ -4028,10 +4081,15 @@ function mp2OpenMomentModal(name, score, assets) {
     // Body — 2 columns, fixed height = 10 rows (~48px each) + tab nav (~42px)
     + '<div style="display:grid;grid-template-columns:1fr 220px;height:520px;overflow:hidden;border-bottom:1px solid var(--border)">'
 
-    //   Left: tab nav + taxonomy list
+    //   Left: tab nav + [scatter chart | taxonomy list]
     +   '<div style="display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border)">'
     +     '<div class="tx-mtabs-nav">' + tabsHtml + '</div>'
-    +     '<div style="flex:1;overflow-y:auto;min-height:0" id="mp2-refine-body"></div>'
+    +     '<div style="display:flex;flex:1;min-height:0;overflow:hidden">'
+    +       '<div style="width:300px;flex-shrink:0;border-right:1px solid var(--border)">'
+    +         '<div id="mp2-refine-scatter-chart" style="width:100%;height:100%"></div>'
+    +       '</div>'
+    +       '<div style="flex:1;overflow-y:auto;min-height:0" id="mp2-refine-body"></div>'
+    +     '</div>'
     +   '</div>'
 
     //   Right: refinements panel
@@ -4055,6 +4113,7 @@ function mp2OpenMomentModal(name, score, assets) {
   setTimeout(function() {
     modal.classList.add('tx-modal-overlay--in');
     mp2RefineTab('emotion');
+    mp2InitRefineScatter(name);
   }, 10);
 }
 
