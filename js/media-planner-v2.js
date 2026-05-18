@@ -4032,7 +4032,7 @@ function mp2InitRefineScatter(momentName) {
         categories:MP2_REFINE_MOMENT_LABELS,
         gridLineWidth:1,gridLineColor:'#f1f5f9',lineWidth:0,tickLength:0,title:{text:null},
         labels:{style:{fontSize:'8px',color:'#64748b'},rotation:-45,y:12},
-        plotBands:[{from:selIdx-0.5,to:selIdx+0.5,color:'rgba(0,0,0,0.055)',zIndex:0}]
+        plotBands:[]
       },
       yAxis:{min:55,max:100,gridLineWidth:1,gridLineColor:'#f1f5f9',title:{text:null},labels:{enabled:false}},
       tooltip:{
@@ -4085,7 +4085,7 @@ function mp2OpenMomentModal(name, score, assets) {
     +   '<div style="display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border)">'
     +     '<div class="tx-mtabs-nav">' + tabsHtml + '</div>'
     +     '<div style="display:flex;flex:1;min-height:0;overflow:hidden">'
-    +       '<div style="width:300px;flex-shrink:0;border-right:1px solid var(--border)">'
+    +       '<div style="width:370px;flex-shrink:0;border-right:1px solid var(--border)">'
     +         '<div id="mp2-refine-scatter-chart" style="width:100%;height:100%"></div>'
     +       '</div>'
     +       '<div style="flex:1;overflow-y:auto;min-height:0" id="mp2-refine-body"></div>'
