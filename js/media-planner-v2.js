@@ -4768,11 +4768,31 @@ function txToggleAdModalOd() {
 }
 
 function txBuildOdPanelHtml() {
-  var NEON = 'border:1.5px solid #d946ef;box-shadow:0 0 5px #d946ef,0 0 12px rgba(217,70,239,0.35);border-radius:3px;position:absolute;pointer-events:none';
+  var S    = '#d946ef';
+  var GLOW = 'filter:drop-shadow(0 0 4px #d946ef) drop-shadow(0 0 11px rgba(217,70,239,0.38))';
+
+  // Convert a bounding box {t,l,w,h} (% of image dims) into a 9-point organic
+  // polygon in SVG space (viewBox 0 0 100 56.25 = 16:9 matching the container)
+  function bpoly(b) {
+    var l=b.l, t=b.t*.5625, w=b.w, h=b.h*.5625, r=l+w, bo=t+h;
+    return [
+      [l+w*.08, t+h*.16], [l+w*.32, t+h*.01], [l+w*.64, t],
+      [r-w*.03, t+h*.15], [r,       t+h*.54],
+      [r-w*.07, bo-h*.09],[l+w*.58, bo],       [l+w*.15, bo-h*.03],
+      [l,       t+h*.62]
+    ].map(function(p){ return p[0].toFixed(2)+','+p[1].toFixed(2); }).join(' ');
+  }
+
   return TX_AD_FRAMES.map(function(f, i) {
-    var boxesHtml = f.boxes.map(function(b) {
-      return '<div style="' + NEON + ';top:' + b.t + '%;left:' + b.l + '%;width:' + b.w + '%;height:' + b.h + '%"></div>';
+    var polysHtml = f.boxes.map(function(b) {
+      return '<polygon points="'+bpoly(b)+'" fill="rgba(217,70,239,0.07)" stroke="'+S
+        +'" stroke-width="1.4" vector-effect="non-scaling-stroke" style="'+GLOW+'"/>';
     }).join('');
+
+    var svgHtml = '<svg style="position:absolute;inset:0;width:100%;height:100%"'
+      +' viewBox="0 0 100 56.25" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+      + polysHtml + '</svg>';
+
     var objsHtml = f.objects.map(function(o) {
       var col = o.c >= 95 ? '#4ade80' : o.c >= 80 ? '#fbbf24' : '#94a3b8';
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #2a2d35">'
@@ -4780,11 +4800,12 @@ function txBuildOdPanelHtml() {
         + '<span style="font-size:10px;font-weight:600;color:' + col + '">' + o.c + '%</span>'
         + '</div>';
     }).join('');
-    return '<div style="margin-bottom:' + (i < TX_AD_FRAMES.length - 1 ? '16' : '0') + 'px">'
+
+    return '<div style="margin-bottom:'+(i < TX_AD_FRAMES.length-1 ? '16' : '0')+'px">'
       + '<div style="position:relative;width:100%;padding-bottom:56.25%;background:#0a0c10;border-radius:6px;overflow:hidden;margin-bottom:8px">'
-      +   '<img src="' + f.img + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.85" loading="lazy"/>'
-      +   boxesHtml
-      +   '<span style="position:absolute;bottom:5px;left:7px;font-size:10px;font-weight:600;color:#f8fafc;background:rgba(0,0,0,0.65);padding:1px 6px;border-radius:4px;font-family:monospace">' + f.time + '</span>'
+      +   '<img src="'+f.img+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.85" loading="lazy"/>'
+      +   svgHtml
+      +   '<span style="position:absolute;bottom:5px;left:7px;font-size:10px;font-weight:600;color:#f8fafc;background:rgba(0,0,0,0.65);padding:1px 6px;border-radius:4px;font-family:monospace">'+f.time+'</span>'
       + '</div>'
       + objsHtml
       + '</div>';
