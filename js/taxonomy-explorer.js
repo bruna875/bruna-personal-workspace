@@ -888,9 +888,9 @@ var TX_MOMENT_DATA = {
 
 var txModalActiveTab  = 'emotion';
 var TX_MODAL_TABS = [
+  { id:'objects',     label:'Objects'      },
   { id:'emotion',     label:'Emotion'      },
   { id:'location',    label:'Location'     },
-  { id:'objects',     label:'Objects'      },
   { id:'sentiment',   label:'Sentiment'    },
   { id:'iab',         label:'IAB'          },
   { id:'brandsafety', label:'Brand Safety' },
@@ -899,10 +899,10 @@ var TX_MODAL_TABS = [
 // ── Moment modal ──────────────────────────────────────────────────────────
 function txOpenMomentModal(name, score, assets) {
   if (document.getElementById('tx-moment-modal')) return;
-  txModalActiveTab = 'emotion';
+  txModalActiveTab = 'objects';
 
   var tabsHtml = TX_MODAL_TABS.map(function(t) {
-    return '<div class="tx-mtab' + (t.id === 'emotion' ? ' tx-mtab--act' : '') + '" id="tx-mtab-' + t.id + '" onclick="txModalTab(\'' + t.id + '\')">' + t.label + '</div>';
+    return '<div class="tx-mtab' + (t.id === 'objects' ? ' tx-mtab--act' : '') + '" id="tx-mtab-' + t.id + '" onclick="txModalTab(\'' + t.id + '\')">' + t.label + '</div>';
   }).join('');
 
   var modal = document.createElement('div');

@@ -70,7 +70,7 @@ function mp2ShowMediaPlanDetail(idx) {
           ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
           : rowType === 'organic'
           ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
-          : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">Ads</span>';
+          : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>';
         return '<tr style="border-bottom:1px solid var(--border)">'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + item.name + '</td>'
           + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
@@ -515,6 +515,131 @@ function mp2DeleteMediaPlan(idx) {
   mp2ShowUpload();
 }
 
+function mp2BuildNewPlanAIPanel() {
+  var panel = document.getElementById('mp2-new-plan-ai-panel');
+  if (!panel) return;
+
+  panel.innerHTML =
+    '<div style="display:flex;flex-direction:column;min-height:200px">'
+    + '<div style="width:100%">'
+
+    + '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 1 — Setup your Campaign Details</div>'
+    + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px;text-align:left">'
+    +   'The budget for my media plan is ' + aiTriggerHtml('budget')
+    +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions. '
+    +   'The Channels should be ' + aiTriggerHtml('channels')
+    +   ' and the type ' + aiTriggerHtml('type') + '. '
+    +   'My Brand Safety parameters are ' + aiTriggerHtml('brand') + '. '
+    +   'Use ' + aiTriggerHtml('score') + ' Match Score. '
+    +   'The ad will be on air on ' + aiTriggerHtml('dates') + '.'
+    + '</div>'
+
+    + '</div>'
+    + '</div>';
+}
+
+function mp2GenerateNewPlanAI() {
+  var panel = document.getElementById('mp2-new-plan-ai-panel');
+  if (!panel) return;
+  panel.innerHTML =
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:14px">'
+    + '<div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:#e11d8f;border-radius:50%;animation:cs-spin .7s linear infinite"></div>'
+    + '<div style="font-size:12px;color:var(--muted)">Generating your AI media plan…</div>'
+    + '</div>';
+  setTimeout(function() {
+    _aiSuggestions = [
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
+    ];
+    mp2RenderNewPlanAIResults();
+  }, 1800);
+}
+
+function mp2RenderNewPlanAIResults() {
+  var panel = document.getElementById('mp2-new-plan-ai-panel');
+  if (!panel) return;
+  var sugg = _aiSuggestions;
+  var TH   = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap';
+  var TOT  = 'padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg)';
+  var DELBTN = 'border:none;background:none;cursor:pointer;color:var(--faint);padding:2px 6px;border-radius:5px;line-height:1;font-size:16px;transition:color .12s';
+  var totalImpr = sugg.reduce(function(s, r) { return s + parseFloat(r.impressions) * (r.impressions.indexOf('M') >= 0 ? 1000000 : 1000); }, 0);
+  var fmtImpr   = totalImpr >= 1000000 ? (totalImpr/1000000).toFixed(1) + 'M' : Math.round(totalImpr/1000) + 'K';
+  var avgCpm    = Math.round(sugg.reduce(function(s, r) { return s + parseInt(r.cpm.replace(/[^0-9]/g,'')); }, 0) / (sugg.length || 1));
+
+  panel.innerHTML =
+    '<div style="display:flex;flex-direction:column;min-height:0">'
+    + '<div style="flex-shrink:0;margin-bottom:12px">'
+    +   '<span class="tx-bc-link" onclick="mp2BuildNewPlanAIPanel()" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">'
+    +     '<svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M8 2.5L4.5 6.5 8 10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    +     'Adjust parameters'
+    +   '</span>'
+    + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0">'
+    +   '<div style="width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+    +     '<svg width="11" height="11" viewBox="0 0 16 16" fill="#fff"><path d="M6 1L7.3 4.7 11 6 7.3 7.3 6 11 4.7 7.3 1 6 4.7 4.7Z"/><path d="M12.5 0.5L13.3 2.7 15.5 3.5 13.3 4.3 12.5 6.5 11.7 4.3 9.5 3.5 11.7 2.7Z" opacity=".8"/></svg>'
+    +   '</div>'
+    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">AI-Suggested Placements</span>'
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:14px;flex-shrink:0">Based on your parameters and audience fit</div>'
+    + '<div style="overflow-x:auto;margin-bottom:14px">'
+    +   '<table style="width:100%;border-collapse:collapse">'
+    +   '<thead><tr>'
+    +     '<th style="text-align:left;'  + TH + '">Moment</th>'
+    +     '<th style="text-align:left;'  + TH + '">Channels</th>'
+    +     '<th style="text-align:left;'  + TH + '">Type</th>'
+    +     '<th style="text-align:right;' + TH + '">Inventory</th>'
+    +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
+    +     '<th style="text-align:right;' + TH + '">Est. Impressions</th>'
+    +     '<th style="' + TH + 'width:32px"></th>'
+    +   '</tr></thead>'
+    +   '<tbody>'
+    +   sugg.map(function(s, idx) {
+        var chansHtml = (s.channels || []).map(function(c) {
+          return '<span style="font-size:10px;font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap">' + c + '</span>';
+        }).join(' ');
+        var rowType = s.type || 'ads';
+        var typeBadge = rowType === 'live'
+          ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
+          : rowType === 'organic'
+          ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
+          : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>';
+        return '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + s.moment + '</td>'
+          + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
+          + '<td style="padding:10px 12px">' + typeBadge + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + (s.inventory || '—') + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.cpm + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.impressions + '</td>'
+          + '<td style="padding:6px 8px;text-align:center">'
+          +   '<button style="' + DELBTN + '" onclick="_aiSuggestions.splice(' + idx + ',1);mp2RenderNewPlanAIResults()" onmouseenter="this.style.color=\'#e11d8f\'" onmouseleave="this.style.color=\'var(--faint)\'">×</button>'
+          + '</td>'
+          + '</tr>';
+      }).join('')
+    +   '</tbody>'
+    +   '<tfoot><tr>'
+    +     '<td style="' + TOT + '">Total</td>'
+    +     '<td style="' + TOT + '"></td>'
+    +     '<td style="' + TOT + '"></td>'
+    +     '<td style="' + TOT + '"></td>'
+    +     '<td style="' + TOT + ';text-align:right">Avg $' + avgCpm + '</td>'
+    +     '<td style="' + TOT + ';text-align:right">' + fmtImpr + '</td>'
+    +     '<td style="' + TOT + '"></td>'
+    +   '</tr></tfoot>'
+    +   '</table>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;align-items:center">'
+    +   '<input id="ai-plan-name" class="ai-input" placeholder="Media plan name…" style="flex:1;height:38px">'
+    +   '<button onclick="aiSaveAIMediaPlan()" style="height:38px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(225,29,143,.25);white-space:nowrap">'
+    +     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#fff" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>'
+    +     'Save as Media Plan'
+    +   '</button>'
+    + '</div>'
+    + '</div>';
+}
+
 function mp2ShowUpload() {
   mp2TaxStep = 'upload';
   var ca = document.getElementById('tx2-content-area');
@@ -650,75 +775,89 @@ function mp2ShowUpload() {
       }).join('');
 
   ca.innerHTML =
-    '<div style="display:flex;gap:0;min-height:400px">'
+    '<div style="display:flex;flex-direction:column;min-height:400px">'
 
-    // ── Left: New Plan ──
-    + '<div style="width:300px;flex-shrink:0;padding-right:24px;border-right:1px solid var(--border)">'
-    +   '<div style="margin-bottom:32px">'
-    +     '<div style="font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.2px;margin-bottom:3px">New Plan</div>'
-    +     '<div style="font-size:12px;color:var(--muted)">Choose an input type</div>'
-    +   '</div>'
-    +   '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:16px">'
-    +     '<div class="tx2-seg tx2-seg--act" id="tx2-opt-video" onclick="mp2SelectInput(\'video\')">'
-    +       '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
-    +       '<span>Video</span>'
-    +     '</div>'
-    +     '<div class="tx2-seg" id="tx2-opt-brief" onclick="mp2SelectInput(\'brief\')">'
-    +       '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-    +       '<span>Brief</span>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div id="tx2-input-area" style="margin-bottom:16px">' + inputArea('video') + '</div>'
-    +   '<div style="margin-bottom:12px">'
-    +     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
-    +       '<div style="display:flex;align-items:center;gap:4px">'
-    +         '<span style="font-size:11px;font-weight:500;color:var(--text)">Lookback Window</span>'
-    +         '<span style="position:relative;display:inline-flex;align-items:center" onmouseenter="this.querySelector(\'.mp2-lbw-tt\').style.display=\'block\'" onmouseleave="this.querySelector(\'.mp2-lbw-tt\').style.display=\'none\'">'
-    +           '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="color:var(--faint);cursor:default"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="5" r=".6" fill="currentColor"/></svg>'
-    +           '<span class="mp2-lbw-tt" style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:220px;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.5;padding:7px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999;pointer-events:none">The lookback window indicates the time before an Ad Break used to qualify the scene as a Moment</span>'
-    +         '</span>'
-    +       '</div>'
-    +       '<span id="mp2-lookback-label" style="font-size:11px;font-weight:600;color:var(--accent)">4 min</span>'
-    +     '</div>'
-    +     '<input type="range" id="mp2-lookback-slider" min="30" max="300" value="240" step="15"'
-    +       ' oninput="mp2UpdateLookback(this.value)"'
-    +       ' style="accent-color:var(--accent)">'
-    +     '<div style="display:flex;justify-content:space-between;margin-top:1px">'
-    +       '<span style="font-size:9px;color:var(--faint)">30 sec</span>'
-    +       '<span style="font-size:9px;color:var(--faint)">5 min</span>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
-    +     '<span style="font-size:11px;font-weight:500;color:var(--text)">Flight Dates</span>'
-    +     '<button id="mp2-flight-pill" onclick="mp2OpenFlightPicker(this)" style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text);font-size:11px;font-family:inherit;cursor:pointer;white-space:nowrap;transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
-    +       '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="flex-shrink:0;color:var(--muted)"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 5h10M4 1v2M8 1v2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>'
-    +       '<span id="mp2-flight-pill-label" style="color:var(--faint)">' + mp2FlightPillLabel() + '</span>'
-    +     '</button>'
-    +   '</div>'
-    +   '<button class="cs-btn-primary" style="width:100%;height:38px;font-size:13px" onclick="mp2Analyze()">Start Analysis</button>'
+    // ── Top-level tabs: New Plan | Media Plans | Previous Analysis ──
+    + '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;flex-shrink:0">'
+    +   '<div class="tx2-home-tab' + (mp2HomeTab === 'new-plan' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'new-plan\')">New Plan</div>'
+    +   '<div style="width:1px;background:var(--border);margin:8px 4px;align-self:stretch"></div>'
+    +   '<div id="tx2-plans-tab-btn" class="tx2-home-tab' + (mp2HomeTab === 'plans' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'plans\')">Media Plans</div>'
+    +   '<div class="tx2-home-tab' + (mp2HomeTab === 'analyses' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'analyses\')">Previous Analysis</div>'
     + '</div>'
 
-    // ── Right: tabs (Media Plans first, then Previous Analyses) ──
-    + '<div style="flex:1;min-width:0;padding-left:24px;display:flex;flex-direction:column">'
-    +   '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px;flex-shrink:0">'
-    +     '<div id="tx2-plans-tab-btn" class="tx2-home-tab' + (mp2HomeTab === 'plans' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'plans\')">'
-    +       'Media Plans'
+    // ── New Plan tab — gradient bg, 2 columns: AI panel | upload form ──
+    + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px">'
+    +   '<div style="text-align:center;margin-bottom:32px">'
+    +     '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:10px">'
+    +       '<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(225,29,143,.28)">'
+    +         '<svg width="17" height="17" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
+    +       '</div>'
     +     '</div>'
-    +     '<div class="tx2-home-tab' + (mp2HomeTab === 'analyses' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'analyses\')">'
-    +       'Previous Analyses'
+    +     '<div style="font-size:18px;font-weight:700;color:#0D1E36;margin-bottom:6px">Get AI personalized Media Plans</div>'
+    +     '<div style="font-size:12px;color:var(--muted)">Describe your campaigns, scan your creatives and let the AI find the best placements.</div>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:52px;align-items:flex-start">'
+    +     '<div style="flex:1;min-width:0;padding-left:130px" id="mp2-new-plan-ai-panel"></div>'
+    +     '<div style="flex:1;min-width:0;padding-left:48px;padding-right:130px;border-left:1px solid var(--border)">'
+    +       '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 2 — Add your creative asset or your creative brief</div>'
+    +       '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:16px">'
+    +         '<div class="tx2-seg tx2-seg--act" id="tx2-opt-video" onclick="mp2SelectInput(\'video\')">'
+    +           '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+    +           '<span>Video</span>'
+    +         '</div>'
+    +         '<div class="tx2-seg" id="tx2-opt-brief" onclick="mp2SelectInput(\'brief\')">'
+    +           '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    +           '<span>Brief</span>'
+    +         '</div>'
+    +       '</div>'
+    +       '<div id="tx2-input-area" style="margin-bottom:16px">' + inputArea('video') + '</div>'
+    +       '<div style="margin-bottom:16px">'
+    +         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
+    +           '<div style="display:flex;align-items:center;gap:4px">'
+    +             '<span style="font-size:11px;font-weight:500;color:var(--text)">Lookback Window</span>'
+    +             '<span style="position:relative;display:inline-flex;align-items:center" onmouseenter="this.querySelector(\'.mp2-lbw-tt\').style.display=\'block\'" onmouseleave="this.querySelector(\'.mp2-lbw-tt\').style.display=\'none\'">'
+    +               '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="color:var(--faint);cursor:default"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="5" r=".6" fill="currentColor"/></svg>'
+    +               '<span class="mp2-lbw-tt" style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:220px;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.5;padding:7px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999;pointer-events:none">The lookback window indicates the time before an Ad Break used to qualify the scene as a Moment</span>'
+    +             '</span>'
+    +           '</div>'
+    +           '<span id="mp2-lookback-label" style="font-size:11px;font-weight:600;color:var(--accent)">4 min</span>'
+    +         '</div>'
+    +         '<input type="range" id="mp2-lookback-slider" min="30" max="300" value="240" step="15"'
+    +           ' oninput="mp2UpdateLookback(this.value)"'
+    +           ' style="accent-color:var(--accent)">'
+    +         '<div style="display:flex;justify-content:space-between;margin-top:1px">'
+    +           '<span style="font-size:9px;color:var(--faint)">30 sec</span>'
+    +           '<span style="font-size:9px;color:var(--faint)">5 min</span>'
+    +         '</div>'
+    +       '</div>'
     +     '</div>'
     +   '</div>'
-    +   '<div id="tx2-home-panel-plans" style="flex:1;overflow-y:auto;' + (mp2HomeTab !== 'plans' ? 'display:none' : '') + '">'
-    +     plansRows
+    +   '<div style="margin-top:32px;display:flex;justify-content:center">'
+    +     '<button onclick="mp2Analyze()" style="height:46px;padding:0 40px;display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:12px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 4px 18px rgba(225,29,143,.32);letter-spacing:.01em">'
+    +       '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
+    +       'Start Analysis and Generate AI Plan'
+    +     '</button>'
     +   '</div>'
-    +   '<div id="tx2-home-panel-analyses" style="flex:1;overflow-y:auto;flex-direction:column;gap:0;' + (mp2HomeTab !== 'analyses' ? 'display:none' : 'display:flex') + '">'
-    +     libraryRows
-    +   '</div>'
+    + '</div>'
+
+    // ── Media Plans tab ──
+    + '<div id="tx2-home-panel-plans" style="flex:1;overflow-y:auto;' + (mp2HomeTab !== 'plans' ? 'display:none' : '') + '">'
+    +   '<div style="font-size:16px;font-weight:700;color:#0D1E36;margin-bottom:18px">Media Plans</div>'
+    +   plansRows
+    + '</div>'
+
+    // ── Previous Analysis tab ──
+    + '<div id="tx2-home-panel-analyses" style="flex:1;overflow-y:auto;flex-direction:column;gap:0;' + (mp2HomeTab !== 'analyses' ? 'display:none' : 'display:flex') + '">'
+    +   '<div style="font-size:16px;font-weight:700;color:#0D1E36;margin-bottom:18px">Previous Analysis</div>'
+    +   libraryRows
     + '</div>'
 
     + '</div>';
 
-  setTimeout(function(){ mp2SliderFill(mp2LookbackSecs); }, 0);
+  setTimeout(function(){
+    mp2SliderFill(mp2LookbackSecs);
+    mp2BuildNewPlanAIPanel();
+  }, 0);
 }
 
 function mp2LibLoad(idx) {
@@ -739,13 +878,15 @@ function mp2LibLoad(idx) {
 
 function mp2SwitchHomeTab(tab) {
   mp2HomeTab = tab;
-  var analyses = document.getElementById('tx2-home-panel-analyses');
-  var plans    = document.getElementById('tx2-home-panel-plans');
   document.querySelectorAll('.tx2-home-tab').forEach(function(el) {
     el.classList.toggle('tx2-home-tab--act', el.getAttribute('onclick').indexOf("'" + tab + "'") >= 0);
   });
-  if (analyses) analyses.style.display = tab === 'analyses' ? 'flex' : 'none';
-  if (plans)    plans.style.display    = tab === 'plans'    ? ''     : 'none';
+  var newPlan  = document.getElementById('tx2-home-panel-new-plan');
+  var plans    = document.getElementById('tx2-home-panel-plans');
+  var analyses = document.getElementById('tx2-home-panel-analyses');
+  if (newPlan)  newPlan.style.display  = tab === 'new-plan'  ? ''     : 'none';
+  if (plans)    plans.style.display    = tab === 'plans'     ? ''     : 'none';
+  if (analyses) analyses.style.display = tab === 'analyses'  ? 'flex' : 'none';
 }
 
 var mp2LookbackSecs = 240;
@@ -1168,7 +1309,7 @@ function mp2ShowResults() {
     +     '</div>'
     +   '</div>'
     +   '<div id="tx2-sub-content-moments" style="display:flex;flex:1;min-height:0;flex-direction:column"></div>'
-    +   '<div id="tx2-sub-content-ai-media-plan" style="display:none;flex:1;min-height:0;overflow:hidden;background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 70%);border-radius:10px;margin-top:4px"></div>'
+    +   '<div id="tx2-sub-content-ai-media-plan" style="display:none;flex:1;min-height:0;overflow:hidden;border-radius:10px;margin-top:4px"></div>'
     +   '</div>'
     + '<div id="inv-media-plan" style="display:none;width:220px;flex-shrink:0;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;overflow:hidden"></div>'
     + '</div>'
@@ -1193,7 +1334,18 @@ function mp2SubTab(tab) {
     if (aiPanel) {
       aiPanel.style.display = 'flex';
       aiPanel.style.flexDirection = 'column';
-      if (!aiPanel.firstChild) csTx2BuildAIParamsPanel();
+      if (!aiPanel.firstChild) {
+        if (!_aiSuggestions || _aiSuggestions.length === 0) {
+          _aiSuggestions = [
+            { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
+            { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
+            { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
+            { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
+            { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
+          ];
+        }
+        aiRenderResultsPanel();
+      }
     }
   }
 }
@@ -1287,10 +1439,10 @@ var savedMediaPlansV2     = [
     ]
   }
 ];
-var mp2HomeTab        = 'plans';
+var mp2HomeTab        = 'new-plan';
 
 // ── AI Media Plan params state ────────────────────────────────────────────────
-var aiParams = {
+var mp2AiParams = {
   budget:      { noBudget: false, min: 0, max: 1000000, exact: '' },
   impressions: { noEstimate: false, min: 0, max: 10000000, exact: '' },
   daypart:     { mode: 'any', values: [] },
@@ -1305,7 +1457,7 @@ var aiParams = {
 // ── AI trigger helpers ─────────────────────────────────────────────────────
 
 function aiTriggerText(param) {
-  var p = aiParams[param];
+  var p = mp2AiParams[param];
   if (param === 'budget') {
     var BDG_MAX = 1000000;
     if (p.noBudget) return 'no budget';
@@ -1448,7 +1600,7 @@ function aiDdOkBtn() {
 }
 
 function aiDdContent(param) {
-  var p = aiParams[param];
+  var p = mp2AiParams[param];
 
   function modeSeg(opts) {
     return '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:2px;margin-bottom:10px">'
@@ -1498,7 +1650,7 @@ function aiDdContent(param) {
       + '</div>'
       // No budget checkbox
       + '<label style="display:flex;align-items:center;gap:7px;margin-top:10px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none">'
-      +   '<input type="checkbox"' + (p.noBudget ? ' checked' : '') + ' style="accent-color:#e11d8f;width:13px;height:13px" onchange="aiParams.budget.noBudget=this.checked;aiUpdateTrigger(\'budget\');var dd=document.getElementById(\'ai-global-dd\');if(dd)dd.innerHTML=aiDdContent(\'budget\')">'
+      +   '<input type="checkbox"' + (p.noBudget ? ' checked' : '') + ' style="accent-color:#e11d8f;width:13px;height:13px" onchange="mp2AiParams.budget.noBudget=this.checked;aiUpdateTrigger(\'budget\');var dd=document.getElementById(\'ai-global-dd\');if(dd)dd.innerHTML=aiDdContent(\'budget\')">'
       +   "I don't have a budget"
       + '</label>'
       + aiDdOkBtn();
@@ -1527,7 +1679,7 @@ function aiDdContent(param) {
       + '<input type="number" id="ai-imp-exact" class="ai-input" placeholder="Or enter exact impressions…" value="' + (p.exact||'') + '" style="width:100%;box-sizing:border-box" oninput="aiImprExact(this.value)">'
       + '</div>'
       + '<label style="display:flex;align-items:center;gap:7px;margin-top:10px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none">'
-      +   '<input type="checkbox"' + (p.noEstimate ? ' checked' : '') + ' style="accent-color:#e11d8f;width:13px;height:13px" onchange="aiParams.impressions.noEstimate=this.checked;aiUpdateTrigger(\'impressions\');var dd=document.getElementById(\'ai-global-dd\');if(dd)dd.innerHTML=aiDdContent(\'impressions\')">'
+      +   '<input type="checkbox"' + (p.noEstimate ? ' checked' : '') + ' style="accent-color:#e11d8f;width:13px;height:13px" onchange="mp2AiParams.impressions.noEstimate=this.checked;aiUpdateTrigger(\'impressions\');var dd=document.getElementById(\'ai-global-dd\');if(dd)dd.innerHTML=aiDdContent(\'impressions\')">'
       +   'No estimate impressions'
       + '</label>'
       + aiDdOkBtn();
@@ -1537,13 +1689,13 @@ function aiDdContent(param) {
     return modeSeg([{val:'any',label:'Any'},{val:'exact',label:'Exact'},{val:'range',label:'Range'}])
       + (p.mode === 'exact'
         ? '<div style="display:flex;align-items:center;gap:6px">'
-          + '<input type="number" class="ai-input" placeholder="e.g. 5" value="' + (p.exact||'') + '" style="width:90px" oninput="aiParams.programs.exact=this.value;aiUpdateTrigger(\'programs\')">'
+          + '<input type="number" class="ai-input" placeholder="e.g. 5" value="' + (p.exact||'') + '" style="width:90px" oninput="mp2AiParams.programs.exact=this.value;aiUpdateTrigger(\'programs\')">'
           + '</div>'
         : p.mode === 'range'
         ? '<div style="display:flex;align-items:center;gap:5px">'
-          + '<input type="number" class="ai-input" placeholder="Min" value="' + (p.min||'') + '" style="flex:1" oninput="aiParams.programs.min=this.value;aiUpdateTrigger(\'programs\')">'
+          + '<input type="number" class="ai-input" placeholder="Min" value="' + (p.min||'') + '" style="flex:1" oninput="mp2AiParams.programs.min=this.value;aiUpdateTrigger(\'programs\')">'
           + '<span style="color:var(--faint)">—</span>'
-          + '<input type="number" class="ai-input" placeholder="Max" value="' + (p.max||'') + '" style="flex:1" oninput="aiParams.programs.max=this.value;aiUpdateTrigger(\'programs\')">'
+          + '<input type="number" class="ai-input" placeholder="Max" value="' + (p.max||'') + '" style="flex:1" oninput="mp2AiParams.programs.max=this.value;aiUpdateTrigger(\'programs\')">'
           + '</div>'
         : '')
       + aiDdOkBtn();
@@ -1592,7 +1744,7 @@ function aiDdContent(param) {
   }
 
   if (param === 'type') {
-    var tyItems = ['Ads', 'Organic Pause', 'Live'];
+    var tyItems = ['VoD', 'Organic Pause', 'Live'];
     var tyAllChecked = p.mode === 'all';
     var TY_ROW = 'display:flex;align-items:center;gap:9px;padding:5px 2px;cursor:pointer;font-size:13px;color:var(--text);user-select:none;border-radius:5px;';
     return '<div style="display:flex;flex-direction:column">'
@@ -1678,7 +1830,7 @@ function aiDdContent(param) {
     } else {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:6px 10px;background:#fdf2f8;border-radius:6px">'
         + '<span style="font-size:11px;color:#e11d8f;font-weight:500">' + fmtDL(p.start) + ' – ' + fmtDL(p.end) + '</span>'
-        + '<span onclick="event.stopPropagation();aiParams.dates.start=\'\';aiParams.dates.end=\'\';aiUpdateTrigger(\'dates\');var dd=document.getElementById(\'ai-global-dd\');if(dd)dd.innerHTML=aiDdContent(\'dates\')" style="font-size:11px;color:var(--muted);cursor:pointer;padding:1px 5px;border-radius:4px;border:1px solid var(--border)">Clear</span>'
+        + '<span onclick="event.stopPropagation();mp2AiParams.dates.start=\'\';mp2AiParams.dates.end=\'\';aiUpdateTrigger(\'dates\');var dd=document.getElementById(\'ai-global-dd\');if(dd)dd.innerHTML=aiDdContent(\'dates\')" style="font-size:11px;color:var(--muted);cursor:pointer;padding:1px 5px;border-radius:4px;border:1px solid var(--border)">Clear</span>'
         + '</div>';
     }
 
@@ -1738,7 +1890,7 @@ function aiDdContent(param) {
 function aiBudgetSlide(which, val) {
   var BDG_MAX = 1000000;
   val = parseInt(val) || 0;
-  var p = aiParams.budget;
+  var p = mp2AiParams.budget;
   if (which === 'min') {
     p.min = Math.min(val, p.max);
     var minEl = document.getElementById('ai-bdg-min');
@@ -1765,7 +1917,7 @@ function aiBudgetSlide(which, val) {
 function aiBudgetExact(val) {
   var BDG_MAX = 1000000;
   val = Math.min(Math.max(parseInt(val) || 0, 0), BDG_MAX);
-  var p = aiParams.budget;
+  var p = mp2AiParams.budget;
   p.exact = val;
   p.min = val;
   p.max = val;
@@ -1787,7 +1939,7 @@ function aiImprSlide(which, val) {
   var IMP_MAX = 10000000;
   function fmt(n) { return n >= 1000000 ? (n/1000000).toFixed(n%1000000===0?0:1)+'M' : n >= 1000 ? Math.round(n/1000)+'K' : String(n); }
   val = parseInt(val) || 0;
-  var p = aiParams.impressions;
+  var p = mp2AiParams.impressions;
   if (which === 'min') {
     p.min = Math.min(val, p.max);
     var minEl = document.getElementById('ai-imp-min');
@@ -1815,7 +1967,7 @@ function aiImprExact(val) {
   var IMP_MAX = 10000000;
   function fmt(n) { return n >= 1000000 ? (n/1000000).toFixed(n%1000000===0?0:1)+'M' : n >= 1000 ? Math.round(n/1000)+'K' : String(n); }
   val = Math.min(Math.max(parseInt(val) || 0, 0), IMP_MAX);
-  var p = aiParams.impressions;
+  var p = mp2AiParams.impressions;
   p.exact = val; p.min = val; p.max = val;
   var minEl = document.getElementById('ai-imp-min');
   var maxEl = document.getElementById('ai-imp-max');
@@ -1832,7 +1984,7 @@ function aiImprExact(val) {
 }
 
 function aiCalNav(dir) {
-  var p = aiParams.dates;
+  var p = mp2AiParams.dates;
   p.viewMonth += dir;
   if (p.viewMonth < 0)  { p.viewMonth = 11; p.viewYear--; }
   if (p.viewMonth > 11) { p.viewMonth = 0;  p.viewYear++; }
@@ -1841,7 +1993,7 @@ function aiCalNav(dir) {
 }
 
 function aiCalPick(dStr) {
-  var p = aiParams.dates;
+  var p = mp2AiParams.dates;
   if (!p.start || (p.start && p.end)) {
     p.start = dStr; p.end = '';
   } else {
@@ -1856,7 +2008,7 @@ function aiCalPick(dStr) {
 
 function aiScoreSlide(which, val) {
   val = parseInt(val) || 0;
-  var p = aiParams.score;
+  var p = mp2AiParams.score;
   if (which === 'min') {
     p.min = Math.min(val, p.max);
     var minEl = document.getElementById('ai-sc-min');
@@ -1876,15 +2028,15 @@ function aiScoreSlide(which, val) {
 }
 
 function aiDaypartAll() {
-  aiParams.daypart.mode = 'all';
-  aiParams.daypart.values = [];
+  mp2AiParams.daypart.mode = 'all';
+  mp2AiParams.daypart.values = [];
   aiUpdateTrigger('daypart');
   var dd = document.getElementById('ai-global-dd');
   if (dd) dd.innerHTML = aiDdContent('daypart');
 }
 
 function aiDaypartItem(val, checked) {
-  var p = aiParams.daypart;
+  var p = mp2AiParams.daypart;
   if (checked) {
     if (p.values.indexOf(val) < 0) p.values.push(val);
   } else {
@@ -1897,15 +2049,15 @@ function aiDaypartItem(val, checked) {
 }
 
 function aiChannelsAll() {
-  aiParams.channels.mode = 'all';
-  aiParams.channels.values = [];
+  mp2AiParams.channels.mode = 'all';
+  mp2AiParams.channels.values = [];
   aiUpdateTrigger('channels');
   var dd = document.getElementById('ai-global-dd');
   if (dd) dd.innerHTML = aiDdContent('channels');
 }
 
 function aiChannelsItem(val, checked) {
-  var p = aiParams.channels;
+  var p = mp2AiParams.channels;
   if (checked) {
     if (p.values.indexOf(val) < 0) p.values.push(val);
   } else {
@@ -1918,15 +2070,15 @@ function aiChannelsItem(val, checked) {
 }
 
 function aiTypeAll() {
-  aiParams.type.mode = 'all';
-  aiParams.type.values = [];
+  mp2AiParams.type.mode = 'all';
+  mp2AiParams.type.values = [];
   aiUpdateTrigger('type');
   var dd = document.getElementById('ai-global-dd');
   if (dd) dd.innerHTML = aiDdContent('type');
 }
 
 function aiTypeItem(val, checked) {
-  var p = aiParams.type;
+  var p = mp2AiParams.type;
   if (checked) {
     if (p.values.indexOf(val) < 0) p.values.push(val);
   } else {
@@ -1939,15 +2091,15 @@ function aiTypeItem(val, checked) {
 }
 
 function aiBrandAll() {
-  aiParams.brand.mode = 'all';
-  aiParams.brand.values = [];
+  mp2AiParams.brand.mode = 'all';
+  mp2AiParams.brand.values = [];
   aiUpdateTrigger('brand');
   var dd = document.getElementById('ai-global-dd');
   if (dd) dd.innerHTML = aiDdContent('brand');
 }
 
 function aiBrandItem(val, checked) {
-  var p = aiParams.brand;
+  var p = mp2AiParams.brand;
   if (checked) {
     if (p.values.indexOf(val) < 0) p.values.push(val);
   } else {
@@ -1960,15 +2112,15 @@ function aiBrandItem(val, checked) {
 }
 
 function aiScoreAll() {
-  aiParams.score.mode = 'all';
-  aiParams.score.values = [];
+  mp2AiParams.score.mode = 'all';
+  mp2AiParams.score.values = [];
   aiUpdateTrigger('score');
   var dd = document.getElementById('ai-global-dd');
   if (dd) dd.innerHTML = aiDdContent('score');
 }
 
 function aiScoreItem(val, checked) {
-  var p = aiParams.score;
+  var p = mp2AiParams.score;
   if (checked) {
     if (p.values.indexOf(val) < 0) p.values.push(val);
   } else {
@@ -1981,7 +2133,7 @@ function aiScoreItem(val, checked) {
 }
 
 function aiDdDo(param, val) {
-  var p = aiParams[param];
+  var p = mp2AiParams[param];
   if (param === 'daypart' || param === 'channels') {
     if (val === 'any') { p.mode = 'any'; p.values = []; }
     else               { p.mode = 'set'; p.dir = val; }
@@ -1994,7 +2146,7 @@ function aiDdDo(param, val) {
 }
 
 function aiDdCheckItem(param, input) {
-  var p   = aiParams[param];
+  var p   = mp2AiParams[param];
   var val = input.value;
   if (input.checked) {
     if (p.values.indexOf(val) < 0) p.values.push(val);
@@ -2046,7 +2198,7 @@ function csTx2BuildAIParamsPanel() {
 
     // Button — inside the same wrapper, same gap
     + '<div style="display:flex;justify-content:center">'
-    +   '<button onclick="csTx2GenerateAIMediaPlan()" style="height:38px;padding:0 22px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(225,29,143,.25)">'
+    +   '<button onclick="csTx2GenerateAIMediaPlan()" style="height:38px;padding:0 22px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">'
     +     '<svg width="13" height="13" viewBox="0 0 16 16" fill="#fff"><path d="M6 1L7.3 4.7 11 6 7.3 7.3 6 11 4.7 7.3 1 6 4.7 4.7Z"/><path d="M12.5 0.5L13.3 2.7 15.5 3.5 13.3 4.3 12.5 6.5 11.7 4.3 9.5 3.5 11.7 2.7Z" opacity=".8"/></svg>'
     +     'Generate AI Plan'
     +   '</button>'
@@ -2057,6 +2209,159 @@ function csTx2BuildAIParamsPanel() {
 }
 
 var _aiSuggestions = [];
+var _aiActiveVariant = 2;
+
+var _aiPlanVariants = [
+  {
+    name: 'Efficiency Plan', budget: 120, impressions: 8.2,
+    suggestions: [
+      { moment:'Grocery Shopping',    channels:['Food Network'],        inventory:198, cpm:'$18', impressions:'1.8M', type:'organic' },
+      { moment:'Meal Prep & Cooking', channels:['PBS', 'Food Network'], inventory:143, cpm:'$16', impressions:'1.4M', type:'ads'     },
+      { moment:'Healthy Eating',      channels:['CBS'],                 inventory:112, cpm:'$19', impressions:'1.2M', type:'live'    },
+    ]
+  },
+  {
+    name: 'Value Plan', budget: 220, impressions: 15.0,
+    suggestions: [
+      { moment:'Family Dinner Time',  channels:['NBC', 'ABC'],          inventory:245, cpm:'$22', impressions:'2.8M', type:'ads'     },
+      { moment:'Grocery Shopping',    channels:['Food Network', 'NBC'], inventory:198, cpm:'$20', impressions:'2.1M', type:'organic' },
+      { moment:'Meal Prep & Cooking', channels:['Food Network', 'PBS'], inventory:143, cpm:'$18', impressions:'1.6M', type:'ads'     },
+      { moment:'Healthy Eating',      channels:['CBS', 'Discovery'],    inventory:167, cpm:'$21', impressions:'1.9M', type:'live'    },
+    ]
+  },
+  {
+    name: 'Optimized Media Plan', budget: 380, impressions: 22.0,
+    suggestions: [
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28', impressions:'3.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22', impressions:'2.8M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19', impressions:'2.1M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24', impressions:'1.9M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31', impressions:'2.8M', type:'organic' },
+    ]
+  },
+  {
+    name: 'Scale Plan', budget: 560, impressions: 32.0,
+    suggestions: [
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    inventory:420, cpm:'$30', impressions:'4.8M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  inventory:380, cpm:'$24', impressions:'4.1M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     inventory:310, cpm:'$22', impressions:'3.2M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  inventory:285, cpm:'$26', impressions:'3.1M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           inventory:230, cpm:'$33', impressions:'3.8M', type:'organic' },
+      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   inventory:190, cpm:'$35', impressions:'3.2M', type:'live'    },
+    ]
+  },
+  {
+    name: 'Premium Plan', budget: 750, impressions: 45.0,
+    suggestions: [
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    inventory:520, cpm:'$34', impressions:'6.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  inventory:480, cpm:'$28', impressions:'5.5M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     inventory:410, cpm:'$25', impressions:'4.8M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  inventory:360, cpm:'$29', impressions:'4.2M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           inventory:290, cpm:'$36', impressions:'4.8M', type:'organic' },
+      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   inventory:250, cpm:'$38', impressions:'4.5M', type:'live'    },
+      { moment:'Morning News',         channels:['NBC', 'ABC', 'CBS'],           inventory:380, cpm:'$22', impressions:'3.8M', type:'ads'     },
+    ]
+  }
+];
+
+function aiSelectPlanVariant(idx) {
+  _aiActiveVariant = idx;
+  _aiSuggestions = _aiPlanVariants[idx].suggestions.slice();
+  aiRenderResultsPanel();
+}
+
+function aiInitPlanScatter() {
+  var canvas = document.getElementById('ai-plan-scatter');
+  if (!canvas || !window.Chart) return;
+  if (window._aiScatterChart) { window._aiScatterChart.destroy(); }
+
+  var pts = _aiPlanVariants.map(function(p, i) {
+    return { x: p.impressions, y: p.budget, label: p.name, idx: i };
+  });
+
+  var PINK = '#e11d8f';
+  var GREY = '#CBD5E1';
+
+  var INDIGO = '#6366F1';
+  var activeNow = _aiActiveVariant;
+
+  var bgColors = pts.map(function(p, i) {
+    return i === 2 ? PINK : i === activeNow ? INDIGO : GREY;
+  });
+  var borderColors = pts.map(function(p, i) {
+    return i === 2 ? PINK : i === activeNow ? INDIGO : '#94A3B8';
+  });
+  var radii = pts.map(function(p, i) {
+    return (i === 2 || i === activeNow) ? 11 : 7;
+  });
+
+  var awardSvgWhite = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>';
+  var awardImg = new Image(14, 14);
+  awardImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(awardSvgWhite);
+
+  var awardPlugin = {
+    id: 'awardIcon',
+    afterDraw: function(chart) {
+      var meta = chart.getDatasetMeta(0);
+      var el = meta.data[2];
+      if (!el || !awardImg.complete) return;
+      chart.ctx.drawImage(awardImg, el.x - 7, el.y - 7, 14, 14);
+    }
+  };
+
+  function buildChart() {
+    if (window._aiScatterChart) { window._aiScatterChart.destroy(); }
+    window._aiScatterChart = new Chart(canvas, {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          data: pts,
+          backgroundColor: bgColors,
+          borderColor:     borderColors,
+          pointRadius:     radii,
+          pointHoverRadius: 11,
+          borderWidth: 2,
+        }]
+      },
+      plugins: [awardPlugin],
+      options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              var d = ctx.raw;
+              return [d.label, 'Budget: $' + d.y + 'K', 'Impressions: ' + d.x + 'M'];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Impressions (M)', font: { size: 9 }, color: 'var(--muted)' },
+          ticks: { font: { size: 9 }, color: 'var(--faint)' },
+          grid:  { color: 'rgba(0,0,0,.05)' }
+        },
+        y: {
+          title: { display: true, text: 'Budget ($K)', font: { size: 9 }, color: 'var(--muted)' },
+          ticks: { font: { size: 9 }, color: 'var(--faint)' },
+          grid:  { color: 'rgba(0,0,0,.05)' }
+        }
+      },
+      onClick: function(evt, elements) {
+        if (elements && elements.length > 0) {
+          aiSelectPlanVariant(elements[0].index);
+        }
+      }
+    }
+  });
+  }
+
+  if (awardImg.complete) { buildChart(); }
+  else { awardImg.onload = buildChart; awardImg.onerror = buildChart; }
+}
 
 function aiRenderResultsPanel() {
   var panel = document.getElementById('tx2-sub-content-ai-media-plan');
@@ -2068,35 +2373,48 @@ function aiRenderResultsPanel() {
   var avgCpm = Math.round(sugg.reduce(function(s, r) { return s + parseInt(r.cpm.replace(/[^0-9]/g,'')); }, 0) / (sugg.length || 1));
   var TOT  = 'padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg)';
   var DELBTN = 'border:none;background:none;cursor:pointer;color:var(--faint);padding:2px 6px;border-radius:5px;line-height:1;font-size:16px;transition:color .12s';
+  var activeVariant = _aiPlanVariants[_aiActiveVariant];
 
   panel.innerHTML =
-    '<div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:10px">'
-    + '<div style="display:flex;flex-direction:column;flex:1;min-height:0;background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:14px;overflow:hidden">'
-    // Back link
-    + '<div style="flex-shrink:0;margin-bottom:12px">'
-    +   '<span class="tx-bc-link" onclick="csTx2BuildAIParamsPanel()" style="display:inline-flex;align-items:center;gap:4px;font-size:12px">'
-    +     '<svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M8 2.5L4.5 6.5 8 10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    +     'Adjust parameters'
-    +   '</span>'
-    + '</div>'
-    // Header
-    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0">'
-    +   '<div style="width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-    +     '<svg width="11" height="11" viewBox="0 0 16 16" fill="#fff"><path d="M6 1L7.3 4.7 11 6 7.3 7.3 6 11 4.7 7.3 1 6 4.7 4.7Z"/><path d="M12.5 0.5L13.3 2.7 15.5 3.5 13.3 4.3 12.5 6.5 11.7 4.3 9.5 3.5 11.7 2.7Z" opacity=".8"/></svg>'
+    '<div style="display:flex;flex:1;min-height:0;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
+
+    // ── Left: scatter chart ──
+    + '<div style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:14px">'
+    +   '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">'
+    +     '<div style="width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+    +       '<svg width="10" height="10" viewBox="0 0 16 16" fill="#fff"><path d="M6 1L7.3 4.7 11 6 7.3 7.3 6 11 4.7 7.3 1 6 4.7 4.7Z"/><path d="M12.5 0.5L13.3 2.7 15.5 3.5 13.3 4.3 12.5 6.5 11.7 4.3 9.5 3.5 11.7 2.7Z" opacity=".8"/></svg>'
+    +     '</div>'
+    +     '<div style="font-size:11px;font-weight:600;color:var(--text)">AI-Suggested Plans</div>'
     +   '</div>'
-    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">AI-Suggested Placements</span>'
+    +   '<div style="font-size:10px;color:var(--faint);margin-bottom:10px">Click a point to switch</div>'
+    +   '<div style="flex:1;min-height:0;position:relative">'
+    +     '<canvas id="ai-plan-scatter"></canvas>'
+    +   '</div>'
+    +   '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">'
+    +     '<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden">'
+    +       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e11d8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>'
+    +       '<span style="font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis">' + (activeVariant ? activeVariant.name : '') + '</span>'
+    +     '</div>'
+    +     '<div style="font-size:10px;color:var(--muted);margin-top:2px">'
+    +       (activeVariant ? '$' + activeVariant.budget + 'K &nbsp;·&nbsp; ' + activeVariant.impressions + 'M imp.' : '')
+    +     '</div>'
+    +   '</div>'
     + '</div>'
-    + '<div style="font-size:11px;color:var(--muted);margin-bottom:14px;flex-shrink:0">Based on matched moments and audience fit from this analysis</div>'
-    // Table
+
+    // ── Vertical divider ──
+    + '<div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0"></div>'
+
+    // ── Right: table ──
+    + '<div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:14px;overflow:hidden">'
     + '<div style="overflow-y:auto;flex:1;min-height:0">'
     +   '<table style="width:100%;border-collapse:collapse">'
     +   '<thead><tr>'
     +     '<th style="text-align:left;'  + TH + '">Moment</th>'
     +     '<th style="text-align:left;'  + TH + '">Channels</th>'
     +     '<th style="text-align:left;'  + TH + '">Type</th>'
-    +     '<th style="text-align:right;' + TH + '">Inventory / PODs</th>'
+    +     '<th style="text-align:right;' + TH + '">Inventory</th>'
     +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
-    +     '<th style="text-align:right;' + TH + '">Est. Impressions</th>'
+    +     '<th style="text-align:right;' + TH + '">Est. Impr.</th>'
     +     '<th style="' + TH + 'width:32px"></th>'
     +   '</tr></thead>'
     +   '<tbody>'
@@ -2109,7 +2427,7 @@ function aiRenderResultsPanel() {
             ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
             : rowType === 'organic'
             ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
-            : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">Ads</span>';
+            : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>';
           return '<tr style="border-bottom:1px solid var(--border)">'
             + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + s.moment + '</td>'
             + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
@@ -2136,22 +2454,19 @@ function aiRenderResultsPanel() {
     +   '</tfoot>'
     +   '</table>'
     + '</div>'
-    // Bottom actions
     + '<div style="padding-top:12px;flex-shrink:0;display:flex;flex-direction:column;gap:8px">'
-    +   '<button onclick="mp2SubTab(\'moments\')" style="height:34px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;border:1px solid var(--border-md);background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .12s" onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'var(--surface)\'">'
-    +     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-    +     'Add more moments'
-    +   '</button>'
     +   '<div style="display:flex;gap:8px;align-items:center">'
     +     '<input id="ai-plan-name" class="ai-input" placeholder="Media plan name…" style="flex:1;height:38px">'
-    +     '<button onclick="aiSaveAIMediaPlan()" style="height:38px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(225,29,143,.25);white-space:nowrap">'
+    +     '<button onclick="aiSaveAIMediaPlan()" style="height:38px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">'
     +       '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#fff" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>'
     +       'Save as Media Plan'
     +     '</button>'
     +   '</div>'
     + '</div>'
-    + '</div>'  // card
-    + '</div>';  // padding wrapper
+    + '</div>'  // right column
+    + '</div>';  // single card
+
+  setTimeout(function() { aiInitPlanScatter(); }, 0);
 }
 
 function aiDeleteSuggestion(idx) {
@@ -2938,7 +3253,7 @@ function mp2RenderMoments() {
   var headerHtml =
     '<div style="display:flex;align-items:center;gap:8px;padding-bottom:10px;flex-shrink:0;position:relative">'
     + '<div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px;gap:0">'
-    +   '<button style="' + (mp2MomentType === 'ads'     ? segAct : segOff) + '" onclick="mp2SetMomentType(\'ads\')">Ads</button>'
+    +   '<button style="' + (mp2MomentType === 'ads'     ? segAct : segOff) + '" onclick="mp2SetMomentType(\'ads\')">VoD</button>'
     +   '<button style="' + (mp2MomentType === 'organic' ? segAct : segOff) + '" onclick="mp2SetMomentType(\'organic\')">Organic Pause</button>'
     +   '<button style="' + (mp2MomentType === 'live'    ? segAct : segOff) + '" onclick="mp2SetMomentType(\'live\')">Live</button>'
     + '</div>'
@@ -2998,7 +3313,7 @@ function mp2RenderMoments() {
       ? '<span style="background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#dc2626;display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;flex-shrink:0;box-shadow:0 0 4px #ef4444"></span>Live</span>'
       : mp2MomentType === 'organic'
       ? '<span style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#0f766e">Organic Pause</span>'
-      : '<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#1d4ed8">Ads</span>';
+      : '<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#1d4ed8">VoD</span>';
     var LABEL = 'font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);margin-bottom:2px';
     var VALUE = 'font-size:12px;font-weight:700;color:var(--text)';
 
@@ -4054,11 +4369,11 @@ function mp2OpenMomentModal(name, score, assets) {
   if (document.getElementById('tx-moment-modal')) return;
   mp2InjectRefineStyles();
   mp2ModalRefinements = {};
-  mp2ModalCurrentTab  = 'emotion';
+  mp2ModalCurrentTab  = 'objects';
   mp2ModalName        = name;
 
   var tabsHtml = TX_MODAL_TABS.map(function(t) {
-    return '<div class="tx-mtab' + (t.id === 'emotion' ? ' tx-mtab--act' : '') + '" id="tx-mtab-' + t.id + '" onclick="mp2RefineTab(\'' + t.id + '\')">' + t.label + '</div>';
+    return '<div class="tx-mtab' + (t.id === 'objects' ? ' tx-mtab--act' : '') + '" id="tx-mtab-' + t.id + '" onclick="mp2RefineTab(\'' + t.id + '\')">' + t.label + '</div>';
   }).join('');
 
   var modal = document.createElement('div');
@@ -4112,7 +4427,7 @@ function mp2OpenMomentModal(name, score, assets) {
   document.body.appendChild(modal);
   setTimeout(function() {
     modal.classList.add('tx-modal-overlay--in');
-    mp2RefineTab('emotion');
+    mp2RefineTab('objects');
     mp2InitRefineScatter(name);
   }, 10);
 }
