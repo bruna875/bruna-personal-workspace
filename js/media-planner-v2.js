@@ -2286,13 +2286,13 @@ function aiInitPlanScatter() {
   var activeNow = _aiActiveVariant;
 
   var bgColors = pts.map(function(p, i) {
-    return i === 2 ? PINK : i === activeNow ? INDIGO : GREY;
+    return i === activeNow ? (i === 2 ? PINK : INDIGO) : (i === 2 ? PINK : GREY);
   });
   var borderColors = pts.map(function(p, i) {
-    return i === 2 ? PINK : i === activeNow ? INDIGO : '#94A3B8';
+    return i === activeNow ? (i === 2 ? PINK : INDIGO) : (i === 2 ? PINK : '#94A3B8');
   });
   var radii = pts.map(function(p, i) {
-    return (i === 2 || i === activeNow) ? 11 : 7;
+    return i === activeNow ? 11 : 7;
   });
 
   function makeImg(svg) { var img = new Image(14, 14); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); return img; }
@@ -2307,15 +2307,9 @@ function aiInitPlanScatter() {
     afterDraw: function(chart) {
       var meta = chart.getDatasetMeta(0);
       var ctx  = chart.ctx;
-      // always draw award on index 2
-      var el2 = meta.data[2];
-      if (el2 && awardImg.complete) ctx.drawImage(awardImg, el2.x - 7, el2.y - 7, 14, 14);
-      // draw trending icon on active variant if not index 2
-      if (activeNow !== 2) {
-        var elA = meta.data[activeNow];
-        var img = iconForIdx(activeNow);
-        if (elA && img.complete) ctx.drawImage(img, elA.x - 7, elA.y - 7, 14, 14);
-      }
+      var elA = meta.data[activeNow];
+      var img = iconForIdx(activeNow);
+      if (elA && img.complete) ctx.drawImage(img, elA.x - 7, elA.y - 7, 14, 14);
     }
   };
 
