@@ -2286,7 +2286,7 @@ function aiInitPlanScatter() {
   var activeNow = _aiActiveVariant;
 
   var bgColors = pts.map(function(p, i) {
-    return i === activeNow ? (i === 2 ? PINK : INDIGO) : (i === 2 ? PINK : GREY);
+    return i === activeNow ? (i === 2 ? PINK : INDIGO) : (i === 2 ? 'rgba(225,29,143,.12)' : GREY);
   });
   var borderColors = pts.map(function(p, i) {
     return i === activeNow ? (i === 2 ? PINK : INDIGO) : (i === 2 ? PINK : '#94A3B8');
