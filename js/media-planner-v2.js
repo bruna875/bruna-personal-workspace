@@ -2295,17 +2295,27 @@ function aiInitPlanScatter() {
     return (i === 2 || i === activeNow) ? 11 : 7;
   });
 
-  var awardSvgWhite = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>';
-  var awardImg = new Image(14, 14);
-  awardImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(awardSvgWhite);
+  function makeImg(svg) { var img = new Image(14, 14); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); return img; }
+  var awardImg  = makeImg('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>');
+  var upImg     = makeImg('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>');
+  var downImg   = makeImg('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>');
+
+  function iconForIdx(i) { return i === 2 ? awardImg : (i >= 3 ? upImg : downImg); }
 
   var awardPlugin = {
     id: 'awardIcon',
     afterDraw: function(chart) {
       var meta = chart.getDatasetMeta(0);
-      var el = meta.data[2];
-      if (!el || !awardImg.complete) return;
-      chart.ctx.drawImage(awardImg, el.x - 7, el.y - 7, 14, 14);
+      var ctx  = chart.ctx;
+      // always draw award on index 2
+      var el2 = meta.data[2];
+      if (el2 && awardImg.complete) ctx.drawImage(awardImg, el2.x - 7, el2.y - 7, 14, 14);
+      // draw trending icon on active variant if not index 2
+      if (activeNow !== 2) {
+        var elA = meta.data[activeNow];
+        var img = iconForIdx(activeNow);
+        if (elA && img.complete) ctx.drawImage(img, elA.x - 7, elA.y - 7, 14, 14);
+      }
     }
   };
 
@@ -2392,7 +2402,11 @@ function aiRenderResultsPanel() {
     +   '</div>'
     +   '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">'
     +     '<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden">'
-    +       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e11d8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>'
+    +       (_aiActiveVariant === 2
+          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e11d8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>'
+          : _aiActiveVariant >= 3
+          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>'
+          : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>')
     +       '<span style="font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis">' + (activeVariant ? activeVariant.name : '') + '</span>'
     +     '</div>'
     +     '<div style="font-size:10px;color:var(--muted);margin-top:2px">'
