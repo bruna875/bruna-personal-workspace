@@ -9,16 +9,18 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --accent:   #e11d8f;
+  --accent:       #e11d8f;
   --accent-light: #fdf0f7;
-  --surface:  #ffffff;
-  --bg:       #F5F4F0;
-  --border:   rgba(0,0,0,0.08);
-  --border-md:rgba(0,0,0,0.12);
-  --text:     #0D1E36;
-  --muted:    #6B6B65;
-  --faint:    #A8A8A0;
-  --sw:       220px;
+  --surface:      #ffffff;
+  --bg:           #F5F4F0;
+  --border:       rgba(0,0,0,0.08);
+  --border-md:    rgba(0,0,0,0.12);
+  --text:         #0D1E36;
+  --muted:        #6B6B65;
+  --faint:        #A8A8A0;
+  --sw:           220px;
+  --sw-col:       52px;
+  --tr:           .22s ease;
 }
 
 body {
@@ -31,10 +33,11 @@ body {
   overflow: hidden;
 }
 
-/* ── Layout ── */
 #app { display: flex; height: 100vh; }
 
-/* ── Sidebar ── */
+/* ── Sidebar wrapper ── */
+.sbwrap { position: relative; flex-shrink: 0; }
+
 .sb {
   width: var(--sw);
   background: var(--surface);
@@ -42,40 +45,65 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  flex-shrink: 0;
+  transition: width var(--tr);
+  overflow: hidden;
 }
+.sb.col { width: var(--sw-col); }
 
+/* ── Toggle button ── */
+.togbtn {
+  position: absolute;
+  right: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px; height: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  box-shadow: 0 1px 6px rgba(0,0,0,.07);
+  transition: background .12s;
+}
+.togbtn:hover { background: var(--bg); }
+
+/* ── Sidebar head ── */
 .sbhead {
   height: 52px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 12px;
   gap: 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-.sbnav {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px 0;
-}
+.sbhead-logo { width: 28px; height: 28px; flex-shrink: 0; object-fit: contain; }
+.sbhead-divider { width: 1px; height: 20px; background: var(--border-md); flex-shrink: 0; transition: opacity var(--tr); }
+.sbhead-label { font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; transition: opacity var(--tr); }
+.sb.col .sbhead-divider,
+.sb.col .sbhead-label { opacity: 0; pointer-events: none; }
 
-/* ── Nav items ── */
+/* ── Nav ── */
+.sbnav { flex: 1; overflow-y: auto; padding: 8px 0; }
+
 .nitem {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 14px;
-  border-radius: 0;
+  padding: 8px 16px;
   cursor: pointer;
   position: relative;
   transition: background .12s;
+  white-space: nowrap;
 }
 .nitem:hover { background: var(--bg); }
 .nitem.act { background: var(--accent-light); }
 .nitem.act .nlabel { color: var(--accent); font-weight: 500; }
 .nitem.act .nico { color: var(--accent); }
+
 .nbar {
   position: absolute;
   left: 0; top: 5px; bottom: 5px;
@@ -83,13 +111,20 @@ body {
   background: var(--accent);
   border-radius: 0 2px 2px 0;
 }
+
 .nico {
   width: 18px; height: 18px;
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   color: var(--muted);
 }
-.nlabel { font-size: 13px; color: var(--muted); }
+
+.nlabel {
+  font-size: 13px;
+  color: var(--muted);
+  transition: opacity var(--tr);
+}
+.sb.col .nlabel { opacity: 0; pointer-events: none; }
 
 /* ── Main ── */
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
@@ -105,11 +140,19 @@ body {
   flex-shrink: 0;
 }
 
-.content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 28px 32px;
+.user-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-md);
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: border-color .12s, color .12s;
 }
+.user-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.content { flex: 1; overflow-y: auto; padding: 28px 32px; }
 
 /* ── Content Selection UI ── */
 .cs-card {
@@ -120,24 +163,14 @@ body {
   margin-bottom: 16px;
 }
 
-.cs-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 16px;
-}
+.cs-title { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
 
-.cs-dropdown-wrap {
-  position: relative;
-  display: inline-block;
-}
+.cs-dropdown-wrap { position: relative; display: inline-block; }
 
 .cs-dropdown-label {
   position: absolute;
-  top: -8px;
-  left: 10px;
-  font-size: 10px;
-  font-weight: 500;
+  top: -8px; left: 10px;
+  font-size: 10px; font-weight: 500;
   color: var(--accent);
   background: var(--surface);
   padding: 0 4px;
@@ -162,8 +195,7 @@ body {
 
 .cs-dropdown-arrow {
   position: absolute;
-  right: 12px;
-  top: 50%;
+  right: 12px; top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
   color: var(--muted);
@@ -176,13 +208,10 @@ body {
   gap: 20px;
 }
 
-.cs-item {
-  cursor: pointer;
-}
+.cs-item { cursor: pointer; }
 
 .cs-thumb {
-  width: 148px;
-  height: 148px;
+  width: 148px; height: 148px;
   border-radius: 8px;
   overflow: hidden;
   background: #eee;
@@ -190,78 +219,47 @@ body {
   border: 2px solid transparent;
   transition: border-color .15s;
 }
-
 .cs-item:hover .cs-thumb { border-color: var(--accent); }
-.cs-item.sel .cs-thumb { border-color: var(--accent); }
+.cs-item.sel .cs-thumb { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(225,29,143,.15); }
 
-.cs-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.cs-item-label {
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.4;
-}
-
-/* ── User icon button ── */
-.user-btn {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-md);
-  background: var(--surface);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  color: var(--muted);
-  transition: border-color .12s, color .12s;
-}
-.user-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cs-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cs-item-label { font-size: 13px; color: var(--text); line-height: 1.4; }
 </style>
 </head>
 <body>
 <div id="app">
 
   <!-- ── Sidebar ── -->
-  <div class="sb">
-    <div class="sbhead">
-      <!-- Kerv K logo -->
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="32" height="32" rx="6" fill="white"/>
-        <path d="M8 6L16 16L8 26" stroke="url(#g1)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M16 6L24 16L16 26" stroke="url(#g2)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
-        <defs>
-          <linearGradient id="g1" x1="8" y1="6" x2="16" y2="26" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#e11d8f"/>
-            <stop offset="1" stop-color="#f43f5e"/>
-          </linearGradient>
-          <linearGradient id="g2" x1="16" y1="6" x2="24" y2="26" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#e11d8f"/>
-            <stop offset="1" stop-color="#f43f5e"/>
-          </linearGradient>
-        </defs>
-      </svg>
-      <div style="width:1px;height:22px;background:var(--border-md);flex-shrink:0"></div>
-      <span style="font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap">Sales Demo Tool</span>
+  <div class="sbwrap">
+    <div class="sb" id="sb">
+      <div class="sbhead">
+        <img class="sbhead-logo" src="kerv-logo.png" alt="Kerv"/>
+        <div class="sbhead-divider"></div>
+        <span class="sbhead-label">Sales Demo Tool</span>
+      </div>
+
+      <nav class="sbnav">
+        <div class="nitem act" id="nav-metadata" onclick="setPage('metadata')">
+          <div class="nbar"></div>
+          <div class="nico">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/></svg>
+          </div>
+          <span class="nlabel">Metadata Analysis</span>
+        </div>
+        <div class="nitem" id="nav-media" onclick="setPage('media')">
+          <div class="nico">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="nlabel">Media Planner</span>
+        </div>
+      </nav>
     </div>
 
-    <nav class="sbnav">
-      <div class="nitem act" onclick="setPage('metadata')">
-        <div class="nbar"></div>
-        <div class="nico">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/></svg>
-        </div>
-        <span class="nlabel">Metadata Analysis</span>
-      </div>
-      <div class="nitem" onclick="setPage('media')">
-        <div class="nico">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-        </div>
-        <span class="nlabel">Media Planner</span>
-      </div>
-    </nav>
+    <button class="togbtn" id="tog" onclick="toggleSb()" title="Toggle sidebar">
+      <svg id="togico" width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <path d="M6 2L3 5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
 
   <!-- ── Main ── -->
@@ -272,9 +270,7 @@ body {
       </button>
     </div>
 
-    <div class="content" id="content">
-
-      <!-- ── Content Selection ── -->
+    <div class="content">
       <div class="cs-card">
         <div class="cs-title">Content Selection</div>
         <div class="cs-dropdown-wrap">
@@ -293,17 +289,16 @@ body {
       </div>
 
       <div class="cs-card">
-        <div class="cs-grid" id="cs-grid">
-          <!-- items injected by JS -->
-        </div>
+        <div class="cs-grid" id="cs-grid"></div>
       </div>
-
     </div>
   </div>
 
 </div>
 
 <script>
+var collapsed = false;
+
 var SHOWS = [
   { title: "Dont Hate Your House", img: "https://picsum.photos/seed/house1/300/300" },
   { title: "Family Kitchen",        img: "https://picsum.photos/seed/kitchen2/300/300" },
@@ -314,8 +309,7 @@ var SHOWS = [
 ];
 
 function renderGrid() {
-  var grid = document.getElementById('cs-grid');
-  grid.innerHTML = SHOWS.map(function(s, i) {
+  document.getElementById('cs-grid').innerHTML = SHOWS.map(function(s) {
     return '<div class="cs-item" onclick="selectItem(this)">'
       + '<div class="cs-thumb"><img src="' + s.img + '" alt="' + s.title + '" loading="lazy"/></div>'
       + '<div class="cs-item-label">' + s.title + '</div>'
@@ -329,20 +323,25 @@ function selectItem(el) {
 }
 
 function setPage(id) {
-  document.querySelectorAll('.nitem').forEach(function(el) {
+  ['metadata','media'].forEach(function(p) {
+    var el = document.getElementById('nav-' + p);
     el.classList.remove('act');
     var bar = el.querySelector('.nbar');
     if (bar) bar.remove();
   });
-  var targets = { metadata: 0, media: 1 };
-  var items = document.querySelectorAll('.nitem');
-  var target = items[targets[id]];
-  if (target) {
-    target.classList.add('act');
-    var bar = document.createElement('div');
-    bar.className = 'nbar';
-    target.insertBefore(bar, target.firstChild);
-  }
+  var target = document.getElementById('nav-' + id);
+  target.classList.add('act');
+  var bar = document.createElement('div');
+  bar.className = 'nbar';
+  target.insertBefore(bar, target.firstChild);
+}
+
+function toggleSb() {
+  collapsed = !collapsed;
+  document.getElementById('sb').classList.toggle('col', collapsed);
+  document.getElementById('togico').innerHTML = collapsed
+    ? '<path d="M4 2l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+    : '<path d="M6 2L3 5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
 }
 
 renderGrid();
