@@ -73,24 +73,27 @@
 
             <div class="tb-dd-divider"></div>
 
-            <!-- WIP row — toggles submenu inline -->
-            <div class="tb-dd-item" onclick="toggleWipSubmenu(event)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-              <span>Work in Progress</span>
-              <svg class="tb-dd-chevron" id="wip-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-            <div class="tb-submenu" id="wipSubmenu">
-              <div class="tb-dd-item tb-dd-item--sub" onclick="setPage('sdt-content-form','New Content Upload');closeMenus()">
-                <span class="tb-dd-ico" id="wip-ico-0"></span>
-                <span>New Content Upload</span>
+            <!-- WIP row — flyout to the left -->
+            <div class="tb-dd-wip-wrap">
+              <div class="tb-dd-item" onclick="toggleWipSubmenu(event)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <span>Work in Progress</span>
+                <svg class="tb-dd-chevron" id="wip-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
-              <div class="tb-dd-item tb-dd-item--sub" onclick="setPage('taxonomy-showcase','Taxonomy Explorer');closeMenus()">
-                <span class="tb-dd-ico" id="wip-ico-1"></span>
-                <span>Taxonomy Explorer</span>
-              </div>
-              <div class="tb-dd-item tb-dd-item--sub" onclick="setPage('media-planner','Media Planner (v1)');closeMenus()">
-                <span class="tb-dd-ico" id="wip-ico-2"></span>
-                <span>Media Planner (v1)</span>
+              <div class="tb-submenu" id="wipSubmenu">
+                <div class="tb-dd-header">Work in Progress</div>
+                <div class="tb-dd-item tb-dd-item--sub" onclick="setPage('sdt-content-form','New Content Upload');closeMenus()">
+                  <span class="tb-dd-ico" id="wip-ico-0"></span>
+                  <span>New Content Upload</span>
+                </div>
+                <div class="tb-dd-item tb-dd-item--sub" onclick="setPage('taxonomy-showcase','Taxonomy Explorer');closeMenus()">
+                  <span class="tb-dd-ico" id="wip-ico-1"></span>
+                  <span>Taxonomy Explorer</span>
+                </div>
+                <div class="tb-dd-item tb-dd-item--sub" onclick="setPage('media-planner','Media Planner (v1)');closeMenus()">
+                  <span class="tb-dd-ico" id="wip-ico-2"></span>
+                  <span>Media Planner (v1)</span>
+                </div>
               </div>
             </div>
 
