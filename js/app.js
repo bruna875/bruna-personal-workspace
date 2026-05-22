@@ -42,7 +42,7 @@ var APP_USERS = [
   { id:'u10',name:'Jordan Kim',      email:'j.kim@walmart.com',               role:'Viewer',      org:'walmart',       status:'Active',   last:'1w ago'   }
 ];
 
-var selectedOrgId = 'paramount-aus';
+var selectedOrgId = 'kerv';
 var selectedAdvId = 'walmart-adv';
 
 // ── App state ──
