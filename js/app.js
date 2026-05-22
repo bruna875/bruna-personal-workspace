@@ -199,7 +199,10 @@ function orgTypeBadge(type) {
 function buildOrgDd() {
   document.getElementById('orgDd').innerHTML = APP_ORGS.map(function(o) {
     return '<div class="tb-select-item' + (o.id === selectedOrgId ? ' sel' : '') + '" onclick="selectOrg(\'' + o.id + '\')">'
-      + '<span class="tb-select-item-name">' + o.name + ' <span style="color:var(--faint);font-weight:400">(' + o.type + ')</span></span>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-weight:500;font-size:13px">' + o.name + '</div>'
+        + '<div style="font-size:11px;color:var(--faint);margin-top:1px">' + o.type + '</div>'
+      + '</div>'
       + '</div>';
   }).join('');
 }
@@ -247,6 +250,11 @@ function selectOrg(id) {
   document.getElementById('orgVal').textContent = org.name;
   closeSelectDds();
   updateOrgMgmtVisibility();
+  if (activeId === 'organization') {
+    var sub = location.pathname.split('/')[2] || 'users';
+    setPage('organization', 'Organization');
+    history.replaceState(null, '', '/organization/' + sub);
+  }
 }
 
 function selectAdv(id) {

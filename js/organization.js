@@ -195,17 +195,6 @@ function orgUsersHtml() {
     return '<div style="width:28px;height:28px;border-radius:50%;background:' + avatarColors[idx % avatarColors.length] + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0">' + initials + '</div>';
   }
 
-  function roleBadge(role) {
-    var map = {
-      'Super Admin': 'background:var(--accent-light);color:var(--accent)',
-      'Admin':       'background:#1e293b;color:#fff',
-      'Editor':      'background:#EFF6FF;color:#1D4ED8',
-      'Planner':     'background:#F5F3FF;color:#6D28D9',
-      'Viewer':      'background:var(--subtle);color:var(--muted)'
-    };
-    return '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;' + (map[role] || map['Viewer']) + '">' + role + '</span>';
-  }
-
   function statusBadge(s) {
     return '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;' + (s === 'Active' ? 'background:#DCFCE7;color:#15803D' : 'background:var(--subtle);color:var(--muted)') + '">' + s + '</span>';
   }
@@ -219,7 +208,7 @@ function orgUsersHtml() {
           + '<div><div style="font-weight:500;font-size:13px">' + u.name + '</div>'
           + '<div style="font-size:11px;color:var(--muted)">' + u.email + '</div></div>'
           + '</div></td>'
-      + '<td style="padding:11px 16px;border-bottom:1px solid var(--border)">' + roleBadge(u.role) + '</td>'
+      + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)">' + u.role + '</td>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)">' + (orgObj ? orgObj.name : '—') + '</td>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border)">' + statusBadge(u.status) + '</td>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--faint)">' + u.last + '</td>'
@@ -246,13 +235,10 @@ function orgAdvertisersHtml() {
 
   var rows = APP_ADVERTISERS.map(function(a) {
     var orgObj = APP_ORGS.find(function(o){ return o.id === a.org; });
-    var typeStyle = orgObj && orgObj.type === 'Agency' ? 'background:#F5F3FF;color:#6D28D9' : 'background:#FFF7ED;color:#C2410C';
     return '<tr>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:500">' + a.name + '</td>'
-      + '<td style="padding:11px 16px;border-bottom:1px solid var(--border)">'
-          + (orgObj ? '<div style="display:flex;align-items:center;gap:7px"><span style="font-size:13px;color:var(--text)">' + orgObj.name + '</span>'
-          + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;' + typeStyle + '">' + orgObj.type + '</span></div>' : '—')
-          + '</td>'
+      + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)">' + (orgObj ? orgObj.name : '—') + '</td>'
+      + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)">' + (orgObj ? orgObj.type : '—') + '</td>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:500">' + a.spend + '</td>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);text-align:center">' + a.campaigns + '</td>'
       + '<td style="padding:11px 16px;border-bottom:1px solid var(--border)">' + statusBadge(a.status) + '</td>'
@@ -262,7 +248,7 @@ function orgAdvertisersHtml() {
   return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
     + '<table style="width:100%;border-collapse:collapse">'
     + '<thead><tr>'
-    + ['Advertiser','Organization','Est. Spend','Campaigns','Status'].map(function(h){
+    + ['Advertiser','Organization','Tipo','Est. Spend','Campaigns','Status'].map(function(h){
         return '<th style="font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.4px;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">' + h + '</th>';
       }).join('')
     + '</tr></thead>'
