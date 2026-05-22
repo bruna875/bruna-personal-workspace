@@ -8,6 +8,8 @@ var ico = {
 
   // Inventory Management
   metadata:  '<svg ' + _li + '><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>',
+  tv:        '<svg ' + _li + '><rect width="20" height="15" x="2" y="7" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>',
+  radio:     '<svg ' + _li + '><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>',
   search:    '<svg ' + _li + '><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
 
   // Plan and Activate
