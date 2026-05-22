@@ -16,11 +16,11 @@ function kervDriverColor(name) {
 
 // ── App data ──
 var APP_ORGS = [
-  { id: 'paramount-aus', name: 'Paramount AUS', type: 'Publisher',          users: 12, advertisers: 3,  campaigns: 18, status: 'Active', since: 'Mar 2024' },
-  { id: 'disney',        name: 'Disney',         type: 'Publisher',          users: 8,  advertisers: 2,  campaigns: 12, status: 'Active', since: 'Jan 2024' },
-  { id: 'kerv',          name: 'KERV',            type: 'Super Organization', users: 24, advertisers: 0,  campaigns: 0,  status: 'Active', since: 'Jun 2023' },
-  { id: 'groupm',        name: 'GroupM',          type: 'Agency',             users: 35, advertisers: 8,  campaigns: 47, status: 'Active', since: 'Feb 2024' },
-  { id: 'walmart',       name: 'Walmart',         type: 'Brand Direct',       users: 6,  advertisers: 1,  campaigns: 8,  status: 'Active', since: 'May 2024' }
+  { id: 'paramount-aus', name: 'Paramount AUS', type: 'Publisher',          email: 'admin@paramount.com.au',  users: 12, advertisers: 3,  campaigns: 18, status: 'Active', since: 'Mar 2024' },
+  { id: 'disney',        name: 'Disney',         type: 'Publisher',          email: 'admin@disney.com',         users: 8,  advertisers: 2,  campaigns: 12, status: 'Active', since: 'Jan 2024' },
+  { id: 'kerv',          name: 'KERV',            type: 'Super Organization', email: 'admin@kerv.com',           users: 24, advertisers: 0,  campaigns: 0,  status: 'Active', since: 'Jun 2023' },
+  { id: 'groupm',        name: 'GroupM',          type: 'Agency',             email: 'admin@groupm.com',         users: 35, advertisers: 8,  campaigns: 47, status: 'Active', since: 'Feb 2024' },
+  { id: 'walmart',       name: 'Walmart',         type: 'Brand Direct',       email: 'admin@walmart.com',        users: 6,  advertisers: 1,  campaigns: 8,  status: 'Active', since: 'May 2024' }
 ];
 
 var APP_ADVERTISERS = [

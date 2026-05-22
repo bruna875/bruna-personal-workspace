@@ -59,12 +59,26 @@ function orgMgmtSelectOrg(id) {
 function renderOrganization() {
   var sub = (location.pathname.split('/')[2] || 'users');
   if (sub !== 'users' && sub !== 'advertisers') sub = 'users';
+  var org = APP_ORGS.find(function(o){ return o.id === selectedOrgId; }) || APP_ORGS[0];
+
+  var typeStyles = {
+    'Publisher':          'background:#EFF6FF;color:#1D4ED8',
+    'Agency':             'background:#F5F3FF;color:#6D28D9',
+    'Brand Direct':       'background:#FFF7ED;color:#C2410C',
+    'Super Organization': 'background:var(--accent-light);color:var(--accent)'
+  };
+  var typePill = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;' + (typeStyles[org.type] || '') + '">' + org.type + '</span>';
+
+  var editBtn = '<button onclick="orgEditOpen()" title="Edit organization" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:7px;background:transparent;cursor:pointer;color:var(--muted);flex-shrink:0;transition:border-color .12s,color .12s" onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--muted)\'">'
+    + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+    + '</button>';
 
   return [
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">',
-      '<div>',
-        '<div class="ptitle" style="margin-bottom:2px">Organization</div>',
-        '<div style="font-size:12px;color:var(--muted)">Manage users and advertisers for this organization</div>',
+      '<div style="display:flex;align-items:center;gap:10px">',
+        '<div class="ptitle" style="margin-bottom:0">' + org.name + '</div>',
+        typePill,
+        editBtn,
       '</div>',
       '<button onclick="orgInvite()" style="display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer">',
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -81,8 +95,66 @@ function renderOrganization() {
     // Tab content
     '<div id="org-tab-content">',
       sub === 'users' ? orgUsersHtml() : orgAdvertisersHtml(),
-    '</div>'
+    '</div>',
+
+    // Edit modal
+    orgEditModal(org)
   ].join('');
+}
+
+function orgEditModal(org) {
+  var types = ['Publisher', 'Agency', 'Brand Direct', 'Super Organization'];
+  var typeOptions = types.map(function(t) {
+    return '<option value="' + t + '"' + (t === org.type ? ' selected' : '') + '>' + t + '</option>';
+  }).join('');
+
+  return '<div id="org-edit-overlay" onclick="orgEditClose()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:500;align-items:center;justify-content:center">'
+    + '<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:14px;padding:28px 28px 24px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.18)">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">'
+        + '<div style="font-size:16px;font-weight:600;color:var(--text)">Edit Organization</div>'
+        + '<button onclick="orgEditClose()" style="width:28px;height:28px;border:none;background:transparent;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:6px" onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'">'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        + '</button>'
+      + '</div>'
+      + orgEditField('Nome Organizzazione', '<input id="oe-name" type="text" value="' + org.name + '" style="width:100%;height:38px;border:1px solid var(--border-md);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">')
+      + orgEditField('Tipo', '<div style="position:relative"><select id="oe-type" style="width:100%;height:38px;border:1px solid var(--border-md);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;appearance:none;cursor:pointer">' + typeOptions + '</select><svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted)" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>')
+      + orgEditField('Email di riferimento', '<input id="oe-email" type="email" value="' + (org.email || '') + '" style="width:100%;height:38px;border:1px solid var(--border-md);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">')
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:24px">'
+        + '<button onclick="orgEditClose()" style="height:36px;padding:0 16px;border:1px solid var(--border-md);border-radius:8px;background:transparent;font-size:13px;font-family:inherit;color:var(--muted);cursor:pointer">Cancel</button>'
+        + '<button onclick="orgEditSave()" style="height:36px;padding:0 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer">Save</button>'
+      + '</div>'
+    + '</div>'
+  + '</div>';
+}
+
+function orgEditField(label, input) {
+  return '<div style="margin-bottom:16px">'
+    + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">' + label + '</div>'
+    + input
+    + '</div>';
+}
+
+function orgEditOpen() {
+  var el = document.getElementById('org-edit-overlay');
+  if (el) { el.style.display = 'flex'; }
+}
+
+function orgEditClose() {
+  var el = document.getElementById('org-edit-overlay');
+  if (el) { el.style.display = 'none'; }
+}
+
+function orgEditSave() {
+  var org = APP_ORGS.find(function(o){ return o.id === selectedOrgId; });
+  if (!org) return;
+  org.name  = document.getElementById('oe-name').value.trim()  || org.name;
+  org.type  = document.getElementById('oe-type').value;
+  org.email = document.getElementById('oe-email').value.trim();
+  // Refresh topbar label and page header
+  document.getElementById('orgVal').textContent = org.name;
+  orgEditClose();
+  setPage('organization', 'Organization');
+  history.replaceState(null, '', '/organization/' + (location.pathname.split('/')[2] || 'users'));
 }
 
 function orgTabBtn(tab, label, active) {
