@@ -67,8 +67,7 @@ var PAGES = {
   'sdt-content-form':      renderSdtContentForm,
   'taxonomy-showcase':     renderTaxonomyShowcase,
   'media-planner':         renderInventoryExplorerV2,
-  'user-management':       renderUserManagement,
-  'advertiser-management': renderAdvertiserManagement
+  'organization':          renderOrganization
 };
 
 // ── Nav section collapse state — both sections open by default ──
@@ -123,10 +122,14 @@ function setPage(id, label, noPush) {
 
 function pageFromPath() {
   var path = location.pathname.replace(/^\//, '').replace(/\/$/, '') || 'metadata-analysis';
+  var base = path.split('/')[0];
+  // Direct PAGES entries not in NAV_CONFIG (e.g. /organization/users, /organization/advertisers)
+  var directLabels = { 'organization': 'Organization' };
+  if (directLabels[base]) return { id: base, label: directLabels[base] };
   var found = null;
   NAV_CONFIG.forEach(function(sec) {
     sec.items.forEach(function(item) {
-      if (item.id === path) found = item;
+      if (item.id === base) found = item;
     });
   });
   if (!found) found = NAV_CONFIG[0].items[0];
