@@ -1,5 +1,61 @@
 // organization.js — unified Organization management page
 
+// ── Organization Management (KERV-only list view) ────────────────────────────
+
+function renderOrgManagement() {
+  function typeBadge(type) {
+    var styles = {
+      'Publisher':          'background:#EFF6FF;color:#1D4ED8',
+      'Agency':             'background:#F5F3FF;color:#6D28D9',
+      'Brand Direct':       'background:#FFF7ED;color:#C2410C',
+      'Super Organization': 'background:var(--accent-light);color:var(--accent)'
+    };
+    return '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;' + (styles[type] || '') + '">' + type + '</span>';
+  }
+
+  var rows = APP_ORGS.map(function(o) {
+    return '<tr style="cursor:pointer" onclick="orgMgmtSelectOrg(\'' + o.id + '\')" onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'\'">'
+      + '<td style="padding:12px 16px;border-bottom:1px solid var(--border)">'
+          + '<div style="font-size:13px;font-weight:500;color:var(--text)">' + o.name + '</div>'
+          + '<div style="font-size:11px;color:var(--muted);margin-top:1px">' + o.since + '</div>'
+          + '</td>'
+      + '<td style="padding:12px 16px;border-bottom:1px solid var(--border)">' + typeBadge(o.type) + '</td>'
+      + '<td style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);text-align:center">' + o.users + '</td>'
+      + '<td style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);text-align:center">' + o.advertisers + '</td>'
+      + '<td style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);text-align:center">' + o.campaigns + '</td>'
+      + '<td style="padding:12px 16px;border-bottom:1px solid var(--border)">'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
+          + '</td>'
+      + '</tr>';
+  }).join('');
+
+  return [
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">',
+      '<div>',
+        '<div class="ptitle" style="margin-bottom:2px">Organization Management</div>',
+        '<div style="font-size:12px;color:var(--muted)">' + APP_ORGS.length + ' organizations</div>',
+      '</div>',
+    '</div>',
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">',
+      '<table style="width:100%;border-collapse:collapse">',
+        '<thead><tr>',
+          ['Organization', 'Type', 'Users', 'Advertisers', 'Campaigns', ''].map(function(h) {
+            var align = (h === 'Users' || h === 'Advertisers' || h === 'Campaigns') ? 'center' : 'left';
+            return '<th style="font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.4px;padding:10px 16px;text-align:' + align + ';border-bottom:1px solid var(--border);white-space:nowrap">' + h + '</th>';
+          }).join(''),
+        '</tr></thead>',
+        '<tbody>' + rows + '</tbody>',
+      '</table>',
+    '</div>'
+  ].join('');
+}
+
+function orgMgmtSelectOrg(id) {
+  selectOrg(id);
+  setPage('organization', 'Organization');
+  history.replaceState(null, '', '/organization/users');
+}
+
 function renderOrganization() {
   var sub = (location.pathname.split('/')[2] || 'users');
   if (sub !== 'users' && sub !== 'advertisers') sub = 'users';
