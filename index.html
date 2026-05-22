@@ -56,6 +56,31 @@
   </div>
   <div class="main">
     <div class="topbar">
+      <div class="tb-left">
+
+        <!-- Org selector -->
+        <div class="tb-select-wrap" id="org-wrap">
+          <button class="tb-select" id="orgBtn" onclick="toggleOrgDd(event)">
+            <span class="tb-select-label">Org</span>
+            <span class="tb-select-sep"></span>
+            <span class="tb-select-val" id="orgVal">Paramount AUS</span>
+            <svg class="tb-select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="tb-select-dd" id="orgDd"></div>
+        </div>
+
+        <!-- Advertiser selector -->
+        <div class="tb-select-wrap" id="adv-wrap">
+          <button class="tb-select" id="advBtn" onclick="toggleAdvDd(event)">
+            <span class="tb-select-label">Advertiser</span>
+            <span class="tb-select-sep"></span>
+            <span class="tb-select-val" id="advVal">Walmart</span>
+            <svg class="tb-select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="tb-select-dd" id="advDd"></div>
+        </div>
+
+      </div>
       <div class="tb-actions">
 
         <!-- Settings (includes WIP submenu) -->
@@ -65,15 +90,13 @@
           </button>
           <div class="tb-dropdown" id="settingsMenu">
             <div class="tb-dd-header">Settings</div>
-            <div class="tb-dd-item tb-dd-item--disabled">
+            <div class="tb-dd-item" onclick="setPage('user-management','User Management');closeMenus()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <span>User Management</span>
-              <span class="tb-dd-soon">Soon</span>
             </div>
-            <div class="tb-dd-item tb-dd-item--disabled">
+            <div class="tb-dd-item" onclick="setPage('advertiser-management','Advertiser Management');closeMenus()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
               <span>Advertiser Management</span>
-              <span class="tb-dd-soon">Soon</span>
             </div>
 
             <div class="tb-dd-divider"></div>
@@ -125,5 +148,7 @@
 <script src="js/taxonomy-explorer.js"></script>
 <script src="js/media-planner.js"></script>
 <script src="js/app.js"></script>
+<script src="js/user-management.js"></script>
+<script src="js/advertiser-management.js"></script>
 </body>
 </html>

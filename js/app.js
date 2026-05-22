@@ -14,6 +14,37 @@ function kervDriverColor(name) {
   return KERV_DRIVER_PALETTE[h % KERV_DRIVER_PALETTE.length];
 }
 
+// ── App data ──
+var APP_ORGS = [
+  { id: 'paramount-aus', name: 'Paramount AUS', type: 'Publisher',    users: 12, status: 'Active', since: 'Mar 2024' },
+  { id: 'disney',        name: 'Disney',         type: 'Publisher',    users: 8,  status: 'Active', since: 'Jan 2024' },
+  { id: 'kerv',          name: 'KERV',            type: 'Platform',     users: 24, status: 'Active', since: 'Jun 2023' },
+  { id: 'groupm',        name: 'GroupM',          type: 'Agency',       users: 35, status: 'Active', since: 'Feb 2024' },
+  { id: 'walmart',       name: 'Walmart',         type: 'Brand Direct', users: 6,  status: 'Active', since: 'May 2024' }
+];
+
+var APP_ADVERTISERS = [
+  { id: 'walmart-adv',  name: 'Walmart',         org: 'walmart',  spend: '$2.4M', campaigns: 8,  status: 'Active' },
+  { id: 'target',       name: 'Target',          org: 'groupm',   spend: '$1.8M', campaigns: 5,  status: 'Active' },
+  { id: 'home-depot',   name: 'The Home Depot',  org: 'groupm',   spend: '$950K', campaigns: 3,  status: 'Active' }
+];
+
+var APP_USERS = [
+  { id:'u1', name:'Sarah Mitchell',  email:'sarah.mitchell@paramount.com.au', role:'Admin',       org:'paramount-aus', status:'Active',   last:'2h ago'   },
+  { id:'u2', name:'James Thornton',  email:'j.thornton@paramount.com.au',     role:'Editor',      org:'paramount-aus', status:'Active',   last:'1d ago'   },
+  { id:'u3', name:'Lena Park',       email:'l.park@paramount.com.au',         role:'Viewer',      org:'paramount-aus', status:'Active',   last:'3d ago'   },
+  { id:'u4', name:'Emma Clarke',     email:'e.clarke@disney.com',             role:'Admin',       org:'disney',        status:'Active',   last:'5h ago'   },
+  { id:'u5', name:'Tom Reyes',       email:'t.reyes@disney.com',              role:'Editor',      org:'disney',        status:'Inactive', last:'14d ago'  },
+  { id:'u6', name:'Bruna Ferrari',   email:'bruna@saykudos.co',               role:'Super Admin', org:'kerv',          status:'Active',   last:'Just now' },
+  { id:'u7', name:'Marco Rossi',     email:'m.rossi@kerv.com',                role:'Admin',       org:'kerv',          status:'Active',   last:'1h ago'   },
+  { id:'u8', name:'Alex Rivera',     email:'a.rivera@groupm.com',             role:'Admin',       org:'groupm',        status:'Active',   last:'3h ago'   },
+  { id:'u9', name:'Priya Nair',      email:'p.nair@groupm.com',               role:'Planner',     org:'groupm',        status:'Active',   last:'2d ago'   },
+  { id:'u10',name:'Jordan Kim',      email:'j.kim@walmart.com',               role:'Viewer',      org:'walmart',       status:'Active',   last:'1w ago'   }
+];
+
+var selectedOrgId = 'paramount-aus';
+var selectedAdvId = 'walmart-adv';
+
 // ── App state ──
 var activeId  = 'metadata-analysis';
 var collapsed = false;
@@ -31,11 +62,13 @@ var NAV_CONFIG = [
 
 // ── Pages map ──
 var PAGES = {
-  'metadata-analysis': renderMetadataAnalysis,
-  'media-planner-v2':  renderMediaPlannerV2,
-  'sdt-content-form':  renderSdtContentForm,
-  'taxonomy-showcase': renderTaxonomyShowcase,
-  'media-planner':     renderInventoryExplorerV2
+  'metadata-analysis':     renderMetadataAnalysis,
+  'media-planner-v2':      renderMediaPlannerV2,
+  'sdt-content-form':      renderSdtContentForm,
+  'taxonomy-showcase':     renderTaxonomyShowcase,
+  'media-planner':         renderInventoryExplorerV2,
+  'user-management':       renderUserManagement,
+  'advertiser-management': renderAdvertiserManagement
 };
 
 // ── Nav section collapse state — both sections open by default ──
@@ -147,10 +180,73 @@ function closeMenus() {
 }
 
 document.addEventListener('click', function(e) {
-  if (!e.target.closest('#settings-wrap')) {
-    closeMenus();
-  }
+  if (!e.target.closest('#settings-wrap')) closeMenus();
+  if (!e.target.closest('#org-wrap')) { document.getElementById('orgDd').classList.remove('open'); document.getElementById('orgBtn').classList.remove('active'); }
+  if (!e.target.closest('#adv-wrap')) { document.getElementById('advDd').classList.remove('open'); document.getElementById('advBtn').classList.remove('active'); }
 });
+
+// ── Topbar selectors ──
+
+function orgTypeBadge(type) {
+  var cls = type === 'Publisher' ? 'tb-type-publisher' : type === 'Agency' ? 'tb-type-agency' : type === 'Platform' ? 'tb-type-platform' : 'tb-type-brand';
+  return '<span class="tb-type-badge ' + cls + '">' + type + '</span>';
+}
+
+function buildOrgDd() {
+  document.getElementById('orgDd').innerHTML = APP_ORGS.map(function(o) {
+    return '<div class="tb-select-item' + (o.id === selectedOrgId ? ' sel' : '') + '" onclick="selectOrg(\'' + o.id + '\')">'
+      + '<span class="tb-select-item-name">' + o.name + '</span>'
+      + orgTypeBadge(o.type)
+      + '</div>';
+  }).join('');
+}
+
+function buildAdvDd() {
+  document.getElementById('advDd').innerHTML = APP_ADVERTISERS.map(function(a) {
+    var org = APP_ORGS.find(function(o){ return o.id === a.org; });
+    return '<div class="tb-select-item' + (a.id === selectedAdvId ? ' sel' : '') + '" onclick="selectAdv(\'' + a.id + '\')">'
+      + '<span class="tb-select-item-name">' + a.name + '</span>'
+      + (org ? '<span style="font-size:11px;color:var(--muted)">' + org.name + '</span>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function toggleOrgDd(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('orgDd');
+  var btn = document.getElementById('orgBtn');
+  var wasOpen = dd.classList.contains('open');
+  closeSelectDds();
+  if (!wasOpen) { buildOrgDd(); dd.classList.add('open'); btn.classList.add('active'); }
+}
+
+function toggleAdvDd(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('advDd');
+  var btn = document.getElementById('advBtn');
+  var wasOpen = dd.classList.contains('open');
+  closeSelectDds();
+  if (!wasOpen) { buildAdvDd(); dd.classList.add('open'); btn.classList.add('active'); }
+}
+
+function closeSelectDds() {
+  ['orgDd','advDd'].forEach(function(id){ document.getElementById(id).classList.remove('open'); });
+  ['orgBtn','advBtn'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
+}
+
+function selectOrg(id) {
+  selectedOrgId = id;
+  var org = APP_ORGS.find(function(o){ return o.id === id; });
+  document.getElementById('orgVal').textContent = org.name;
+  closeSelectDds();
+}
+
+function selectAdv(id) {
+  selectedAdvId = id;
+  var adv = APP_ADVERTISERS.find(function(a){ return a.id === id; });
+  document.getElementById('advVal').textContent = adv.name;
+  closeSelectDds();
+}
 
 // ── Sidebar toggle ──
 
