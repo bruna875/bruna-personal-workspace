@@ -60,8 +60,9 @@ var NAV_CONFIG = [
     section: 'Inventory Management',
     sectionBadge: 'Publisher',
     items: [
-      { id: 'content-library',     label: 'Inventory Analysis',    icon: ico.metadata },
-      { id: 'moments-search',      label: 'Moments Search Tool',   icon: ico.search   }
+      { id: 'content-library',       label: 'VoD Inventory Analysis',       icon: ico.metadata },
+      { id: 'livestream-analysis',   label: 'Livestream Analysis',          icon: ico.metadata },
+      { id: 'moments-search',        label: 'Moments Search Tool',          icon: ico.search   }
     ]
   },
   {
@@ -160,6 +161,7 @@ function pageFromPath() {
     'organization':          'Organization',
     'org-management':        'Organization Management',
     'overview':              'Overview',
+    'livestream-analysis':   'Livestream Analysis',
     'moments-search':        'Moments Search Tool',
     'campaign-management':   'Campaign Management',
     'moments-builder':       'Moments Builder',
