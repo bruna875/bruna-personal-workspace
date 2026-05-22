@@ -250,6 +250,9 @@ function selectOrg(id) {
   document.getElementById('orgVal').textContent = org.name;
   closeSelectDds();
   updateOrgMgmtVisibility();
+  // Hide advertiser dropdown for Brand Direct orgs
+  var advWrap = document.getElementById('adv-wrap');
+  if (advWrap) advWrap.style.display = org.type === 'Brand Direct' ? 'none' : '';
   if (activeId === 'organization') {
     var sub = location.pathname.split('/')[2] || 'users';
     setPage('organization', 'Organization');
