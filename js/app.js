@@ -164,8 +164,6 @@ function logout() {
 
 // ── Init ──
 
-var m = new Date().getMonth(), y = new Date().getFullYear();
-document.getElementById('qbadge').textContent = 'Q' + (m < 3 ? 1 : m < 6 ? 2 : m < 9 ? 3 : 4) + ' ' + y;
 document.getElementById('loginBtn').addEventListener('click', login);
 document.getElementById('logoutBtn').addEventListener('click', logout);
 document.getElementById('tog').addEventListener('click', toggleSb);
