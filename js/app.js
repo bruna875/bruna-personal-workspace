@@ -60,7 +60,7 @@ var NAV_CONFIG = [
     section: 'Inventory Management',
     sectionBadge: 'Publisher',
     items: [
-      { id: 'content-library',     label: 'Content Library',       icon: ico.metadata },
+      { id: 'content-library',     label: 'Inventory Analysis',    icon: ico.metadata },
       { id: 'moments-search',      label: 'Moments Search Tool',   icon: ico.search   }
     ]
   },
