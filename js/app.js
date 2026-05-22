@@ -69,9 +69,10 @@ var NAV_CONFIG = [
     section: 'Plan and Activate',
     items: [
       { id: 'media-planner-v2',    label: 'Media Planner',         icon: ico.showcase  },
-      { id: 'campaign-management', label: 'Campaign Management',   icon: ico.campaign, dividerBefore: true },
-      { id: 'moments-builder',     label: 'Moments Builder',       icon: ico.builder   },
-      { id: 'creative-studio',     label: 'Creative Studio',       icon: ico.creative  }
+      { id: 'moments-builder',          label: 'Custom Moments Builder',    icon: ico.builder,  dividerBefore: true },
+      { id: 'campaign-management',      label: 'Campaign Management',       icon: ico.campaign  },
+      { id: 'creative-assets',          label: 'Creative Assets Management',icon: ico.shared    },
+      { id: 'creative-studio',          label: 'Creative Studio',           icon: ico.creative  }
     ]
   },
   {
@@ -164,7 +165,8 @@ function pageFromPath() {
     'livestream-analysis':   'Livestream Analysis',
     'moments-search':        'Moments Search Tool',
     'campaign-management':   'Campaign Management',
-    'moments-builder':       'Moments Builder',
+    'moments-builder':       'Custom Moments Builder',
+    'creative-assets':       'Creative Assets Management',
     'creative-studio':       'Creative Studio',
     'measurement':           'Measurement',
     'dsp-ssp':               'DSP / SSP Connections',
