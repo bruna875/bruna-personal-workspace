@@ -60,7 +60,7 @@ var NAV_CONFIG = [
     section: 'Inventory Management',
     sectionBadge: 'Publisher',
     items: [
-      { id: 'content-library',       label: 'VoD Inventory Analysis',       icon: ico.tv     },
+      { id: 'content-library',       label: 'VoD Analysis',                 icon: ico.tv     },
       { id: 'livestream-analysis',   label: 'Livestream Analysis',          icon: ico.radio  },
       { id: 'moments-search',        label: 'Moments Search Tool',          icon: ico.search   }
     ]
