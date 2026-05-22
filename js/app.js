@@ -46,23 +46,52 @@ var selectedOrgId = 'kerv';
 var selectedAdvId = 'walmart-adv';
 
 // ── App state ──
-var activeId  = 'metadata-analysis';
+var activeId  = 'overview';
 var collapsed = false;
 
-// ── Nav config — Live Prototypes only (WIP moved to topbar launcher) ──
+// ── Nav config ──
 var NAV_CONFIG = [
   {
-    section: 'Live Prototypes',
     items: [
-      { id: 'metadata-analysis', label: 'Metadata Analysis',  icon: ico.metadata },
-      { id: 'media-planner-v2',  label: 'Media Planner (v2)', icon: ico.showcase }
+      { id: 'overview',            label: 'Overview',              icon: ico.overview }
+    ]
+  },
+  {
+    section: 'Inventory Management',
+    sectionBadge: 'Publisher',
+    items: [
+      { id: 'content-library',     label: 'Content Library',       icon: ico.metadata },
+      { id: 'moments-search',      label: 'Moments Search Tool',   icon: ico.search   }
+    ]
+  },
+  {
+    section: 'Plan and Activate',
+    items: [
+      { id: 'campaign-management', label: 'Campaign Management',   icon: ico.campaign  },
+      { id: 'moments-builder',     label: 'Moments Builder',       icon: ico.builder   },
+      { id: 'media-planner-v2',    label: 'Media Planner',         icon: ico.showcase  },
+      { id: 'creative-studio',     label: 'Creative Studio',       icon: ico.creative  }
+    ]
+  },
+  {
+    section: 'Reporting and Measure',
+    items: [
+      { id: 'measurement',         label: 'Measurement',           icon: ico.reporting }
+    ]
+  },
+  {
+    section: 'Integration and Libraries',
+    dividerBefore: true,
+    items: [
+      { id: 'dsp-ssp',             label: 'DSP / SSP Connections', icon: ico.dsp       },
+      { id: 'api-docs',            label: 'API Documentation',     icon: ico.api       }
     ]
   }
 ];
 
 // ── Pages map ──
 var PAGES = {
-  'metadata-analysis':     renderMetadataAnalysis,
+  'content-library':       renderMetadataAnalysis,
   'media-planner-v2':      renderMediaPlannerV2,
   'sdt-content-form':      renderSdtContentForm,
   'taxonomy-showcase':     renderTaxonomyShowcase,
@@ -82,31 +111,32 @@ function toggleNavSection(section) {
 function buildNav() {
   document.getElementById('nav').innerHTML = NAV_CONFIG.map(function(sec) {
     var items = sec.items.map(function(item) {
-      var act     = item.id === activeId;
-      var divider = item.dividerBefore ? '<div style="height:1px;background:var(--border);margin:4px 12px"></div>' : '';
-      if (item.disabled) {
-        return divider + '<div class="nitem" style="opacity:.45;cursor:default;pointer-events:none">'
-          + '<div class="nico">' + item.icon + '</div>'
-          + '<span class="nlabel">' + item.label + '</span>'
-          + '<span class="nsoon" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--subtle);color:var(--muted);font-size:8px;font-weight:700;padding:2px 6px;border-radius:10px;letter-spacing:.4px;white-space:nowrap">Soon</span>'
-          + '</div>';
-      }
-      return divider + '<div class="nitem' + (act ? ' act' : '') + '" data-page="' + item.id + '" data-label="' + item.label + '">'
+      var act = item.id === activeId;
+      return '<div class="nitem' + (act ? ' act' : '') + '" data-page="' + item.id + '" data-label="' + item.label + '">'
         + (act ? '<div class="nbar"></div>' : '')
         + '<div class="nico">' + item.icon + '</div>'
         + '<span class="nlabel">' + item.label + '</span>'
         + '</div>';
     }).join('');
 
+    var divider = sec.dividerBefore ? '<div style="height:1px;background:var(--border);margin:6px 12px"></div>' : '';
+
+    if (!sec.section) {
+      return divider + '<div>' + items + '</div>';
+    }
+
     var col = !!navCollapsed[sec.section];
     var chevron = col
       ? '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       : '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 6.5l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var badge = sec.sectionBadge
+      ? ' <span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;background:#EFF6FF;color:#1D4ED8;letter-spacing:.2px;vertical-align:middle">' + sec.sectionBadge + '</span>'
+      : '';
     var header = '<div class="seclabel seclabel--toggle" onclick="toggleNavSection(\'' + sec.section.replace(/'/g, "\\'") + '\')">'
-      + '<span>' + sec.section + '</span>'
+      + '<span>' + sec.section + badge + '</span>'
       + '<span class="seclabel-chevron">' + chevron + '</span>'
       + '</div>';
-    return '<div>' + header + (col ? '' : items) + '</div>';
+    return divider + '<div>' + header + (col ? '' : items) + '</div>';
   }).join('');
 }
 
@@ -122,10 +152,21 @@ function setPage(id, label, noPush) {
 // ── URL routing helpers ──
 
 function pageFromPath() {
-  var path = location.pathname.replace(/^\//, '').replace(/\/$/, '') || 'metadata-analysis';
+  var path = location.pathname.replace(/^\//, '').replace(/\/$/, '') || 'overview';
   var base = path.split('/')[0];
   // Direct PAGES entries not in NAV_CONFIG (e.g. /organization/users, /organization/advertisers)
-  var directLabels = { 'organization': 'Organization', 'org-management': 'Organization Management' };
+  var directLabels = {
+    'organization':          'Organization',
+    'org-management':        'Organization Management',
+    'overview':              'Overview',
+    'moments-search':        'Moments Search Tool',
+    'campaign-management':   'Campaign Management',
+    'moments-builder':       'Moments Builder',
+    'creative-studio':       'Creative Studio',
+    'measurement':           'Measurement',
+    'dsp-ssp':               'DSP / SSP Connections',
+    'api-docs':              'API Documentation'
+  };
   if (directLabels[base]) return { id: base, label: directLabels[base] };
   var found = null;
   NAV_CONFIG.forEach(function(sec) {
