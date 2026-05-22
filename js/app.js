@@ -67,9 +67,9 @@ var NAV_CONFIG = [
   {
     section: 'Plan and Activate',
     items: [
-      { id: 'campaign-management', label: 'Campaign Management',   icon: ico.campaign  },
-      { id: 'moments-builder',     label: 'Moments Builder',       icon: ico.builder   },
       { id: 'media-planner-v2',    label: 'Media Planner',         icon: ico.showcase  },
+      { id: 'campaign-management', label: 'Campaign Management',   icon: ico.campaign, dividerBefore: true },
+      { id: 'moments-builder',     label: 'Moments Builder',       icon: ico.builder   },
       { id: 'creative-studio',     label: 'Creative Studio',       icon: ico.creative  }
     ]
   },
@@ -112,7 +112,8 @@ function buildNav() {
   document.getElementById('nav').innerHTML = NAV_CONFIG.map(function(sec) {
     var items = sec.items.map(function(item) {
       var act = item.id === activeId;
-      return '<div class="nitem' + (act ? ' act' : '') + '" data-page="' + item.id + '" data-label="' + item.label + '">'
+      var div = item.dividerBefore ? '<div style="height:1px;background:var(--border);margin:4px 12px"></div>' : '';
+      return div + '<div class="nitem' + (act ? ' act' : '') + '" data-page="' + item.id + '" data-label="' + item.label + '">'
         + (act ? '<div class="nbar"></div>' : '')
         + '<div class="nico">' + item.icon + '</div>'
         + '<span class="nlabel">' + item.label + '</span>'
