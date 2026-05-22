@@ -1,23 +1,38 @@
-// icons.js — SVG icon definitions
+// icons.js — Lucide icon definitions (viewBox 0 0 24 24, displayed at 16×16)
+
+var _li = 'width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
 
 var ico = {
-  overview:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/><rect x="8.5" y="2" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/></svg>',
-  roadmap:   '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="7" y="6.5" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="4" y="10" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M6 5.5L8 6.5M8.5 9.5L7 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
-  capacity:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="5" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4" opacity=".7"/><circle cx="11" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4" opacity=".4"/><path d="M1 14c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".7"/><path d="M11 10c1.7.4 3 1.9 3 3.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".4"/></svg>',
-  sdtform:   '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
-  taxonomy:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="3" r="1.5" stroke="currentColor" stroke-width="1.3"/><circle cx="3.5" cy="11" r="1.5" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="11" r="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 4.5v2.5M8 7l-4.5 3M8 7l4.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
-  showcase:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 12.5v1M10.5 12.5v1M3.5 13.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M4.5 7.5h7M4.5 5.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>',
-  metadata:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>',
-  sprint:    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="9" width="2.5" height="5" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="6.5" y="6" width="2.5" height="8" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="11" y="3" width="2.5" height="11" rx=".6" stroke="currentColor" stroke-width="1.3"/><path d="M2 6.5l3-3 3.5 2L14 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  api:       '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 5.5L2 8l3 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 5.5L14 8l-3 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.5 3.5l-3 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
-  ads:       '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 6.5h1.5l4-3v9l-4-3H2V6.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.5 7c.7.3 1.2.9 1.2 1.5S10.2 9.7 9.5 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11.5 5.5c1.4.7 2.3 1.8 2.3 3s-.9 2.2-2.3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M5.5 12.5l.5-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
-  kervone:   '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l5 2.5v2L8 9 3 6.5v-2L8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3 8.5l5 2.5 5-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11l5 2.5 5-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  shared:    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="11" width="12" height="3" rx=".8" stroke="currentColor" stroke-width="1.3"/><rect x="3.5" y="6.5" width="9" height="3" rx=".8" stroke="currentColor" stroke-width="1.3"/><rect x="5.5" y="2" width="5" height="3" rx=".8" stroke="currentColor" stroke-width="1.3"/></svg>',
-  reporting: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 13V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 13V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 13V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M1 13h14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
-  ideas:     '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 0 1 2.2 7.3c-.2.2-.2.3-.2.5V11H6v-1.2c0-.2-.1-.3-.2-.5A4 4 0 0 1 8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6.5 13h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M7 14.5h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
-  search:    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
-  campaign:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>',
-  builder:   '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="8.5" width="12" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="3.5" y="4.5" width="9" height="3.5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="5.5" y="2" width="5" height="2" rx=".8" stroke="currentColor" stroke-width="1.3"/></svg>',
-  creative:  '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10.5 2.5l3 3-7 7-3.5.5.5-3.5 7-7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 4l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
-  dsp:       '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="6" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="6" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M6 8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 4V2M8 14v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+  // ── Navigation ──────────────────────────────────────────────────────────────
+  overview:  '<svg ' + _li + '><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
+
+  // Inventory Management
+  metadata:  '<svg ' + _li + '><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>',
+  search:    '<svg ' + _li + '><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+
+  // Plan and Activate
+  campaign:  '<svg ' + _li + '><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  builder:   '<svg ' + _li + '><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>',
+  showcase:  '<svg ' + _li + '><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>',
+  creative:  '<svg ' + _li + '><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>',
+
+  // Reporting
+  reporting: '<svg ' + _li + '><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>',
+
+  // Integration
+  dsp:       '<svg ' + _li + '><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>',
+  api:       '<svg ' + _li + '><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>',
+
+  // ── WIP / Settings items ─────────────────────────────────────────────────────
+  sdtform:   '<svg ' + _li + '><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/></svg>',
+  taxonomy:  '<svg ' + _li + '><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
+
+  // ── Misc (kept for backwards compat) ─────────────────────────────────────────
+  sprint:    '<svg ' + _li + '><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>',
+  roadmap:   '<svg ' + _li + '><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></svg>',
+  capacity:  '<svg ' + _li + '><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  ads:       '<svg ' + _li + '><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+  kervone:   '<svg ' + _li + '><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>',
+  shared:    '<svg ' + _li + '><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>',
+  ideas:     '<svg ' + _li + '><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>'
 };
