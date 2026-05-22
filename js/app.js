@@ -18,21 +18,13 @@ function kervDriverColor(name) {
 var activeId  = 'metadata-analysis';
 var collapsed = false;
 
-// ── Nav config — only Live Prototypes & Work in Progress ──
+// ── Nav config — Live Prototypes only (WIP moved to topbar launcher) ──
 var NAV_CONFIG = [
   {
     section: 'Live Prototypes',
     items: [
       { id: 'metadata-analysis', label: 'Metadata Analysis',  icon: ico.metadata },
       { id: 'media-planner-v2',  label: 'Media Planner (v2)', icon: ico.showcase }
-    ]
-  },
-  {
-    section: 'Work in Progress',
-    items: [
-      { id: 'sdt-content-form',  label: 'New Content Upload', icon: ico.sdtform },
-      { id: 'taxonomy-showcase', label: 'Taxonomy Explorer',  icon: ico.taxonomy },
-      { id: 'media-planner',     label: 'Media Planner (v1)', icon: ico.showcase }
     ]
   }
 ];
@@ -124,6 +116,45 @@ document.addEventListener('click', function(e) {
   if (ni) { setPage(ni.dataset.page, ni.dataset.label); return; }
 });
 
+// ── Topbar dropdowns ──
+
+function toggleWipMenu(e) {
+  e.stopPropagation();
+  var wip = document.getElementById('wipMenu');
+  var settings = document.getElementById('settingsMenu');
+  var btn = document.getElementById('wipBtn');
+  var wasOpen = wip.classList.contains('open');
+  settings.classList.remove('open');
+  document.getElementById('settingsBtn').classList.remove('active');
+  wip.classList.toggle('open', !wasOpen);
+  btn.classList.toggle('active', !wasOpen);
+}
+
+function toggleSettingsMenu(e) {
+  e.stopPropagation();
+  var wip = document.getElementById('wipMenu');
+  var settings = document.getElementById('settingsMenu');
+  var btn = document.getElementById('settingsBtn');
+  var wasOpen = settings.classList.contains('open');
+  wip.classList.remove('open');
+  document.getElementById('wipBtn').classList.remove('active');
+  settings.classList.toggle('open', !wasOpen);
+  btn.classList.toggle('active', !wasOpen);
+}
+
+function closeMenus() {
+  document.getElementById('wipMenu').classList.remove('open');
+  document.getElementById('settingsMenu').classList.remove('open');
+  document.getElementById('wipBtn').classList.remove('active');
+  document.getElementById('settingsBtn').classList.remove('active');
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#wip-wrap') && !e.target.closest('#settings-wrap')) {
+    closeMenus();
+  }
+});
+
 // ── Sidebar toggle ──
 
 function toggleSb() {
@@ -169,6 +200,11 @@ document.getElementById('logoutBtn').addEventListener('click', logout);
 document.getElementById('tog').addEventListener('click', toggleSb);
 document.getElementById('pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') login(); });
 document.getElementById('em').addEventListener('keydown', function(e) { if (e.key === 'Enter') login(); });
+
+// Inject WIP icons (ico.* available after icons.js loads)
+document.getElementById('wip-ico-0').innerHTML = ico.sdtform;
+document.getElementById('wip-ico-1').innerHTML = ico.taxonomy;
+document.getElementById('wip-ico-2').innerHTML = ico.showcase;
 
 // Auto-login
 document.getElementById('em').value = 'bruna';
