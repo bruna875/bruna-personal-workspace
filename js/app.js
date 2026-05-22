@@ -195,8 +195,7 @@ function orgTypeBadge(type) {
 function buildOrgDd() {
   document.getElementById('orgDd').innerHTML = APP_ORGS.map(function(o) {
     return '<div class="tb-select-item' + (o.id === selectedOrgId ? ' sel' : '') + '" onclick="selectOrg(\'' + o.id + '\')">'
-      + '<span class="tb-select-item-name">' + o.name + '</span>'
-      + orgTypeBadge(o.type)
+      + '<span class="tb-select-item-name">' + o.name + ' <span style="color:var(--faint);font-weight:400">(' + o.type + ')</span></span>'
       + '</div>';
   }).join('');
 }
@@ -205,8 +204,7 @@ function buildAdvDd() {
   document.getElementById('advDd').innerHTML = APP_ADVERTISERS.map(function(a) {
     var org = APP_ORGS.find(function(o){ return o.id === a.org; });
     return '<div class="tb-select-item' + (a.id === selectedAdvId ? ' sel' : '') + '" onclick="selectAdv(\'' + a.id + '\')">'
-      + '<span class="tb-select-item-name">' + a.name + '</span>'
-      + (org ? '<span style="font-size:11px;color:var(--muted)">' + org.name + '</span>' : '')
+      + '<span class="tb-select-item-name">' + a.name + (org ? ' <span style="color:var(--faint);font-weight:400">(' + org.name + ')</span>' : '') + '</span>'
       + '</div>';
   }).join('');
 }
