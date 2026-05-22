@@ -57,7 +57,7 @@ var NAV_CONFIG = [
     ]
   },
   {
-    section: 'Inventory Management',
+    section: 'Manage Inventory',
     sectionBadge: 'Publisher',
     items: [
       { id: 'content-library',       label: 'VoD Analysis',                 icon: ico.tv     },
@@ -76,7 +76,7 @@ var NAV_CONFIG = [
     ]
   },
   {
-    section: 'Reporting and Measure',
+    section: 'Measure and Optimize',
     items: [
       { id: 'measurement',         label: 'Measurement',           icon: ico.reporting }
     ]
