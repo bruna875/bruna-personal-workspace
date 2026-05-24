@@ -1296,6 +1296,9 @@ function cmDraftClientPick(name) {
   var btn   = document.getElementById('cm-draft-client-btn');
   if (panel) panel.style.display = 'none';
   if (btn) btn.style.borderColor = 'var(--border-md)';
+  // Refresh creatives panel if open
+  var p1 = document.getElementById('cm-draft-panel-1');
+  if (p1 && p1.style.display !== 'none') cmLoadCreativesPanel();
 }
 
 function _cmGeoTriggerText() {
@@ -1398,6 +1401,9 @@ function cmDraftAdvPick(name) {
   var btn   = document.getElementById('cm-draft-adv-btn');
   if (panel) panel.style.display = 'none';
   if (btn) btn.style.borderColor = 'var(--border-md)';
+  // Refresh creatives panel if open
+  var p1 = document.getElementById('cm-draft-panel-1');
+  if (p1 && p1.style.display !== 'none') cmLoadCreativesPanel();
 }
 
 // ── Flight dates — full calendar picker (same component as Media Planner) ─────
@@ -1778,6 +1784,83 @@ function _cmAddlUpdateLbl(id, text) {
   if (el) { el.textContent = text; el.style.color = (text==='Any'||!text) ? 'var(--faint)' : ''; }
 }
 
+// ── Creatives panel (panel 1) ─────────────────────────────────────────────────
+function _cmCreativesPanelHtml() {
+  return '<div style="border-top:1px solid var(--border);background:var(--surface)">'
+    + '<div id="cm-creatives-panel-wrap" style="min-height:100px;display:flex;align-items:center;justify-content:center">'
+    +   '<span style="font-size:12px;color:var(--faint)">Loading…</span>'
+    + '</div>'
+    + '</div>';
+}
+
+function cmLoadCreativesPanel() {
+  var wrap = document.getElementById('cm-creatives-panel-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<span style="font-size:12px;color:var(--faint)">Loading…</span>';
+
+  fetch('/api/creatives')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var w = document.getElementById('cm-creatives-panel-wrap');
+      if (!w) return;
+      var all = data.creatives || [];
+
+      // Filter by active client and advertiser selections
+      var filtered = all.filter(function(cr) {
+        var clientOk = !_cmDraftClient || cr.client === _cmDraftClient;
+        var advOk    = !_cmDraftAdv   || cr.advertiser === _cmDraftAdv;
+        return clientOk && advOk;
+      });
+
+      // Filter badge
+      var badge = '';
+      if (_cmDraftClient || _cmDraftAdv) {
+        var parts = [];
+        if (_cmDraftClient) parts.push(_cmDraftClient);
+        if (_cmDraftAdv)    parts.push(_cmDraftAdv);
+        badge = '<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">'
+          + '<span style="font-size:11px;color:var(--faint)">Filtered by:</span>'
+          + parts.map(function(p) {
+              return '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--subtle);color:var(--text);border:1px solid var(--border)">' + p + '</span>';
+            }).join('')
+          + '<span style="font-size:11px;color:var(--faint);margin-left:auto">' + filtered.length + ' creative' + (filtered.length !== 1 ? 's' : '') + '</span>'
+          + '</div>';
+      }
+
+      if (!filtered.length) {
+        w.innerHTML = badge + '<div style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No creatives found for the selected client / advertiser.</div>';
+        return;
+      }
+
+      var cols = [
+        { label: '',            width: '60px'  },
+        { label: 'Creative'                    },
+        { label: 'Advertiser',  width: '130px' },
+        { label: 'Type',        width: '70px'  },
+        { label: 'Date',        width: '110px' },
+      ];
+
+      var rows = filtered.map(function(cr) {
+        var thumb = cr.thumb
+          ? '<div style="width:48px;height:28px;border-radius:4px;overflow:hidden;background:#e5e7eb;flex-shrink:0"><img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block"></div>'
+          : '<div style="width:48px;height:28px;border-radius:4px;background:#e5e7eb"></div>';
+        return UI.tr([
+          thumb,
+          '<span style="font-size:12px;font-weight:500;color:var(--text)">' + (cr.name || '—') + '</span>',
+          '<span style="font-size:12px;color:var(--muted)">' + (cr.advertiser || '—') + '</span>',
+          '<span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--subtle);color:var(--muted)">' + (cr.fileType || '—') + '</span>',
+          '<span style="font-size:11px;color:var(--faint)">' + (cr.date || '—') + '</span>',
+        ]);
+      }).join('');
+
+      w.innerHTML = badge + UI.tableScroll(cols, rows, 'cm-creatives-panel-tbody', 0, null, { inCard: false });
+    })
+    .catch(function() {
+      var w = document.getElementById('cm-creatives-panel-wrap');
+      if (w) w.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">Could not load creatives.</div>';
+    });
+}
+
 // ── Draft detail ──────────────────────────────────────────────────────────────
 function _cmDraftToggle(idx) {
   var total = 5;
@@ -1790,6 +1873,11 @@ function _cmDraftToggle(idx) {
     p.style.display = opening ? 'block' : 'none';
     if (ch) ch.style.transform = opening ? 'rotate(180deg)' : '';
     if (hd) hd.style.background = opening ? 'var(--hover)' : '';
+  }
+  // Lazy-load creatives when panel 1 opens
+  if (idx === 1) {
+    var p1 = document.getElementById('cm-draft-panel-1');
+    if (p1 && p1.style.display !== 'none') cmLoadCreativesPanel();
   }
 }
 
@@ -1971,10 +2059,8 @@ function _cmSetupChecklist(c) {
     // 0 — Campaign Details
     detailsForm,
 
-    // 1 — Creatives
-    '<div style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">'
-      + '<div id="cm-draft-creatives">' + _cmDraftCreativesInnerHtml() + '</div>'
-    + '</div>',
+    // 1 — Creatives (filtered by client + advertiser from Campaign Details)
+    _cmCreativesPanelHtml(),
 
     // 2 — Media Plan / Moments
     '<div id="cm-moments-panel">' + _cmMomentsInnerHtml() + '</div>',
