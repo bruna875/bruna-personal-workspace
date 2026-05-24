@@ -1793,6 +1793,61 @@ function _cmDraftToggle(idx) {
   }
 }
 
+// ── Save campaign details to DB ───────────────────────────────────────────────
+function cmSaveCampaignDetails(dbId) {
+  var btn = document.getElementById('cm-draft-save-btn');
+  if (!dbId) {
+    if (btn) { btn.textContent = 'No DB ID — cannot save'; setTimeout(function(){ btn.textContent = 'Save Changes'; }, 2500); }
+    return;
+  }
+  var nameEl = document.getElementById('cm-draft-name');
+  var payload = {
+    id:             dbId,
+    campaign_name:  nameEl ? nameEl.value.trim() : '',
+    client_name:    _cmDraftClient  || '',
+    advertiser_name: _cmDraftAdv   || '',
+  };
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  fetch('/api/campaigns-update', {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (btn) {
+      if (data.ok) {
+        btn.textContent = 'Saved ✓';
+        btn.style.background = '#16a34a';
+        // Refresh the in-memory campaign so the table reflects the change
+        CM_CAMPAIGNS = CM_CAMPAIGNS.map(function(c) {
+          if (c.dbId !== dbId) return c;
+          return Object.assign({}, c, {
+            name:       payload.campaign_name || c.name,
+            client:     payload.client_name   || c.client,
+            advertiser: payload.advertiser_name || c.advertiser,
+          });
+        });
+      } else {
+        btn.textContent = 'Error: ' + (data.error || 'unknown');
+        btn.style.background = '#dc2626';
+      }
+      setTimeout(function() {
+        btn.textContent = 'Save Changes';
+        btn.style.background = '';
+        btn.disabled = false;
+      }, 2500);
+    }
+  })
+  .catch(function(e) {
+    if (btn) {
+      btn.textContent = 'Network error';
+      btn.style.background = '#dc2626';
+      setTimeout(function(){ btn.textContent = 'Save Changes'; btn.style.background = ''; btn.disabled = false; }, 2500);
+    }
+  });
+}
+
 // ── Shared setup checklist — used by both draft and pacing detail views ────────
 function _cmSetupChecklist(c) {
   // Initialise shared form state from campaign data
@@ -1846,63 +1901,67 @@ function _cmSetupChecklist(c) {
   var LB = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
   var detailsForm =
     '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">'
-    + '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:16px">'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Client</label>' + clientTrigger + '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Campaign Name</label>' + UI.input('cm-draft-name','text','Campaign name',c.name) + '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
-    +   '<div style="grid-column:span 1"><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
-    +   '<div style="grid-column:span 2"><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
-    +   '<div style="grid-column:span 12;display:flex;align-items:center;gap:12px;margin:4px 0">'
-    +     '<div style="flex:1;height:1px;background:var(--border)"></div>'
-    +     '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);white-space:nowrap">Additional Details</span>'
-    +     '<div style="flex:1;height:1px;background:var(--border)"></div>'
-    +   '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Budget</label>'
+    // ── Row 1: 5 equal-width fields ──
+    + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:16px">'
+    +   '<div><label style="' + LB + '">Client</label>' + clientTrigger + '</div>'
+    +   '<div><label style="' + LB + '">Campaign Name</label>' + UI.input('cm-draft-name','text','Campaign name',c.name) + '</div>'
+    +   '<div><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
+    +   '<div><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
+    +   '<div><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
+    + '</div>'
+    // ── Divider ──
+    + '<div style="display:flex;align-items:center;gap:12px;margin:4px 0 16px">'
+    +   '<div style="flex:1;height:1px;background:var(--border)"></div>'
+    +   '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);white-space:nowrap">Additional Details</span>'
+    +   '<div style="flex:1;height:1px;background:var(--border)"></div>'
+    + '</div>'
+    // ── Additional Details: 3 per row ──
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">'
+    +   '<div><label style="' + LB + '">Budget</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-budget-dd\',_cmBudgetContent,this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-budget-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Impr. / day</label>'
+    +   '<div><label style="' + LB + '">Impr. / day</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-impr-dd\',_cmImprContent,this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-impr-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Pref. Channels</label>'
+    +   '<div><label style="' + LB + '">Pref. Channels</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-channels-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-channels-dd\',[\'CTV\',\'OLV\',\'Display\',\'Social\',\'Audio\'],\'channels\',true)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-channels-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Type</label>'
+    +   '<div><label style="' + LB + '">Type</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-type-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-type-dd\',[\'All\',\'VoD\',\'Livestream\',\'Organic Pause\'],\'type\',false)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-type-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Brand Safety</label>'
+    +   '<div><label style="' + LB + '">Brand Safety</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-safety-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-safety-dd\',[\'No Restrictions\',\'Alcohol\',\'Violence\',\'Gambling\',\'Drugs\',\'Adult Content\',\'Weapons\',\'Political\'],\'safety\',false)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-safety-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="grid-column:span 3"><label style="' + LB + '">Match Score</label>'
+    +   '<div><label style="' + LB + '">Match Score</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-match-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-match-dd\',[\'All\',\'High\',\'Standard\'],\'matchScore\',false)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-match-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="grid-column:span 3"></div>'
     + '</div>'
     + '<div style="margin-top:18px">'
-    +   '<button style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
+    +   '<button id="cm-draft-save-btn" onclick="cmSaveCampaignDetails(' + (c.dbId || 'null') + ')" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
     + '</div>'
     + '</div>';
 
