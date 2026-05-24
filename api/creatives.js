@@ -34,6 +34,7 @@ export default async function handler(req, res) {
         cr.creative_asset_s3,
         cr.creative_asset_link,
         cr.creative_asset_type,
+        cr.creative_name,
         cr.template_ids,
         cr.created_at,
         o.client_name,
@@ -49,9 +50,9 @@ export default async function handler(req, res) {
     const creatives = rows.map(r => ({
       id:          'dbcr' + r.creative_id,
       dbId:        r.creative_id,
-      name:        r.creative_asset_link
-                     ? r.creative_asset_link.split('/').pop().split('?')[0]
-                     : 'Creative #' + r.creative_id,
+      name:        r.creative_name
+                     || (r.creative_asset_link ? r.creative_asset_link.split('/').pop().split('?')[0] : '')
+                     || ('Creative #' + r.creative_id),
       client:      r.client_name    || '—',
       advertiser:  r.advertiser_name || '—',
       campaign:    r.campaign_name   || null,

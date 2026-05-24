@@ -611,7 +611,16 @@ function csEditorRenameAsset() {
   input.focus(); input.select();
   function save() {
     var newName = input.value.trim() || current;
-    if (csEditorAssets[csBuildSelectedAsset]) csEditorAssets[csBuildSelectedAsset].name = newName;
+    var asset = csEditorAssets[csBuildSelectedAsset];
+    if (asset) asset.name = newName;
+    // Save to DB if this is a DB creative (has dbId)
+    if (asset && asset.dbId) {
+      fetch('/api/creatives-update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: asset.dbId, name: newName })
+      }).catch(function(e) { console.warn('Failed to save creative name:', e.message); });
+    }
     var overlay = document.getElementById('cs-editor-overlay');
     if (overlay) overlay.innerHTML = _csEditorHtml();
   }
