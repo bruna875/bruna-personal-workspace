@@ -1239,9 +1239,64 @@ var CM_GEO_OPTIONS = [
 ];
 
 // Shared state for the draft form currently open
+var _cmDraftClient = '';
 var _cmDraftGeo   = [];
 var _cmDraftAdv   = '';
 var _cmDraftFlight = { start:'', end:'' };
+
+// ── Client picker ─────────────────────────────────────────────────────────────
+function cmDraftClientToggle(e) {
+  if (e) e.stopPropagation();
+  var panel = document.getElementById('cm-draft-client-panel');
+  var btn   = document.getElementById('cm-draft-client-btn');
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  if (open) { panel.style.display = 'none'; if (btn) btn.style.borderColor = 'var(--border-md)'; return; }
+  _cmBuildClientList('');
+  var rect = btn.getBoundingClientRect();
+  panel.style.cssText = 'display:block;position:fixed;z-index:9999;width:' + Math.max(rect.width,220) + 'px;left:' + rect.left + 'px;top:' + (rect.bottom+4) + 'px;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);overflow:hidden';
+  if (btn) btn.style.borderColor = 'var(--accent)';
+  setTimeout(function() {
+    var si = document.getElementById('cm-draft-client-search');
+    if (si) si.focus();
+    document.addEventListener('click', function _h(ev) {
+      var p = document.getElementById('cm-draft-client-panel');
+      var b = document.getElementById('cm-draft-client-btn');
+      if (p && !p.contains(ev.target) && b && !b.contains(ev.target)) {
+        p.style.display = 'none'; if (b) b.style.borderColor = 'var(--border-md)';
+        document.removeEventListener('click', _h);
+      }
+    });
+  }, 0);
+}
+
+function _cmBuildClientList(q) {
+  var list = document.getElementById('cm-draft-client-list');
+  if (!list) return;
+  q = (q||'').toLowerCase();
+  var orgs = (typeof APP_ORGS !== 'undefined' ? APP_ORGS : []);
+  list.innerHTML = orgs.filter(function(o){ return !q || o.name.toLowerCase().indexOf(q) >= 0; }).map(function(o) {
+    var sel = _cmDraftClient === o.name;
+    return '<div onclick="cmDraftClientPick(\'' + o.name.replace(/'/g,"\\'") + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (sel?'600':'400') + '" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+      + '<div>'
+      +   '<span style="color:var(--text)">' + o.name + '</span>'
+      +   (o.type ? '<span style="font-size:10px;color:var(--faint);margin-left:6px">' + o.type + '</span>' : '')
+      + '</div>'
+      + (sel ? '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '')
+      + '</div>';
+  }).join('') || '<div style="padding:10px;text-align:center;font-size:11px;color:var(--faint)">No results</div>';
+}
+
+function cmDraftClientPick(name) {
+  _cmDraftClient = name;
+  _cmBuildClientList(document.getElementById('cm-draft-client-search') ? document.getElementById('cm-draft-client-search').value : '');
+  var lbl = document.getElementById('cm-draft-client-lbl');
+  if (lbl) { lbl.textContent = name; lbl.style.color = ''; }
+  var panel = document.getElementById('cm-draft-client-panel');
+  var btn   = document.getElementById('cm-draft-client-btn');
+  if (panel) panel.style.display = 'none';
+  if (btn) btn.style.borderColor = 'var(--border-md)';
+}
 
 function _cmGeoTriggerText() {
   return _cmDraftGeo.length ? _cmDraftGeo.join(', ') : '';
@@ -1741,6 +1796,7 @@ function _cmDraftToggle(idx) {
 // ── Shared setup checklist — used by both draft and pacing detail views ────────
 function _cmSetupChecklist(c) {
   // Initialise shared form state from campaign data
+  _cmDraftClient       = c.client || '';
   _cmDraftGeo          = (c.geography || []).slice();
   _cmDraftAdv          = c.advertiser || '';
   _cmDraftFlight.start = c.start || '';
@@ -1776,15 +1832,27 @@ function _cmSetupChecklist(c) {
     + '<span id="cm-draft-flight-lbl">' + flightLabel + '</span>'
     + '</button>';
 
+  var clientTrigger =
+    '<div style="position:relative">'
+    + '<button type="button" id="cm-draft-client-btn" onclick="cmDraftClientToggle(event)" style="' + _CS_TRIG + '">'
+    +   '<span id="cm-draft-client-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (_cmDraftClient ? '' : 'color:var(--faint)') + '">' + (_cmDraftClient || 'Select client…') + '</span>'
+    +   _CS_ARW
+    + '</button>'
+    + '<div id="cm-draft-client-panel" style="display:none">'
+    +   _cmSearchablePanel('cm-draft-client-search','cm-draft-client-list','_cmBuildClientList')
+    + '</div>'
+    + '</div>';
+
   var LB = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
   var detailsForm =
     '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">'
-    + '<div style="display:grid;grid-template-columns:repeat(9,1fr);gap:16px">'
+    + '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:16px">'
+    +   '<div style="grid-column:span 3"><label style="' + LB + '">Client</label>' + clientTrigger + '</div>'
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Campaign Name</label>' + UI.input('cm-draft-name','text','Campaign name',c.name) + '</div>'
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
     +   '<div style="grid-column:span 1"><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
     +   '<div style="grid-column:span 2"><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
-    +   '<div style="grid-column:span 9;display:flex;align-items:center;gap:12px;margin:4px 0">'
+    +   '<div style="grid-column:span 12;display:flex;align-items:center;gap:12px;margin:4px 0">'
     +     '<div style="flex:1;height:1px;background:var(--border)"></div>'
     +     '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);white-space:nowrap">Additional Details</span>'
     +     '<div style="flex:1;height:1px;background:var(--border)"></div>'
@@ -1831,6 +1899,7 @@ function _cmSetupChecklist(c) {
     +       '</button>'
     +     '</div>'
     +   '</div>'
+    +   '<div style="grid-column:span 3"></div>'
     + '</div>'
     + '<div style="margin-top:18px">'
     +   '<button style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
