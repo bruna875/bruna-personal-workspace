@@ -699,7 +699,7 @@ var mp2LibrarySelected  = null;     // selected CS_LIBRARY item (first selected,
 var mp2LibrarySelectedItems = [];   // all selected CS_LIBRARY items
 
 function mp2RefreshStep1() {
-  var el = document.getElementById('mp2-step2');
+  var el = document.getElementById('mp2-step1');
   if (el) el.innerHTML = _mp2Step1Html();
 }
 
@@ -794,7 +794,7 @@ function _mp2Step1Html() {
 }
 
 function _mp2StepHdrHtml() {
-  var steps = [{n:1,label:'Add Asset'},{n:2,label:'Add Campaign'},{n:3,label:'Add Campaign Details'}];
+  var steps = [{n:1,label:'Add Campaign'},{n:2,label:'Add Campaign Details'},{n:3,label:'Add Asset'}];
   var html = '<div style="display:flex;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border)">';
   steps.forEach(function(s, i) {
     var done   = mp2NewPlanStep > s.n;
@@ -823,7 +823,7 @@ function _mp2StepNavHtml() {
     ? '<button onclick="mp2StepNav(-1)" style="' + BACK + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'
     : '<div></div>';
   var right = '';
-  if (mp2NewPlanStep >= 2 && !(mp2NewPlanStep === 2 && mp2LibrarySelected)) right += '<button type="button" onclick="mp2StepNav(1)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
+  if (mp2NewPlanStep >= 2) right += '<button type="button" onclick="mp2StepNav(1)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
   right += mp2NewPlanStep < 3
     ? '<button onclick="mp2StepNav(1)" style="' + NEXT + '">Next<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>'
     : '<button onclick="mp2Analyze()" style="' + NEXT + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>Start Analysis</button>';
@@ -841,9 +841,9 @@ function mp2StepNav(dir) {
   });
   var nav = document.getElementById('mp2-step-nav');
   if (nav) nav.innerHTML = _mp2StepNavHtml();
-  if (mp2NewPlanStep === 1) setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
-  if (mp2NewPlanStep === 2) { var s2 = document.getElementById('mp2-step2'); if (s2) s2.innerHTML = _mp2Step1Html(); }
-  if (mp2NewPlanStep === 3) mp2BuildNewPlanAIPanel();
+  if (mp2NewPlanStep === 1) { var s1 = document.getElementById('mp2-step1'); if (s1) s1.innerHTML = _mp2Step1Html(); }
+  if (mp2NewPlanStep === 2) mp2BuildNewPlanAIPanel();
+  if (mp2NewPlanStep === 3) setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
 }
 
 var _mp2GeoSelected = new Set();
@@ -916,6 +916,7 @@ function mp2BuildNewPlanAIPanel() {
     + '<div style="width:100%">'
 
     + '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 2 — Add Campaign Details</div>'
+
     + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px;text-align:left">'
     +   'The budget for my media plan is ' + aiTriggerHtml('budget')
     +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions per day. '
@@ -1181,8 +1182,14 @@ function mp2ShowUpload() {
     // Step content area
     +     '<div style="padding:16px 20px;flex:1">'
 
-    // Step 1 — Add Asset
-    +       '<div id="mp2-step1">'
+    // Step 1 — Add Campaign
+    +       '<div id="mp2-step1">' + _mp2Step1Html() + '</div>'
+
+    // Step 2 — Add Campaign Details
+    +       '<div id="mp2-step2" style="display:none"><div id="mp2-new-plan-ai-panel"></div></div>'
+
+    // Step 3 — Add Asset
+    +       '<div id="mp2-step3" style="display:none">'
     +         '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:10px">'
     +           '<div class="tx2-seg tx2-seg--act" id="tx2-opt-video" onclick="mp2SelectInput(\'video\')">'
     +             '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
@@ -1216,12 +1223,6 @@ function mp2ShowUpload() {
     +           '</div>'
     +         '</div>'
     +       '</div>'
-
-    // Step 2 — Add Campaign
-    +       '<div id="mp2-step2" style="display:none">' + _mp2Step1Html() + '</div>'
-
-    // Step 3 — Add Campaign Details
-    +       '<div id="mp2-step3" style="display:none"><div id="mp2-new-plan-ai-panel"></div></div>'
 
     +     '</div>'
     // Stepper nav footer
