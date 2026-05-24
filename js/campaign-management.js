@@ -1145,90 +1145,69 @@ function cmOpenDetail(id, noPush) {
 function _cmPacingDetail(c) {
   var pacingColor = c.status === 'underpacing' ? '#f59e0b' : c.status === 'failed' ? '#ef4444' : '#16a34a';
 
-  // KPI cards
+  // Pull live pacing data from mock API (keyed by DB campaign ID)
+  var pdata = c.dbId ? CM_PACING[c.dbId] : null;
+  var delivered = pdata ? pdata.delivered : (c.impressions || '—');
+  var spent     = pdata ? pdata.spent     : (c.spent || '—');
+  var pacingPct = (pdata && pdata.pacing != null) ? pdata.pacing : c.pacing;
+
+  // Days remaining: calculate from c.end if parseable, else mock
+  var daysLeft = '—';
+  try {
+    var endDate = new Date(c.end);
+    if (!isNaN(endDate)) {
+      var diff = Math.ceil((endDate - Date.now()) / 86400000);
+      daysLeft = diff > 0 ? diff : 0;
+    }
+  } catch(e) {}
+
+  // KPI card helper — no individual border (they live inside the outer card)
   function kpi(label, value, sub, accent) {
-    return '<div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px">'
+    return '<div style="flex:1;padding:20px;border-right:1px solid var(--border)">'
       + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:8px">' + label + '</div>'
       + '<div style="font-size:22px;font-weight:700;color:' + (accent || 'var(--text)') + ';line-height:1">' + value + '</div>'
       + (sub ? '<div style="font-size:11px;color:var(--faint);margin-top:5px">' + sub + '</div>' : '')
       + '</div>';
   }
 
-  var daysLeft = 28; // mock
-  var kpis = '<div style="display:flex;gap:12px;margin-bottom:20px">'
-    + kpi('Impressions', c.impressions, 'Goal: ' + c.goal)
-    + kpi('Budget Spent', c.spent, 'of ' + c.budget)
-    + kpi('Pacing', c.pacing + '%', 'vs expected', pacingColor)
-    + kpi('Days Remaining', daysLeft, c.start + ' → ' + c.end)
-    + '</div>';
+  // Expected pacing % = how far through the flight we are (mock: 65%)
+  var expectedPct = 65;
+  var pacingLabel = (pacingPct != null) ? pacingPct + '%' : '—';
 
-  // Pacing timeline bar
-  var timeline = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">'
-    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-    +   '<span style="font-size:12px;font-weight:600;color:var(--text)">Delivery Progress</span>'
+  // Single card wrapping scorecards + delivery progress
+  var perfCard =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">'
+    // ── Header ──
+    + '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
+    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">Performance</span>'
     +   cmStatusChip(c.status)
     + '</div>'
-    + '<div style="position:relative;height:10px;border-radius:99px;background:var(--border);margin-bottom:8px">'
-    +   '<div style="position:absolute;left:0;top:0;height:100%;width:' + c.pacing + '%;background:' + pacingColor + ';border-radius:99px;transition:width .4s"></div>'
-    +   '<div style="position:absolute;left:65%;top:-4px;width:2px;height:18px;background:var(--muted);border-radius:2px"></div>'
+    // ── KPI row ──
+    + '<div style="display:flex;border-bottom:1px solid var(--border)">'
+    +   kpi('Impressions Delivered', delivered, 'Goal: ' + (c.goal || '—'))
+    +   kpi('Budget Spent', spent, 'of ' + (c.budget || '—'))
+    +   kpi('Pacing', pacingLabel, 'Expected: ' + expectedPct + '%', pacingColor)
+    +   '<div style="flex:1;padding:20px">'
+    +     '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:8px">Days Remaining</div>'
+    +     '<div style="font-size:22px;font-weight:700;color:var(--text);line-height:1">' + daysLeft + '</div>'
+    +     '<div style="font-size:11px;color:var(--faint);margin-top:5px">' + (c.start || '—') + ' → ' + (c.end || '—') + '</div>'
+    +   '</div>'
     + '</div>'
-    + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint)">'
-    +   '<span>' + c.start + '</span>'
-    +   '<span style="color:var(--muted);font-weight:500">Expected: 65% · Actual: ' + c.pacing + '%</span>'
-    +   '<span>' + c.end + '</span>'
+    // ── Delivery progress bar ──
+    + '<div style="padding:20px">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +     '<span style="font-size:12px;font-weight:600;color:var(--text)">Delivery Progress</span>'
+    +     '<span style="font-size:11px;color:var(--muted)">Expected: ' + expectedPct + '% · Actual: ' + pacingLabel + '</span>'
+    +   '</div>'
+    +   '<div style="position:relative;height:8px;border-radius:99px;background:var(--border)">'
+    +     '<div style="position:absolute;left:0;top:0;height:100%;width:' + (pacingPct || 0) + '%;background:' + pacingColor + ';border-radius:99px;transition:width .4s"></div>'
+    +     '<div style="position:absolute;left:' + expectedPct + '%;top:-4px;width:2px;height:16px;background:var(--muted);border-radius:2px"></div>'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:6px">'
+    +     '<span>' + (c.start || '') + '</span>'
+    +     '<span>' + (c.end || '') + '</span>'
+    +   '</div>'
     + '</div>'
-    + '</div>';
-
-  // Creatives table
-  var crRows = Array.from({length: c.creatives}, function(_, i) {
-    var impr = ['4.1M','3.8M','2.9M','1.8M','1.1M','0.5M'][i] || '—';
-    var ctr  = ['1.4%','1.2%','0.9%','1.7%','0.8%','1.1%'][i] || '—';
-    var names = ['walmart-ad.mp4','walmart-ad.jpg','summer-hero-30s.mp4','bts-banner.jpg','fresh-15s.mp4','mobile-story.mp4'];
-    return UI.tr([
-      '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div style="width:44px;height:26px;border-radius:4px;overflow:hidden;background:var(--border);flex-shrink:0"><img src="https://img.youtube.com/vi/7IQ1yoN7EsE/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover"></div>'
-        + '<span style="font-size:12px;color:var(--text)">' + (names[i]||'creative-'+i+'.mp4') + '</span>'
-      + '</div>',
-      '<span style="font-size:11px;font-weight:500;color:var(--muted)">' + (i % 3 === 1 ? 'Web' : 'CTV') + '</span>',
-      '<span style="font-size:12px;color:var(--text)">' + impr + '</span>',
-      '<span style="font-size:12px;color:var(--text)">' + ctr + '</span>',
-      UI.btnIcon('csBuilderBackPage=\'campaign-management\';setPage(\'creative-studio\',\'Creative Studio\',true);setTimeout(function(){csBuildTemplates(0)},80)',
-        'Open in Builder',
-        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'),
-    ]);
-  }).join('');
-
-  var creativesCard = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">'
-    + '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
-    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">Creatives <span style="font-size:11px;font-weight:400;color:var(--faint);margin-left:4px">' + c.creatives + '</span></span>'
-    +   '<button onclick="cmOpenAddCreativesModal()" style="height:28px;padding:0 12px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Add</button>'
-    + '</div>'
-    + UI.table(
-        [{label:'Creative'},{label:'Type',width:'80px'},{label:'Impr.',width:'90px'},{label:'CTR',width:'70px'},{label:'',width:'44px',align:'right'}],
-        crRows
-      )
-    + '</div>';
-
-  // Moments
-  var momentNames = ['Sports & Fitness','Cooking & Recipes','Home Improvement','Travel & Adventure','Family & Parenting','Tech & Gadgets','Music & Entertainment','Fashion & Beauty','Outdoor Adventures'];
-  var momRows = Array.from({length: c.moments}, function(_, i) {
-    var imp2 = ['2.1M','1.8M','1.4M','1.1M','0.9M','0.7M','0.5M'][i] || '—';
-    return UI.tr([
-      '<span style="font-size:12px;color:var(--text)">' + (momentNames[i]||'Moment '+(i+1)) + '</span>',
-      '<span style="font-size:12px;color:var(--text)">' + imp2 + '</span>',
-      UI.statusChip('on-track'),
-    ]);
-  }).join('');
-
-  var momCard = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
-    + '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
-    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">Moments <span style="font-size:11px;font-weight:400;color:var(--faint);margin-left:4px">' + c.moments + '</span></span>'
-    +   '<button style="height:28px;padding:0 12px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Add</button>'
-    + '</div>'
-    + UI.table(
-        [{label:'Moment'},{label:'Impr.',width:'90px'},{label:'Status',width:'110px'}],
-        momRows
-      )
     + '</div>';
 
   return UI.pageHeader({
@@ -1237,10 +1216,10 @@ function _cmPacingDetail(c) {
         { label: c.name }
       ],
       title: c.name,
-      subtitle: c.advertiser + ' · ' + c.geography.join(', '),
+      subtitle: (c.client ? c.client + ' · ' : '') + c.advertiser + ' · ' + c.geography.join(', '),
       titleRight: cmStatusChip(c.status),
     })
-    + kpis + timeline + creativesCard + momCard;
+    + perfCard;
 }
 
 // ── Draft detail — form helpers ───────────────────────────────────────────────
