@@ -719,94 +719,90 @@ function bmpSelectAnalysis(id) {
   if (extraEl) extraEl.innerHTML = _bmpExtraHtml();
 }
 
-// ── Moments / Media Plan panel ────────────────────────────────────────────────
+// ── Media Plan panel — DB-backed ──────────────────────────────────────────────
 function _cmMomentsInnerHtml() {
-  function radioCard(mode, title, desc) {
-    var sel = _cmMomentMode === mode;
-    return '<div onclick="cmSetMomentMode(\'' + mode + '\')" style="flex:1;border:1.5px solid ' + (sel ? 'var(--accent)' : 'var(--border-md)') + ';border-radius:10px;padding:16px;cursor:pointer;background:' + (sel ? 'var(--accent-light)' : 'var(--surface)') + ';transition:border-color .15s,background .15s">'
-      + '<div style="display:flex;align-items:flex-start;gap:10px">'
-      + (sel
-          ? '<div style="width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px"><div style="width:7px;height:7px;border-radius:50%;background:var(--accent)"></div></div>'
-          : '<div style="width:16px;height:16px;border-radius:50%;border:2px solid var(--border-md);flex-shrink:0;margin-top:1px"></div>'
-        )
-      + '<div>'
-      + '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px">' + title + '</div>'
-      + '<div style="font-size:11px;color:var(--muted);line-height:1.5">' + desc + '</div>'
-      + '</div></div></div>';
-  }
-
-  var cards = '<div style="display:flex;gap:12px">'
-    + radioCard('saved', 'Select Saved Media Plan', 'Use an existing media plan from a previous campaign.')
-    + radioCard('new',   'Build New Media Plan',    'Open the Media Planner to configure a new plan from scratch.')
-    + '</div>';
-
-  var extra = '';
-
-  if (_cmMomentMode === 'saved') {
-    var filtered = CM_SAVED_MEDIA_PLANS.filter(function(p) {
-      var q = _cmMomentsSearchQuery.toLowerCase();
-      return !q || p.name.toLowerCase().indexOf(q) >= 0 || p.advertiser.toLowerCase().indexOf(q) >= 0;
-    });
-    var rows = filtered.map(function(p) {
-      var isSel = p.id === _cmSavedPlanId;
-      return '<div onclick="cmSelectSavedPlan(\'' + p.id + '\')" '
-        + 'style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;'
-        + (isSel ? 'background:var(--accent-light);' : '')
-        + '" onmouseover="if(\'' + p.id + '\'!==\'' + (_cmSavedPlanId||'') + '\')this.style.background=\'var(--subtle)\'" onmouseout="if(\'' + p.id + '\'!==\'' + (_cmSavedPlanId||'') + '\')this.style.background=\'\'">'
-        + '<div>'
-        + '<div style="font-size:12px;font-weight:500;color:var(--text)">' + p.name + '</div>'
-        + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + p.advertiser + ' · ' + p.date + '</div>'
-        + '</div>'
-        + (isSel ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '')
-        + '</div>';
-    }).join('');
-
-    extra = '<div style="margin-top:16px">'
-      + '<div style="position:relative;margin-bottom:8px">'
-      + '<input id="cm-moments-search" type="text" placeholder="Search media plans…" oninput="cmMomentsSearch(this.value)" value="' + (_cmMomentsSearchQuery || '') + '" autocomplete="off" '
-      + 'style="width:100%;box-sizing:border-box;height:36px;padding:0 12px 0 34px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--bg);outline:none" />'
-      + '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-      + '</div>'
-      + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)">'
-      + (rows || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--faint)">No results</div>')
-      + '</div>'
-      + '</div>';
-
-  } else if (_cmMomentMode === 'new') {
-    extra = '<div style="margin-top:16px;display:flex;justify-content:flex-end">'
-      + '<button onclick="cmOpenBuildMediaPlanOverlay()" style="height:34px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">'
-      + 'Build Media Plan'
-      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
-      + '</button>'
-      + '</div>';
-  }
-
+  // Returns the shell; actual rows are injected by cmLoadMediaPlanPanel()
   return '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">'
-    + cards + extra
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
+    +   '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)" id="cm-mp-title">Media Plan</div>'
+    +   '<button onclick="cmOpenBuildMediaPlanOverlay()" style="height:30px;padding:0 14px;border:1px solid var(--border-md);border-radius:7px;background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">'
+    +     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>'
+    +     'Build New'
+    +   '</button>'
+    + '</div>'
+    + '<div id="cm-mp-body" style="font-size:12px;color:var(--faint);padding:20px 0;text-align:center">Loading…</div>'
     + '</div>';
 }
 
-function cmSetMomentMode(mode) {
-  _cmMomentMode = (mode === _cmMomentMode) ? null : mode; // toggle off if same
-  _cmMomentsSearchQuery = '';
-  _cmSavedPlanId = null;
-  var el = document.getElementById('cm-moments-panel');
-  if (el) el.innerHTML = _cmMomentsInnerHtml();
-}
+function cmLoadMediaPlanPanel() {
+  var body  = document.getElementById('cm-mp-body');
+  var title = document.getElementById('cm-mp-title');
+  if (!body) return;
 
-function cmMomentsSearch(val) {
-  _cmMomentsSearchQuery = val || '';
-  var el = document.getElementById('cm-moments-panel');
-  if (el) el.innerHTML = _cmMomentsInnerHtml();
-  // restore focus + cursor position
-  var inp = document.getElementById('cm-moments-search');
-  if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
-}
+  var dbId = _cmCurrentCampaignDbId;
+  if (!dbId) {
+    body.innerHTML = '<div style="padding:20px 0;text-align:center;font-size:12px;color:var(--faint)">No campaign selected</div>';
+    return;
+  }
 
-function cmSelectSavedPlan(id) {
-  _cmSavedPlanId = (_cmSavedPlanId === id) ? null : id;
-  var el = document.getElementById('cm-moments-panel');
-  if (el) el.innerHTML = _cmMomentsInnerHtml();
+  body.innerHTML = '<div style="padding:20px 0;text-align:center;font-size:12px;color:var(--faint)">Loading…</div>';
+
+  fetch('/api/media-plans?campaign_id=' + dbId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var rows = (data.media_plans || []);
+      if (title) title.textContent = 'Media Plan · ' + rows.length + ' moment' + (rows.length !== 1 ? 's' : '');
+
+      if (!rows.length) {
+        body.innerHTML = '<div style="padding:32px 0;text-align:center;font-size:12px;color:var(--faint)">No moments in this media plan yet</div>';
+        return;
+      }
+
+      var TH = 'padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border)';
+      var TD = 'padding:9px 12px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap';
+      var TDm = 'padding:9px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
+
+      var thead = '<thead><tr>'
+        + '<th style="' + TH + '">#</th>'
+        + '<th style="' + TH + '">Moment</th>'
+        + '<th style="' + TH + '">Category</th>'
+        + '<th style="' + TH + ';text-align:right">Est. Impressions</th>'
+        + '<th style="' + TH + ';text-align:right">Est. CPM</th>'
+        + '<th style="' + TH + ';text-align:right">Est. Value</th>'
+        + '<th style="' + TH + '">Created By</th>'
+        + '<th style="' + TH + '">Date</th>'
+        + '</tr></thead>';
+
+      var tbody = '<tbody>' + rows.map(function(r) {
+        var mom   = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+        var name  = mom.name     || r.moment_id || '—';
+        var cat   = mom.category || '—';
+        var impr  = (typeof fmtMomentImpr   === 'function') ? fmtMomentImpr(r.est_impressions)   : (r.est_impressions || '—');
+        var dv    = (typeof fmtMomentDollar === 'function') ? fmtMomentDollar(r.est_dollar_value) : (r.est_dollar_value != null ? '$' + r.est_dollar_value : '—');
+        var cpm   = r.est_cpm != null ? '$' + parseFloat(r.est_cpm).toFixed(2) : '—';
+        var date  = r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
+        var momBadge = '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:500">'
+          + '<svg width="9" height="9" viewBox="0 0 24 24" fill="var(--accent)" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+          + name + '</span>';
+        return '<tr>'
+          + '<td style="' + TDm + '">' + r.media_plan_id + '</td>'
+          + '<td style="' + TD + '">' + momBadge + '</td>'
+          + '<td style="' + TDm + '">' + cat + '</td>'
+          + '<td style="' + TD + ';text-align:right">' + impr + '</td>'
+          + '<td style="' + TDm + ';text-align:right">' + cpm + '</td>'
+          + '<td style="' + TD + ';text-align:right;font-weight:600">' + dv + '</td>'
+          + '<td style="' + TDm + '">' + (r.created_by || '—') + '</td>'
+          + '<td style="' + TDm + '">' + date + '</td>'
+          + '</tr>';
+      }).join('') + '</tbody>';
+
+      body.innerHTML = '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface)">'
+        + '<table style="width:100%;border-collapse:collapse">' + thead + tbody + '</table>'
+        + '</div>';
+    })
+    .catch(function(e) {
+      body.innerHTML = '<div style="padding:20px 0;text-align:center;font-size:12px;color:#dc2626">Error loading media plan: ' + e.message + '</div>';
+    });
 }
 
 // ── Add Creatives modal ───────────────────────────────────────────────────────
@@ -1879,6 +1875,11 @@ function _cmDraftToggle(idx) {
   if (idx === 1) {
     var p1 = document.getElementById('cm-draft-panel-1');
     if (p1 && p1.style.display !== 'none') cmLoadCreativesPanel();
+  }
+  // Lazy-load media plan when panel 2 opens
+  if (idx === 2) {
+    var p2 = document.getElementById('cm-draft-panel-2');
+    if (p2 && p2.style.display !== 'none') cmLoadMediaPlanPanel();
   }
 }
 
