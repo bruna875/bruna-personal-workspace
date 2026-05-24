@@ -55,10 +55,11 @@ export default async function handler(req, res) {
         c.created_by,
         c.created_at,
         c.client_org_id,
-        c.client_name,
+        o.client_name,
         a.advertiser_name
       FROM campaigns c
-      LEFT JOIN advertisers a ON c.advertiser_id = a.advertiser_id
+      LEFT JOIN advertisers        a ON c.advertiser_id  = a.advertiser_id
+      LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id
       ORDER BY c.campaign_id
     `;
 
