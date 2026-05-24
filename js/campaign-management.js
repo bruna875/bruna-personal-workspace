@@ -1,5 +1,23 @@
 // campaign-management.js
 
+// ── Mock Campaign Pacing API ──────────────────────────────────────────────────
+// Keyed by DB campaign_id; delivered = impressions served, spent = budget used
+var CM_PACING = {
+  1:  { delivered: '14.4M', spent: '$302K', pacing: 72  },  // Q2 Walmart Grocery
+  2:  { delivered: '10.1M', spent: '$232K', pacing: 58  },  // Back to School 2026
+  3:  { delivered: '3.1M',  spent: '$46K',  pacing: 31  },  // Summer Fresh Campaign
+  4:  { delivered: '—',     spent: '—',     pacing: null },  // Home Renovation Q3 (draft)
+  5:  { delivered: '7.6M',  spent: '$176K', pacing: 84  },  // Target Back to School
+  6:  { delivered: '1.4M',  spent: '$35K',  pacing: 18  },  // Pets & More Spring
+  7:  { delivered: '24.8M', spent: '$498K', pacing: 100 },  // Electronics Week
+  8:  { delivered: '—',     spent: '—',     pacing: null },  // Health & Wellness Q2 (no spec)
+  9:  { delivered: '—',     spent: '—',     pacing: null },  // Clean Home Summer (draft)
+  10: { delivered: '8.5M',  spent: '$181K', pacing: 90  },  // Beauty Essentials
+  11: { delivered: '2.3M',  spent: '$47K',  pacing: 27  },  // Garden & Outdoor Spring
+  12: { delivered: '20.1M', spent: '$398K', pacing: 100 },  // New Devices Launch
+  13: { delivered: '7.4M',  spent: '$164K', pacing: 53  },  // Everyday Essentials
+};
+
 // ── DB loader ─────────────────────────────────────────────────────────────────
 var _cmDBLoaded = false;
 
@@ -983,13 +1001,15 @@ function _cmRowsHtml() {
     var nameCell = '<div style="font-weight:600;font-size:12px;color:var(--text)">' + c.name + '</div>';
     var geoCell = '<span style="font-size:12px;color:var(--muted)">' + c.geography.join(', ') + '</span>';
 
-    var imp = c.goal === '—'
-      ? '<span style="color:var(--faint);font-size:12px">—</span>'
-      : '<div style="font-size:12px;font-weight:600;color:var(--text)">' + c.goal + '</div>';
+    var pdata = c.dbId ? CM_PACING[c.dbId] : null;
+    var delivered = pdata ? pdata.delivered : (c.impressions || '—');
+    var spent     = pdata ? pdata.spent     : (c.spent || '—');
 
-    var budget = c.budget === '—'
-      ? '<span style="color:var(--faint);font-size:12px">—</span>'
-      : '<div style="font-size:12px;font-weight:600;color:var(--text)">' + c.budget + '</div>';
+    var imp = '<div style="font-size:12px;font-weight:600;color:var(--text)">' + delivered + '</div>'
+      + (c.goal !== '—' ? '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + c.goal + '</div>' : '');
+
+    var budget = '<div style="font-size:12px;font-weight:600;color:var(--text)">' + spent + '</div>'
+      + (c.budget !== '—' ? '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + c.budget + '</div>' : '');
 
     var dates = '<div style="font-size:11px;color:var(--text);white-space:nowrap">' + c.start + '</div>'
       + '<div style="font-size:11px;color:var(--faint);margin-top:1px;white-space:nowrap">' + c.end + '</div>';
@@ -1013,9 +1033,10 @@ function _cmRowsHtml() {
 
     var clientCell = '<span style="font-size:12px;color:var(--muted)">' + (c.client || '—') + '</span>';
 
-    var pacingCell = c.pacing === null
+    var pacingPct  = pdata ? pdata.pacing : c.pacing;
+    var pacingCell = pacingPct === null || pacingPct === undefined
       ? '<span style="color:var(--faint);font-size:12px">—</span>'
-      : cmPacingBar(c.pacing, c.status);
+      : cmPacingBar(pacingPct, c.status);
 
     return UI.tr([
       nameCell,
