@@ -1145,13 +1145,14 @@ function mp2ShowUpload() {
     { label: 'Est. $ Value',     width: '110px', align: 'right' },
     { label: 'Created By',       width: '110px' },
     { label: 'Last Updated',     width: '110px' },
+    { label: '',                 width: '48px',  align: 'center' },
   ];
 
   // Shell — rows injected async by mp2LoadPlansTable()
   var plansBodyHtml = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('mp2-plans-search', 'Search media plans…', 'mp2PlansSearch(this.value)')
     + '</div>'
-    + UI.tableScroll(planCols, '<tr><td colspan="10" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 0, null, { inCard: true });
+    + UI.tableScroll(planCols, '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 0, null, { inCard: true });
 
   var plansRows = UI.cardHeader({
     title: 'Media Plans',
@@ -1539,7 +1540,7 @@ function mp2LoadPlansTable() {
   if (!tbody) return;
 
   // Show loading row while we fetch
-  tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
   if (subtitle) subtitle.textContent = 'Loading…';
 
   fetch('/api/media-plans-summary')
@@ -1552,7 +1553,7 @@ function mp2LoadPlansTable() {
     })
     .catch(function(e) {
       if (subtitle) subtitle.textContent = 'Error';
-      tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading plans: ' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading plans: ' + e.message + '</td></tr>';
     });
 }
 
@@ -1561,7 +1562,7 @@ function _mp2RenderPlanRows(plans) {
   if (!tbody) return;
 
   if (!plans.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No media plans in the database yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No media plans in the database yet.</td></tr>';
     return;
   }
 
@@ -1589,8 +1590,110 @@ function _mp2RenderPlanRows(plans) {
       + '<td style="' + TDpn + fix + ';color:#16a34a">' + p.total_dollar_value + '</td>'
       + '<td style="' + TDpm + fix + '">' + p.created_by   + '</td>'
       + '<td style="' + TDpm + fix + '">' + p.last_updated + '</td>'
+      + '<td style="padding:8px 12px;border-bottom:1px solid var(--border)' + fix + ';text-align:center" onclick="event.stopPropagation()">'
+      +   '<button title="Edit plan" onclick=\'mp2EditPlan(' + JSON.stringify(p).replace(/'/g, '&#39;') + ')\' style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--muted);transition:background .12s,color .12s" onmouseenter="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'">'
+      +     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      +   '</button>'
+      + '</td>'
       + '</tr>';
   }).join('');
+}
+
+function mp2EditPlan(p) {
+  // Open the detail view for this media plan
+  mp2ShowMediaPlanDetailFromDB(p);
+}
+
+function mp2ShowMediaPlanDetailFromDB(p) {
+  // Fetch all moment rows for this plan name (same media_plan_name + campaign_id)
+  var params = '?plan_name=' + encodeURIComponent(p.media_plan_name || '')
+    + (p.campaign_id ? '&campaign_id=' + p.campaign_id : '');
+
+  // Navigate to the plan detail (fetch /api/media-plans and show a detail overlay)
+  fetch('/api/media-plans' + (p.campaign_id ? '?campaign_id=' + p.campaign_id : ''))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var allRows = (data.media_plans || []).filter(function(r) {
+        return r.media_plan_name === p.media_plan_name;
+      });
+      _mp2OpenPlanDetailOverlay(p, allRows);
+    })
+    .catch(function(e) { alert('Error loading plan: ' + e.message); });
+}
+
+function _mp2OpenPlanDetailOverlay(p, rows) {
+  var existing = document.getElementById('mp2-plan-detail-overlay');
+  if (existing) existing.remove();
+
+  var PLAN_NAME = p.media_plan_name || '—';
+  var CAMP_NAME = p.campaign_name   || 'No campaign';
+
+  var TH = 'padding:8px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);background:var(--bg)';
+  var TD = 'padding:10px 14px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap';
+  var TDm = 'padding:10px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
+  var TDn = 'padding:10px 14px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right;white-space:nowrap';
+
+  var thead = '<thead><tr>'
+    + '<th style="' + TH + '">#</th>'
+    + '<th style="' + TH + '">Moment</th>'
+    + '<th style="' + TH + '">Category</th>'
+    + '<th style="' + TH + ';text-align:right">Est. Impressions</th>'
+    + '<th style="' + TH + ';text-align:right">Est. CPM</th>'
+    + '<th style="' + TH + ';text-align:right">Est. Value</th>'
+    + '<th style="' + TH + '">Created By</th>'
+    + '</tr></thead>';
+
+  var tbody = '<tbody>' + (rows.length ? rows.map(function(r, i) {
+    var mom  = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+    var name = mom.name || r.moment_id || '—';
+    var cat  = mom.category || '—';
+    var impr = (typeof fmtMomentImpr   === 'function') ? fmtMomentImpr(r.est_impressions)   : (r.est_impressions || '—');
+    var dv   = (typeof fmtMomentDollar === 'function') ? fmtMomentDollar(r.est_dollar_value) : (r.est_dollar_value != null ? '$' + r.est_dollar_value : '—');
+    var cpm  = r.est_cpm != null ? '$' + parseFloat(r.est_cpm).toFixed(2) : '—';
+    var last = i === rows.length - 1 ? ';border-bottom:none' : '';
+    var badge = '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:500">'
+      + '<svg width="7" height="7" viewBox="0 0 24 24" fill="var(--accent)" stroke="none"><circle cx="12" cy="12" r="7"/></svg>' + name + '</span>';
+    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDm + last + '">' + (i + 1) + '</td>'
+      + '<td style="' + TD  + last + '">' + badge + '</td>'
+      + '<td style="' + TDm + last + '">' + cat  + '</td>'
+      + '<td style="' + TDn + last + '">' + impr + '</td>'
+      + '<td style="' + TDm + last + ';text-align:right">' + cpm + '</td>'
+      + '<td style="' + TDn + last + ';color:#16a34a">' + dv   + '</td>'
+      + '<td style="' + TDm + last + '">' + (r.created_by || '—') + '</td>'
+      + '</tr>';
+  }).join('') : '<tr><td colspan="7" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No moments found for this plan.</td></tr>') + '</tbody>';
+
+  var ov = document.createElement('div');
+  ov.id = 'mp2-plan-detail-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.innerHTML =
+    '<div style="background:var(--surface);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.22);width:100%;max-width:820px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'
+    // Header
+    + '<div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:16px">'
+    +   '<div>'
+    +     '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">' + PLAN_NAME + '</div>'
+    +     '<div style="font-size:12px;color:var(--muted)">'
+    +       (p.campaign_name ? '<span style="color:var(--text);font-weight:500">' + CAMP_NAME + '</span>' : '<span style="font-style:italic">No campaign assigned</span>')
+    +       (p.advertiser_name ? ' &nbsp;·&nbsp; ' + p.advertiser_name : '')
+    +       ' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600">' + rows.length + ' moment' + (rows.length !== 1 ? 's' : '') + '</span>'
+    +     '</div>'
+    +   '</div>'
+    +   '<button onclick="document.getElementById(\'mp2-plan-detail-overlay\').remove()" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;color:var(--muted);font-size:16px;flex-shrink:0">&times;</button>'
+    + '</div>'
+    // Table
+    + '<div style="overflow-y:auto;flex:1">'
+    +   '<table style="width:100%;border-collapse:collapse">' + thead + tbody + '</table>'
+    + '</div>'
+    // Footer
+    + '<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'
+    +   '<div style="font-size:11px;color:var(--muted)">Est. Total Value: <strong style="color:#16a34a">' + p.total_dollar_value + '</strong> &nbsp;·&nbsp; Avg CPM: <strong>' + p.avg_cpm + '</strong></div>'
+    +   '<button onclick="document.getElementById(\'mp2-plan-detail-overlay\').remove()" style="height:32px;padding:0 18px;border:1px solid var(--border-md);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Close</button>'
+    + '</div>'
+    + '</div>';
+
+  ov.addEventListener('mousedown', function(e) { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
 }
 
 function mp2SwitchHomeTab(tab, noPush) {
