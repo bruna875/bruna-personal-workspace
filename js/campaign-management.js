@@ -976,22 +976,20 @@ function _cmRefreshTable() {
 function _cmRowsHtml() {
   var rows = cmFilteredRows();
   if (!rows.length) {
-    return '<tr><td colspan="14" style="padding:40px;text-align:center;color:var(--faint);font-size:13px">No campaigns match your search.</td></tr>';
+    return '<tr><td colspan="15" style="padding:40px;text-align:center;color:var(--faint);font-size:13px">No campaigns match your search.</td></tr>';
   }
 
   return rows.map(function(c) {
     var nameCell = '<div style="font-weight:600;font-size:12px;color:var(--text)">' + c.name + '</div>';
     var geoCell = '<span style="font-size:12px;color:var(--muted)">' + c.geography.join(', ') + '</span>';
 
-    var imp = c.impressions === '—'
+    var imp = c.goal === '—'
       ? '<span style="color:var(--faint);font-size:12px">—</span>'
-      : '<div style="font-size:12px;font-weight:600;color:var(--text)">' + c.impressions + '</div>'
-        + '<div style="font-size:10px;color:var(--faint);margin-top:1px">of ' + c.goal + '</div>';
+      : '<div style="font-size:12px;font-weight:600;color:var(--text)">' + c.goal + '</div>';
 
-    var budget = c.spent === '$0'
+    var budget = c.budget === '—'
       ? '<span style="color:var(--faint);font-size:12px">—</span>'
-      : '<div style="font-size:12px;font-weight:600;color:var(--text)">' + c.spent + '</div>'
-        + '<div style="font-size:10px;color:var(--faint);margin-top:1px">of ' + c.budget + '</div>';
+      : '<div style="font-size:12px;font-weight:600;color:var(--text)">' + c.budget + '</div>';
 
     var dates = '<div style="font-size:11px;color:var(--text);white-space:nowrap">' + c.start + '</div>'
       + '<div style="font-size:11px;color:var(--faint);margin-top:1px;white-space:nowrap">' + c.end + '</div>';
@@ -1013,13 +1011,20 @@ function _cmRowsHtml() {
       + mkIcon('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>', 'Delete')
       + '</div>';
 
+    var clientCell = '<span style="font-size:12px;color:var(--muted)">' + (c.client || '—') + '</span>';
+
+    var pacingCell = c.pacing === null
+      ? '<span style="color:var(--faint);font-size:12px">—</span>'
+      : cmPacingBar(c.pacing, c.status);
+
     return UI.tr([
       nameCell,
+      clientCell,
       '<span style="font-size:12px;color:var(--text)">' + c.advertiser + '</span>',
       geoCell,
       dates,
       cmStatusChip(c.status),
-      cmPacingBar(c.pacing, c.status),
+      pacingCell,
       c.status === 'draft'
         ? '<button onclick="" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap">+ Add Partner</button>'
         : cmPartnerBadges(c.partners),
@@ -1053,14 +1058,15 @@ function renderCampaignManagement() {
 
   var cols = [
     { label: 'Campaign',    width:'260px'  },
+    { label: 'Client',      width:'120px' },
     { label: 'Advertiser',  width:'130px' },
     { label: 'Geo',         width:'80px'  },
     { label: 'Flight Dates',width:'115px' },
     { label: 'Status',      width:'120px' },
     { label: 'Pacing',      width:'110px' },
     { label: 'Partner',     width:'170px' },
-    { label: 'Impr.',       width:'90px'  },
-    { label: 'Budget',      width:'100px' },
+    { label: 'Imp. Goal',   width:'110px' },
+    { label: 'Budget',      width:'120px' },
     { label: 'Creatives',   width:'150px' },
     { label: 'Media Plan',  width:'160px' },
     { label: 'Created By',  width:'140px' },

@@ -54,6 +54,8 @@ export default async function handler(req, res) {
         c.partner,
         c.created_by,
         c.created_at,
+        c.client_org_id,
+        c.client_name,
         a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers a ON c.advertiser_id = a.advertiser_id
@@ -64,10 +66,11 @@ export default async function handler(req, res) {
       id:          'db' + r.campaign_id,
       dbId:        r.campaign_id,
       name:        r.campaign_name || '—',
+      client:      r.client_name || '—',
       advertiser:  r.advertiser_name || '—',
       geography:   r.geo ? r.geo.split(',').map(g => g.trim()) : [],
       status:      r.status || 'draft',
-      pacing:      0,
+      pacing:      null,
       impressions: '—',
       goal:        fmtGoal(r.impression_goal, r.impression_goal_max),
       budget:      fmtBudgetRange(r.budget, r.budget_max),
