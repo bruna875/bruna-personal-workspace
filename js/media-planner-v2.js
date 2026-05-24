@@ -1135,14 +1135,15 @@ function mp2ShowUpload() {
   });
 
   var planCols = [
-    { label: 'Campaign',         width: '220px' },
-    { label: 'Client',           width: '140px' },
-    { label: 'Advertiser',       width: '130px' },
+    { label: 'Plan Name',        width: '200px' },
+    { label: 'Campaign',         width: '190px' },
+    { label: 'Client',           width: '130px' },
+    { label: 'Advertiser',       width: '120px' },
     { label: 'Moments',          width: '80px',  align: 'right' },
     { label: 'Est. Impressions', width: '120px', align: 'right' },
     { label: 'Avg CPM',          width: '90px',  align: 'right' },
     { label: 'Est. $ Value',     width: '110px', align: 'right' },
-    { label: 'Created By',       width: '120px' },
+    { label: 'Created By',       width: '110px' },
     { label: 'Last Updated',     width: '110px' },
   ];
 
@@ -1150,7 +1151,7 @@ function mp2ShowUpload() {
   var plansBodyHtml = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('mp2-plans-search', 'Search media plans…', 'mp2PlansSearch(this.value)')
     + '</div>'
-    + UI.tableScroll(planCols, '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 0, null, { inCard: true });
+    + UI.tableScroll(planCols, '<tr><td colspan="10" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 0, null, { inCard: true });
 
   var plansRows = UI.cardHeader({
     title: 'Media Plans',
@@ -1538,7 +1539,7 @@ function mp2LoadPlansTable() {
   if (!tbody) return;
 
   // Show loading row while we fetch
-  tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
   if (subtitle) subtitle.textContent = 'Loading…';
 
   fetch('/api/media-plans-summary')
@@ -1551,7 +1552,7 @@ function mp2LoadPlansTable() {
     })
     .catch(function(e) {
       if (subtitle) subtitle.textContent = 'Error';
-      tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading plans: ' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading plans: ' + e.message + '</td></tr>';
     });
 }
 
@@ -1560,7 +1561,7 @@ function _mp2RenderPlanRows(plans) {
   if (!tbody) return;
 
   if (!plans.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No media plans in the database yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No media plans in the database yet.</td></tr>';
     return;
   }
 
@@ -1571,10 +1572,14 @@ function _mp2RenderPlanRows(plans) {
   tbody.innerHTML = plans.map(function(p, i) {
     var last = i === plans.length - 1;
     var fix  = last ? ';border-bottom:none' : '';
+    var planNameCell = p.media_plan_name
+      ? '<span style="font-weight:600;color:var(--text)">' + p.media_plan_name + '</span>'
+      : '<span style="font-size:11px;color:var(--faint);font-style:italic">—</span>';
     var campCell = p.campaign_name
       ? '<div style="font-size:12px;font-weight:500;color:var(--text)">' + p.campaign_name + '</div>'
       : '<span style="font-size:11px;color:var(--faint);font-style:italic">No campaign assigned</span>';
     return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDp  + fix + '">' + planNameCell + '</td>'
       + '<td style="' + TDp  + fix + '">' + campCell + '</td>'
       + '<td style="' + TDpm + fix + '">' + (p.client_name     || '—') + '</td>'
       + '<td style="' + TDpm + fix + '">' + (p.advertiser_name || '—') + '</td>'

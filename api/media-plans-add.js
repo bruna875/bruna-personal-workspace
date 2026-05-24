@@ -10,6 +10,7 @@ export default async function handler(req, res) {
 
   try {
     const {
+      media_plan_name,
       campaign_id,
       client_org_id,
       advertiser_id,
@@ -32,9 +33,9 @@ export default async function handler(req, res) {
 
     const result = await sql`
       INSERT INTO media_plans
-        (campaign_id, client_org_id, advertiser_id, moment_id, est_impressions, est_cpm, est_dollar_value, created_by)
+        (media_plan_name, campaign_id, client_org_id, advertiser_id, moment_id, est_impressions, est_cpm, est_dollar_value, created_by)
       VALUES
-        (${campaign_id}, ${client_org_id || null}, ${advertiser_id || null}, ${moment_id},
+        (${media_plan_name || null}, ${campaign_id}, ${client_org_id || null}, ${advertiser_id || null}, ${moment_id},
          ${impr || null}, ${cpm || null}, ${est_dollar_value}, ${created_by || 'Bruna M.'})
       RETURNING media_plan_id, created_at
     `;

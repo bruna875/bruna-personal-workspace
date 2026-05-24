@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     const rows = await sql`
       SELECT
         mp.media_plan_id,
+        mp.media_plan_name,
         mp.campaign_id,
         mp.client_org_id,
         mp.advertiser_id,
