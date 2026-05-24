@@ -1,6 +1,34 @@
 // organization.js — unified Organization management page
 
+function _orgMgmtRowsHtml() {
+  var chevron = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  return APP_ORGS.map(function(o) {
+    var nameCell = '<div style="font-size:13px;font-weight:500;color:var(--text)">' + o.name + '</div>'
+                 + '<div style="font-size:11px;color:var(--muted);margin-top:1px">' + o.since + '</div>';
+    return UI.tr(
+      [ nameCell, typeBadgeOrg(o.type), o.users, o.advertisers, o.campaigns, chevron ],
+      { onclick: "orgMgmtSelectOrg('" + o.id + "')" }
+    );
+  }).join('');
+}
+
+function orgLoadFromDB() {
+  fetch('/api/organizations')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.orgs || !data.orgs.length) return;
+      APP_ORGS = data.orgs;
+      var tbody = document.getElementById('org-mgmt-tbody');
+      if (tbody) tbody.innerHTML = _orgMgmtRowsHtml();
+      var subtitle = document.getElementById('org-mgmt-subtitle');
+      if (subtitle) subtitle.textContent = APP_ORGS.length + ' organizations';
+    })
+    .catch(function(e) { console.warn('organizations API unavailable:', e.message); });
+}
+
 function renderOrgManagement() {
+  setTimeout(orgLoadFromDB, 0);
+
   var cols = [
     { label: 'Organization' },
     { label: 'Type' },
@@ -10,18 +38,8 @@ function renderOrgManagement() {
     { label: '',            width: '40px'   }
   ];
 
-  var rowsHtml = APP_ORGS.map(function(o) {
-    var chevron = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
-    var nameCell = '<div style="font-size:13px;font-weight:500;color:var(--text)">' + o.name + '</div>'
-                 + '<div style="font-size:11px;color:var(--muted);margin-top:1px">' + o.since + '</div>';
-    return UI.tr(
-      [ nameCell, typeBadgeOrg(o.type), o.users, o.advertisers, o.campaigns, chevron ],
-      { onclick: "orgMgmtSelectOrg('" + o.id + "')" }
-    );
-  }).join('');
-
-  return UI.pageHeader({ title: 'Organization Management', subtitle: APP_ORGS.length + ' organizations'})
-    + UI.table(cols, rowsHtml);
+  return UI.pageHeader({ title: 'Organization Management', subtitle: '<span id="org-mgmt-subtitle">' + APP_ORGS.length + ' organizations</span>'})
+    + UI.table(cols, _orgMgmtRowsHtml(), 'org-mgmt-tbody');
 }
 
 function typeBadgeOrg(type) {
