@@ -1219,7 +1219,8 @@ function _cmPacingDetail(c) {
       subtitle: (c.client ? c.client + ' · ' : '') + c.advertiser + ' · ' + c.geography.join(', '),
       titleRight: cmStatusChip(c.status),
     })
-    + perfCard;
+    + perfCard
+    + _cmSetupChecklist(c);
 }
 
 // ── Draft detail — form helpers ───────────────────────────────────────────────
@@ -1737,14 +1738,14 @@ function _cmDraftToggle(idx) {
   }
 }
 
-function _cmDraftDetail(c) {
+// ── Shared setup checklist — used by both draft and pacing detail views ────────
+function _cmSetupChecklist(c) {
   // Initialise shared form state from campaign data
-  _cmDraftGeo            = c.geography.slice();
-  _cmDraftAdv            = c.advertiser;
-  _cmDraftFlight.start   = c.start;
-  _cmDraftFlight.end     = c.end;
+  _cmDraftGeo          = (c.geography || []).slice();
+  _cmDraftAdv          = c.advertiser || '';
+  _cmDraftFlight.start = c.start || '';
+  _cmDraftFlight.end   = c.end   || '';
 
-  // ── Campaign Details form panel ──
   var flightLabel = (c.start && c.end) ? c.start + ' → ' + c.end : 'Set flight dates';
 
   var geoTrigger =
@@ -1761,7 +1762,7 @@ function _cmDraftDetail(c) {
   var advTrigger =
     '<div style="position:relative">'
     + '<button type="button" id="cm-draft-adv-btn" onclick="cmDraftAdvToggle(event)" style="' + _CS_TRIG + '">'
-    +   '<span id="cm-draft-adv-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + c.advertiser + '</span>'
+    +   '<span id="cm-draft-adv-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (c.advertiser || '') + '</span>'
     +   _CS_ARW
     + '</button>'
     + '<div id="cm-draft-adv-panel" style="display:none">'
@@ -1783,13 +1784,11 @@ function _cmDraftDetail(c) {
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
     +   '<div style="grid-column:span 1"><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
     +   '<div style="grid-column:span 2"><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
-    // Divider spanning all 9 cols
     +   '<div style="grid-column:span 9;display:flex;align-items:center;gap:12px;margin:4px 0">'
     +     '<div style="flex:1;height:1px;background:var(--border)"></div>'
     +     '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);white-space:nowrap">Additional Details</span>'
     +     '<div style="flex:1;height:1px;background:var(--border)"></div>'
     +   '</div>'
-    // Budget
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Budget</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-budget-dd\',_cmBudgetContent,this)" style="' + _CS_TRIG + '">'
@@ -1797,7 +1796,6 @@ function _cmDraftDetail(c) {
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    // Impr/day
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Impr. / day</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-impr-dd\',_cmImprContent,this)" style="' + _CS_TRIG + '">'
@@ -1805,7 +1803,6 @@ function _cmDraftDetail(c) {
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    // Preferred Channels
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Pref. Channels</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-channels-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-channels-dd\',[\'CTV\',\'OLV\',\'Display\',\'Social\',\'Audio\'],\'channels\',true)},this)" style="' + _CS_TRIG + '">'
@@ -1813,7 +1810,6 @@ function _cmDraftDetail(c) {
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    // Type
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Type</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-type-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-type-dd\',[\'All\',\'VoD\',\'Livestream\',\'Organic Pause\'],\'type\',false)},this)" style="' + _CS_TRIG + '">'
@@ -1821,7 +1817,6 @@ function _cmDraftDetail(c) {
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    // Brand Safety
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Brand Safety</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-safety-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-safety-dd\',[\'No Restrictions\',\'Alcohol\',\'Violence\',\'Gambling\',\'Drugs\',\'Adult Content\',\'Weapons\',\'Political\'],\'safety\',false)},this)" style="' + _CS_TRIG + '">'
@@ -1829,7 +1824,6 @@ function _cmDraftDetail(c) {
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    // Match Score
     +   '<div style="grid-column:span 3"><label style="' + LB + '">Match Score</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-match-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-match-dd\',[\'All\',\'High\',\'Standard\'],\'matchScore\',false)},this)" style="' + _CS_TRIG + '">'
@@ -1842,6 +1836,8 @@ function _cmDraftDetail(c) {
     +   '<button style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
     + '</div>'
     + '</div>';
+
+  var isDraft = c.status === 'draft';
 
   var panelContents = [
     // 0 — Campaign Details
@@ -1858,40 +1854,45 @@ function _cmDraftDetail(c) {
     // 3 — Partner
     '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:16px">'
       + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--border-md)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
-      + '<span style="font-size:12px;color:var(--faint);flex:1">No DSP / SSP partner connected yet.</span>'
+      + (c.partners && c.partners.length
+          ? '<span style="font-size:12px;color:var(--text);flex:1">' + c.partners.join(', ') + '</span>'
+          : '<span style="font-size:12px;color:var(--faint);flex:1">No DSP / SSP partner connected yet.</span>')
       + '<button style="height:30px;padding:0 14px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Add Partner</button>'
     + '</div>',
 
     // 4 — Review & Launch
     '<div style="padding:24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);text-align:center">'
       + '<div style="font-size:12px;color:var(--faint);margin-bottom:16px">Complete all checklist steps to enable launch.</div>'
-      + '<button disabled style="height:36px;padding:0 28px;border:none;border-radius:8px;background:var(--border);color:var(--faint);font-size:13px;font-weight:600;cursor:not-allowed;font-family:inherit">Launch Campaign</button>'
+      + (isDraft
+          ? '<button disabled style="height:36px;padding:0 28px;border:none;border-radius:8px;background:var(--border);color:var(--faint);font-size:13px;font-weight:600;cursor:not-allowed;font-family:inherit">Launch Campaign</button>'
+          : '<button style="height:36px;padding:0 28px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">View Live Report</button>')
     + '</div>',
   ];
 
+  // Mark steps done for non-draft campaigns
   var steps = [
-    { label:'Campaign Details', done:true,  desc:'Name, advertiser, geography, flight dates and budget set.' },
-    { label:'Creatives',        done:false, desc:'Upload your video or image assets to build ad templates.' },
-    { label:'Media Plan', done:false, desc:'Define the audience moments you want to target.' },
-    { label:'Partner',          done:false, desc:'Connect a DSP or SSP to enable delivery.' },
-    { label:'Review & Launch',  done:false, desc:'Review all settings and activate your campaign.' },
+    { label:'Campaign Details', done: true,                                    desc:'Name, advertiser, geography, flight dates and budget.' },
+    { label:'Creatives',        done: !isDraft && (c.creatives > 0),           desc:'Video or image assets attached to the campaign.' },
+    { label:'Media Plan',       done: !isDraft && (c.moments > 0),             desc:'Audience moments targeted for delivery.' },
+    { label:'Partner',          done: !isDraft && c.partners && c.partners.length > 0, desc:'DSP / SSP connected for delivery.' },
+    { label:'Review & Launch',  done: !isDraft,                                desc:'Review all settings and launch status.' },
   ];
 
   var chevSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .2s"><path d="M6 9l6 6 6-6"/></svg>';
 
-  var checklist = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
+  return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:20px">'
     + '<div style="padding:14px 20px;border-bottom:1px solid var(--border)">'
-    +   '<div style="font-size:13px;font-weight:600;color:var(--text)">Setup Checklist</div>'
-    +   '<div style="font-size:11px;color:var(--faint);margin-top:2px">Complete all steps before launching</div>'
+    +   '<div style="font-size:13px;font-weight:600;color:var(--text)">Campaign Setup</div>'
+    +   '<div style="font-size:11px;color:var(--faint);margin-top:2px">' + (isDraft ? 'Complete all steps before launching' : 'Campaign configuration') + '</div>'
     + '</div>'
     + steps.map(function(s, i) {
         var icon = s.done
           ? '<div style="width:22px;height:22px;border-radius:99px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
           : '<div style="width:22px;height:22px;border-radius:99px;border:2px solid var(--border-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--faint);font-size:10px;font-weight:700">' + (i+1) + '</div>';
         var badge = s.done
-          ? '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--accent);color:#fff;white-space:nowrap">Completed</span>'
+          ? '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;white-space:nowrap">Completed</span>'
           : '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--subtle);color:var(--muted);white-space:nowrap">Incomplete</span>';
-        var header = '<div id="cm-draft-hd-' + i + '" onclick="_cmDraftToggle(' + i + ')" '
+        var hdr = '<div id="cm-draft-hd-' + i + '" onclick="_cmDraftToggle(' + i + ')" '
           + 'style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s" '
           + 'onmouseover="this.style.background=\'var(--hover)\'" onmouseout="var p=document.getElementById(\'cm-draft-panel-\'+' + i + ');this.style.background=p&&p.style.display!==\'none\'?\'var(--hover)\':\'\'">'
           + icon
@@ -1905,18 +1906,20 @@ function _cmDraftDetail(c) {
         var panel = '<div id="cm-draft-panel-' + i + '" style="display:none">'
           + panelContents[i]
           + '</div>';
-        return header + panel;
+        return hdr + panel;
       }).join('')
     + '</div>';
+}
 
+function _cmDraftDetail(c) {
   return UI.pageHeader({
       breadcrumb: [
         { label: 'Campaign Management', onclick: 'setPage(\'campaign-management\',\'Campaign Management\')' },
         { label: c.name }
       ],
       title: c.name,
-      subtitle: c.advertiser + ' · ' + c.geography.join(', '),
+      subtitle: c.advertiser + ' · ' + (c.geography || []).join(', '),
       titleRight: cmStatusChip(c.status),
     })
-    + checklist;
+    + _cmSetupChecklist(c);
 }
