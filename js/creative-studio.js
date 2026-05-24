@@ -64,46 +64,7 @@ var _CS_THUMBS = [
   'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=640&h=360&fit=crop&q=80',
   'https://images.unsplash.com/photo-1542838132-92c53300491e?w=640&h=360&fit=crop&q=80',
 ];
-var CS_LIBRARY = [
-  { id:'cr_w1', name:'walmart-ad.mp4', advertiser:'Walmart', campaign:'Walmart Summer Launch', fileType:'MP4', mediaType:'CTV', templates:['Sync L-Bar','CTA Pause'], date:'18 May 2026', thumb:'https://img.youtube.com/vi/7IQ1yoN7EsE/mqdefault.jpg' },
-  { id:'cr_w2', name:'walmart-ad.jpg', advertiser:'Walmart', campaign:'Walmart Summer Launch', fileType:'JPG', mediaType:'Web', templates:['Sync'],                   date:'18 May 2026', thumb:'/Asset%20Demo%20K1/walmart-ad.jpg' },
-  { id:'cr1',  name:'walmart-summer-launch.mp4',  advertiser:'Walmart',   campaign:'Walmart Summer Launch',  fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar','CTA Pause'], date:'18 May 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr2',  name:'walmart-summer-banner.jpg',  advertiser:'Walmart',   campaign:'Walmart Summer Launch',  fileType:'JPG',  mediaType:'Web',    templates:['Sync'],                   date:'18 May 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr3',  name:'walmart-summer-mobile.mp4',  advertiser:'Walmart',   campaign:'Walmart Summer Launch',  fileType:'MP4',  mediaType:'Mobile', templates:['CTA Pause'],              date:'17 May 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr4',  name:'bts-hero-30s.mp4',           advertiser:'Walmart',   campaign:'Back to School 2026',    fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar'],             date:'10 May 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr5',  name:'bts-banner-728x90.jpg',      advertiser:'Walmart',   campaign:'Back to School 2026',    fileType:'JPG',  mediaType:'Web',    templates:['Sync'],                   date:'10 May 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr6',  name:'bts-story-vertical.mp4',     advertiser:'Walmart',   campaign:'Back to School 2026',    fileType:'MP4',  mediaType:'Mobile', templates:[],                         date:'9 May 2026',  thumb:_CS_THUMBS[1] },
-  { id:'cr7',  name:'fresh-family-30s.mp4',       advertiser:'Walmart',   campaign:'Fresh & Family',         fileType:'MP4',  mediaType:'CTV',    templates:['CTA Pause'],              date:'2 May 2026',  thumb:_CS_THUMBS[2] },
-  { id:'cr8',  name:'fresh-family-15s.mp4',       advertiser:'Walmart',   campaign:'Fresh & Family',         fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar'],             date:'2 May 2026',  thumb:_CS_THUMBS[2] },
-  { id:'cr9',  name:'fresh-family-hero.png',      advertiser:'Walmart',   campaign:'Fresh & Family',         fileType:'PNG',  mediaType:'Web',    templates:[],                         date:'1 May 2026',  thumb:_CS_THUMBS[2] },
-  { id:'cr10', name:'holiday-deals-hero.mp4',     advertiser:'Walmart',   campaign:'Holiday Deals 2026',     fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar','CTA Pause'], date:'28 Apr 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr11', name:'holiday-deals-banner.jpg',   advertiser:'Walmart',   campaign:'Holiday Deals 2026',     fileType:'JPG',  mediaType:'Web',    templates:['Sync'],                   date:'28 Apr 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr12', name:'holiday-mobile-story.mp4',   advertiser:'Walmart',   campaign:'Holiday Deals 2026',     fileType:'MP4',  mediaType:'Mobile', templates:['CTA Pause'],              date:'27 Apr 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr13', name:'essentials-30s.mp4',         advertiser:'P&G',       campaign:'Everyday Essentials',    fileType:'MP4',  mediaType:'CTV',    templates:['Pause Ad'],               date:'22 Apr 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr14', name:'essentials-banner.png',      advertiser:'P&G',       campaign:'Everyday Essentials',    fileType:'PNG',  mediaType:'Web',    templates:[],                         date:'22 Apr 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr15', name:'essentials-vertical.mp4',    advertiser:'P&G',       campaign:'Everyday Essentials',    fileType:'MP4',  mediaType:'Mobile', templates:['CTA Pause'],              date:'21 Apr 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr16', name:'wellness-hero-30s.mp4',      advertiser:'Unilever',  campaign:'Health & Wellness Q2',   fileType:'MP4',  mediaType:'CTV',    templates:['Organic Pause'],          date:'18 Apr 2026', thumb:_CS_THUMBS[2] },
-  { id:'cr17', name:'wellness-banner-970x250.jpg',advertiser:'Unilever',  campaign:'Health & Wellness Q2',   fileType:'JPG',  mediaType:'Web',    templates:[],                         date:'18 Apr 2026', thumb:_CS_THUMBS[2] },
-  { id:'cr18', name:'wellness-15s-ctv.mp4',       advertiser:'Unilever',  campaign:'Health & Wellness Q2',   fileType:'MP4',  mediaType:'CTV',    templates:['CTA Pause'],              date:'17 Apr 2026', thumb:_CS_THUMBS[2] },
-  { id:'cr19', name:'electronics-week-hero.mp4',  advertiser:'Samsung',   campaign:'Electronics Week',       fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar'],             date:'14 Apr 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr20', name:'electronics-week-mob.mp4',   advertiser:'Samsung',   campaign:'Electronics Week',       fileType:'MP4',  mediaType:'Mobile', templates:['CTA Pause'],              date:'14 Apr 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr21', name:'electronics-banner.jpg',     advertiser:'Samsung',   campaign:'Electronics Week',       fileType:'JPG',  mediaType:'Web',    templates:['Sync'],                   date:'13 Apr 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr22', name:'garden-spring-30s.mp4',      advertiser:'Walmart',   campaign:'Garden & Outdoor Spring',fileType:'MP4',  mediaType:'CTV',    templates:['Pause Ad'],               date:'10 Apr 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr23', name:'garden-spring-banner.png',   advertiser:'Walmart',   campaign:'Garden & Outdoor Spring',fileType:'PNG',  mediaType:'Web',    templates:[],                         date:'10 Apr 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr24', name:'pg-laundry-ctv-30s.mp4',     advertiser:'P&G',       campaign:'Clean Home Summer',      fileType:'MP4',  mediaType:'CTV',    templates:['Organic Pause'],          date:'7 Apr 2026',  thumb:_CS_THUMBS[2] },
-  { id:'cr25', name:'pg-laundry-web-banner.jpg',  advertiser:'P&G',       campaign:'Clean Home Summer',      fileType:'JPG',  mediaType:'Web',    templates:[],                         date:'7 Apr 2026',  thumb:_CS_THUMBS[2] },
-  { id:'cr26', name:'pg-laundry-mobile.mp4',      advertiser:'P&G',       campaign:'Clean Home Summer',      fileType:'MP4',  mediaType:'Mobile', templates:['CTA Pause'],              date:'6 Apr 2026',  thumb:_CS_THUMBS[2] },
-  { id:'cr27', name:'samsung-phones-hero.mp4',    advertiser:'Samsung',   campaign:'New Devices Launch',     fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar','CTA Pause'], date:'3 Apr 2026',  thumb:_CS_THUMBS[0] },
-  { id:'cr28', name:'samsung-phones-banner.jpg',  advertiser:'Samsung',   campaign:'New Devices Launch',     fileType:'JPG',  mediaType:'Web',    templates:['Sync'],                   date:'3 Apr 2026',  thumb:_CS_THUMBS[0] },
-  { id:'cr29', name:'unilever-beauty-30s.mp4',    advertiser:'Unilever',  campaign:'Beauty Essentials',      fileType:'MP4',  mediaType:'CTV',    templates:['CTA Pause'],              date:'28 Mar 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr30', name:'unilever-beauty-vertical.mp4',advertiser:'Unilever', campaign:'Beauty Essentials',      fileType:'MP4',  mediaType:'Mobile', templates:['Organic Pause'],          date:'28 Mar 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr31', name:'unilever-beauty-banner.png', advertiser:'Unilever',  campaign:'Beauty Essentials',      fileType:'PNG',  mediaType:'Web',    templates:[],                         date:'27 Mar 2026', thumb:_CS_THUMBS[1] },
-  { id:'cr32', name:'walmart-pets-hero.mp4',      advertiser:'Walmart',   campaign:'Pets & More',            fileType:'MP4',  mediaType:'CTV',    templates:['Sync L-Bar'],             date:'24 Mar 2026', thumb:_CS_THUMBS[2] },
-  { id:'cr33', name:'walmart-pets-banner.jpg',    advertiser:'Walmart',   campaign:'Pets & More',            fileType:'JPG',  mediaType:'Web',    templates:[],                         date:'24 Mar 2026', thumb:_CS_THUMBS[2] },
-  { id:'cr34', name:'product-hero-standalone.png',advertiser:'Walmart',   campaign:null,                     fileType:'PNG',  mediaType:'Mobile', templates:[],                         date:'20 Mar 2026', thumb:_CS_THUMBS[0] },
-  { id:'cr35', name:'generic-ctv-bumper.mp4',     advertiser:'P&G',       campaign:null,                     fileType:'MP4',  mediaType:'CTV',    templates:[],                         date:'15 Mar 2026', thumb:_CS_THUMBS[2] },
-  { id:'cr36', name:'raw-footage-uncut.mov',      advertiser:'Samsung',   campaign:null,                     fileType:'MOV',  mediaType:'CTV',    templates:[],                         date:'10 Mar 2026', thumb:_CS_THUMBS[1] },
-];
+var CS_LIBRARY = [];
 var csLibCollapsedCampaigns = {};
 
 // ── L-Bar config panel ───────────────────────────────────────────────────────
@@ -1656,13 +1617,10 @@ function csLoadLibraryFromDB() {
   fetch('/api/creatives')
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (!data.creatives || !data.creatives.length) return;
-      // Prepend DB creatives before existing mock entries (keep pinned mock first)
-      var pinned = CS_LIBRARY.filter(function(c) { return c.id === 'cr_w1' || c.id === 'cr_w2'; });
-      var rest   = CS_LIBRARY.filter(function(c) { return c.id !== 'cr_w1' && c.id !== 'cr_w2'; });
-      // Remove any previously loaded DB entries to avoid duplicates
-      rest = rest.filter(function(c) { return c.id.indexOf('dbcr') !== 0; });
-      CS_LIBRARY = pinned.concat(data.creatives).concat(rest);
+      if (!data.creatives) return;
+      // Keep only entries added in this session (savedAt set), replace rest with DB data
+      var sessionSaved = CS_LIBRARY.filter(function(c) { return c.savedAt; });
+      CS_LIBRARY = data.creatives.concat(sessionSaved);
       csRenderLibrary();
     })
     .catch(function(e) { console.warn('creatives API unavailable:', e.message); });
