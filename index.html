@@ -4,9 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>KERV One Demo</title>
-<link rel="icon" type="image/png" href="kerv-one-favicon.png"/>
+<link rel="icon" type="image/png" href="/kerv-one-favicon.png"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css"/>
+<link rel="stylesheet" href="/css/style.css"/>
 </head>
 <body>
 
@@ -36,7 +36,8 @@
   <div class="sbwrap">
     <div class="sb" id="sb">
       <div class="sbhead">
-        <img src="kerv-one-logo.svg" alt="KERV One" class="sblogo"/>
+        <img src="/kerv-one-favicon.png" alt="KERV" class="sblogo-icon"/>
+        <img src="/kerv-logo-text-only.png" alt="KERV One" class="sblogo-text"/>
       </div>
       <nav class="sbnav" id="nav"></nav>
       <div class="sbfoot" id="userBox">
@@ -63,25 +64,82 @@
           <button class="tb-select" id="orgBtn" onclick="toggleOrgDd(event)">
             <span class="tb-select-label">Org</span>
             <span class="tb-select-sep"></span>
-            <span class="tb-select-val" id="orgVal">KERV</span>
+            <span style="display:flex;align-items:center;gap:5px;line-height:1">
+              <span class="tb-select-val" id="orgVal">KERV</span>
+              <span id="orgTypeVal" style="font-size:9px;font-weight:500;color:var(--muted);letter-spacing:.01em">Super Organization</span>
+            </span>
             <svg class="tb-select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="tb-select-dd" id="orgDd"></div>
         </div>
 
-        <!-- Advertiser selector -->
-        <div class="tb-select-wrap" id="adv-wrap">
-          <button class="tb-select" id="advBtn" onclick="toggleAdvDd(event)">
-            <span class="tb-select-label">Advertiser</span>
-            <span class="tb-select-sep"></span>
-            <span class="tb-select-val" id="advVal">Walmart</span>
-            <svg class="tb-select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tb-select-dd" id="advDd"></div>
-        </div>
 
       </div>
       <div class="tb-actions">
+
+        <!-- AI Assistant -->
+        <div class="tb-btn-wrap" id="ai-wrap">
+          <button class="tb-btn" id="aiBtn" title="AI Assistant" onclick="toggleAiPanel(event)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+          </button>
+        </div>
+
+        <!-- Notifications -->
+        <div class="tb-btn-wrap" id="notif-wrap" style="position:relative">
+          <button class="tb-btn" id="notifBtn" title="Notifications" onclick="toggleNotifPanel(event)" style="position:relative">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          </button>
+          <span class="tb-notif-dot" id="notifDot"></span>
+          <div class="tb-dropdown" id="notifPanel" style="min-width:320px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px 4px">
+              <div class="tb-dd-header" style="padding:0">Notifications</div>
+              <button onclick="markAllRead()" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:500;padding:2px 6px;border-radius:6px;transition:background .1s" onmouseover="this.style.background='var(--subtle)'" onmouseout="this.style.background='none'">Mark all read</button>
+            </div>
+            <div class="notif-list" id="notifList">
+              <div class="notif-item unread" id="notif-1">
+                <span class="notif-unread-dot" id="ndot-1"></span>
+                <div class="notif-body">
+                  <div class="notif-text">Campaign <strong>Walmart Summer Launch</strong> is now live and serving impressions.</div>
+                  <div class="notif-time">2 minutes ago</div>
+                </div>
+              </div>
+              <div class="notif-item unread" id="notif-2">
+                <span class="notif-unread-dot" id="ndot-2"></span>
+                <div class="notif-body">
+                  <div class="notif-text"><strong>Alex Rivera</strong> requested approval on a new media plan for GroupM.</div>
+                  <div class="notif-time">1 hour ago</div>
+                </div>
+              </div>
+              <div class="notif-item unread" id="notif-3">
+                <span class="notif-unread-dot" id="ndot-3"></span>
+                <div class="notif-body">
+                  <div class="notif-text">3 new moments tagged in <strong>Paramount AUS</strong> VoD library — ready for review.</div>
+                  <div class="notif-time">3 hours ago</div>
+                </div>
+              </div>
+              <div class="notif-item" id="notif-4">
+                <span class="notif-unread-dot read" id="ndot-4"></span>
+                <div class="notif-body">
+                  <div class="notif-text">Weekly performance report for <strong>Walmart</strong> is ready to view.</div>
+                  <div class="notif-time">Yesterday at 9:00 AM</div>
+                </div>
+              </div>
+              <div class="notif-item" id="notif-5">
+                <span class="notif-unread-dot read" id="ndot-5"></span>
+                <div class="notif-body">
+                  <div class="notif-text">API integration updated to v2.4 — see changelog in API Documentation.</div>
+                  <div class="notif-time">2 days ago</div>
+                </div>
+              </div>
+            </div>
+            <div class="notif-footer">
+              <button class="notif-footer-btn" onclick="closeMenus()">View all notifications</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="tb-vdivider"></div>
 
         <!-- Settings (includes WIP submenu) -->
         <div class="tb-btn-wrap" id="settings-wrap">
@@ -100,9 +158,9 @@
             </div>
             <div id="org-mgmt-item" style="display:none">
               <div class="tb-dd-divider"></div>
-              <div class="tb-dd-item" onclick="setPage('org-management','Organization Management');closeMenus()">
+              <div class="tb-dd-item" onclick="setPage('org-management','Organization');closeMenus()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                <span>Organization Management</span>
+                <span>Organization</span>
               </div>
             </div>
 
@@ -142,19 +200,66 @@
   </div>
 </div>
 
+<!-- AI Drawer -->
+<div class="ai-drawer" id="aiDrawer">
+  <div class="ai-drawer-header">
+    <div class="ai-drawer-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+      KERV AI Assistant
+    </div>
+    <button class="ai-drawer-close" onclick="closeAiPanel()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="ai-messages" id="aiMessages">
+    <div class="ai-msg bot">
+      <div class="ai-msg-bubble">Hi! I'm your KERV AI assistant. I can help you analyze inventory, build media plans, surface insights, and navigate the platform. What would you like to explore?</div>
+      <div class="ai-msg-time">Just now</div>
+    </div>
+  </div>
+  <div class="ai-suggestions" id="aiSuggestions">
+    <button class="ai-suggestion" onclick="aiQuickSend('Summarize today\'s campaign performance')">Summarize campaign performance</button>
+    <button class="ai-suggestion" onclick="aiQuickSend('Which moments have the highest engagement?')">Top moments by engagement</button>
+    <button class="ai-suggestion" onclick="aiQuickSend('Help me build a media plan for Walmart')">Build a media plan</button>
+    <button class="ai-suggestion" onclick="aiQuickSend('Show inventory availability for Q3')">Q3 inventory availability</button>
+  </div>
+  <div class="ai-input-area">
+    <textarea class="ai-input" id="aiInput" placeholder="Ask anything about your inventory, campaigns, or data…" rows="1" onkeydown="aiInputKeydown(event)" oninput="aiInputResize(this)"></textarea>
+    <button class="ai-send" onclick="aiSend()" title="Send">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+    </button>
+  </div>
+</div>
+<div class="ai-overlay" id="aiOverlay" onclick="closeAiPanel()"></div>
+
 <!-- Libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/highcharts-more.js"></script>
 <!-- App modules -->
-<script src="js/icons.js"></script>
-<script src="js/loader.js"></script>
-<script src="js/csv-import.js"></script>
-<script src="js/ai-insights.js"></script>
-<script src="js/metadata-analysis.js"></script>
-<script src="js/media-planner-v2.js"></script>
-<script src="js/new-content-upload.js"></script>
-<script src="js/taxonomy-explorer.js"></script>
-<script src="js/media-planner.js"></script>
-<script src="js/organization.js"></script>
-<script src="js/app.js"></script>
+<script src="/js/ui-kit.js?v=20260522"></script>
+<script src="/js/icons.js?v=20260522"></script>
+<script src="/js/loader.js?v=20260522"></script>
+<script src="/js/csv-import.js?v=20260522"></script>
+<script src="/js/ai-insights.js?v=20260522"></script>
+<script src="/js/vod-analysis.js?v=20260522"></script>
+<script src="/js/media-planner-v2.js?v=20260524q"></script>
+<script src="/js/new-content-upload.js?v=20260522"></script>
+<script src="/js/taxonomy-explorer.js?v=20260522"></script>
+<script src="/js/media-planner.js?v=20260522"></script>
+<script src="/js/organization.js?v=20260522"></script>
+<!-- ── Page modules ── -->
+<script src="/js/overview.js?v=20260522"></script>
+<script src="/js/livestream-analysis.js?v=20260522"></script>
+<script src="/js/moments-search.js?v=20260522b"></script>
+<script src="/js/moments-builder.js?v=20260522"></script>
+<script src="/js/campaign-management.js?v=20260524v"></script>
+<script src="/js/creative-management.js?v=20260522"></script>
+<script src="/js/creative-studio.js?v=20260524q"></script>
+<script src="/js/measurement.js"></script>
+<script src="/js/dsp-ssp.js"></script>
+<script src="/js/livestream-connections.js"></script>
+<script src="/js/api-docs.js"></script>
+<script src="/js/app.js?v=20260524i"></script>
 </body>
 </html>
