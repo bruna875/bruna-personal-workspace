@@ -1243,6 +1243,7 @@ var _cmDraftClient = '';
 var _cmDraftGeo   = [];
 var _cmDraftAdv   = '';
 var _cmDraftFlight = { start:'', end:'' };
+var _cmCurrentCampaignDbId = null; // set when _cmSetupChecklist renders
 
 // ── Client picker ─────────────────────────────────────────────────────────────
 function cmDraftClientToggle(e) {
@@ -1882,20 +1883,34 @@ function _cmDraftToggle(idx) {
 }
 
 // ── Save campaign details to DB ───────────────────────────────────────────────
-function cmSaveCampaignDetails(dbId) {
-  var btn = document.getElementById('cm-draft-save-btn');
+function cmSaveCampaignDetails() {
+  var dbId = _cmCurrentCampaignDbId;
+  var btn  = document.getElementById('cm-draft-save-btn');
+  var fb   = document.getElementById('cm-save-feedback');
+
+  function _showFb(msg, color) {
+    if (!fb) return;
+    fb.textContent  = msg;
+    fb.style.color  = color;
+    fb.style.opacity = '1';
+    setTimeout(function() { fb.style.opacity = '0'; }, 3000);
+  }
+
   if (!dbId) {
-    if (btn) { btn.textContent = 'No DB ID — cannot save'; setTimeout(function(){ btn.textContent = 'Save Changes'; }, 2500); }
+    _showFb('No campaign ID — cannot save', '#dc2626');
     return;
   }
+
   var nameEl = document.getElementById('cm-draft-name');
   var payload = {
-    id:             dbId,
-    campaign_name:  nameEl ? nameEl.value.trim() : '',
-    client_name:    _cmDraftClient  || '',
-    advertiser_name: _cmDraftAdv   || '',
+    id:              dbId,
+    campaign_name:   nameEl ? nameEl.value.trim() : '',
+    client_name:     _cmDraftClient  || '',
+    advertiser_name: _cmDraftAdv     || '',
   };
+
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
   fetch('/api/campaigns-update', {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -1903,42 +1918,32 @@ function cmSaveCampaignDetails(dbId) {
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (btn) {
-      if (data.ok) {
-        btn.textContent = 'Saved ✓';
-        btn.style.background = '#16a34a';
-        // Refresh the in-memory campaign so the table reflects the change
-        CM_CAMPAIGNS = CM_CAMPAIGNS.map(function(c) {
-          if (c.dbId !== dbId) return c;
-          return Object.assign({}, c, {
-            name:       payload.campaign_name || c.name,
-            client:     payload.client_name   || c.client,
-            advertiser: payload.advertiser_name || c.advertiser,
-          });
+    if (btn) { btn.textContent = 'Save Changes'; btn.disabled = false; }
+    if (data.ok) {
+      _showFb('Saved correctly ✓', '#16a34a');
+      // Refresh in-memory campaign so the table reflects the change
+      CM_CAMPAIGNS = CM_CAMPAIGNS.map(function(c) {
+        if (c.dbId !== dbId) return c;
+        return Object.assign({}, c, {
+          name:       payload.campaign_name   || c.name,
+          client:     payload.client_name     || c.client,
+          advertiser: payload.advertiser_name || c.advertiser,
         });
-      } else {
-        btn.textContent = 'Error: ' + (data.error || 'unknown');
-        btn.style.background = '#dc2626';
-      }
-      setTimeout(function() {
-        btn.textContent = 'Save Changes';
-        btn.style.background = '';
-        btn.disabled = false;
-      }, 2500);
+      });
+    } else {
+      _showFb('Error: ' + (data.error || 'unknown'), '#dc2626');
     }
   })
-  .catch(function(e) {
-    if (btn) {
-      btn.textContent = 'Network error';
-      btn.style.background = '#dc2626';
-      setTimeout(function(){ btn.textContent = 'Save Changes'; btn.style.background = ''; btn.disabled = false; }, 2500);
-    }
+  .catch(function() {
+    if (btn) { btn.textContent = 'Save Changes'; btn.disabled = false; }
+    _showFb('Network error — try again', '#dc2626');
   });
 }
 
 // ── Shared setup checklist — used by both draft and pacing detail views ────────
 function _cmSetupChecklist(c) {
   // Initialise shared form state from campaign data
+  _cmCurrentCampaignDbId = c.dbId || null;
   _cmDraftClient       = c.client || '';
   _cmDraftGeo          = (c.geography || []).slice();
   _cmDraftAdv          = c.advertiser || '';
@@ -1991,11 +1996,11 @@ function _cmSetupChecklist(c) {
     '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">'
     // ── Row 1: 5 equal-width fields ──
     + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:16px">'
-    +   '<div><label style="' + LB + '">Client</label>' + clientTrigger + '</div>'
-    +   '<div><label style="' + LB + '">Campaign Name</label>' + UI.input('cm-draft-name','text','Campaign name',c.name) + '</div>'
-    +   '<div><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
-    +   '<div><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
-    +   '<div><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Client</label>' + clientTrigger + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Campaign Name</label>' + UI.input('cm-draft-name','text','Campaign name',c.name) + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
     + '</div>'
     // ── Divider ──
     + '<div style="display:flex;align-items:center;gap:12px;margin:4px 0 16px">'
@@ -2005,42 +2010,42 @@ function _cmSetupChecklist(c) {
     + '</div>'
     // ── Additional Details: 3 per row ──
     + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">'
-    +   '<div><label style="' + LB + '">Budget</label>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Budget</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-budget-dd\',_cmBudgetContent,this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-budget-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div><label style="' + LB + '">Impr. / day</label>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Impr. / day</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-impr-dd\',_cmImprContent,this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-impr-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div><label style="' + LB + '">Pref. Channels</label>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Pref. Channels</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-channels-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-channels-dd\',[\'CTV\',\'OLV\',\'Display\',\'Social\',\'Audio\'],\'channels\',true)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-channels-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div><label style="' + LB + '">Type</label>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Type</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-type-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-type-dd\',[\'All\',\'VoD\',\'Livestream\',\'Organic Pause\'],\'type\',false)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-type-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div><label style="' + LB + '">Brand Safety</label>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Brand Safety</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-safety-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-safety-dd\',[\'No Restrictions\',\'Alcohol\',\'Violence\',\'Gambling\',\'Drugs\',\'Adult Content\',\'Weapons\',\'Political\'],\'safety\',false)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-safety-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +       '</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div><label style="' + LB + '">Match Score</label>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Match Score</label>'
     +     '<div style="position:relative">'
     +       '<button type="button" onclick="_cmAddlOpen(\'cm-addl-match-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-match-dd\',[\'All\',\'High\',\'Standard\'],\'matchScore\',false)},this)" style="' + _CS_TRIG + '">'
     +         '<span id="cm-draft-match-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
@@ -2048,8 +2053,9 @@ function _cmSetupChecklist(c) {
     +     '</div>'
     +   '</div>'
     + '</div>'
-    + '<div style="margin-top:18px">'
-    +   '<button id="cm-draft-save-btn" onclick="cmSaveCampaignDetails(' + (c.dbId || 'null') + ')" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
+    + '<div style="margin-top:18px;display:flex;align-items:center;gap:14px">'
+    +   '<button id="cm-draft-save-btn" onclick="cmSaveCampaignDetails()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
+    +   '<span id="cm-save-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
     + '</div>'
     + '</div>';
 
