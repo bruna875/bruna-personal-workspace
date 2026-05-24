@@ -663,7 +663,7 @@ function csSwitchTab(tab) {
 function csRenderContent(tab) {
   var outer = document.getElementById('cs-outer');
   if (outer) outer.style.padding = tab === 'library' ? '0' : '32px';
-  if (tab === 'library') { csRenderLibrary(); return; }
+  if (tab === 'library') { csRenderLibrary(); setTimeout(csLoadLibraryFromDB, 0); return; }
   csStep = 1; CS_UPLOADED_ASSETS = [];
   csRenderNewCreative();
 }
@@ -1640,6 +1640,23 @@ function csLibOpenEditor(crId) {
   var idx = 0;
   group.forEach(function(c, i) { if (c.id === crId) idx = i; });
   csBuildTemplates(idx);
+}
+
+// ── Creative Library DB loader ────────────────────────────────────────────────
+function csLoadLibraryFromDB() {
+  fetch('/api/creatives')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.creatives || !data.creatives.length) return;
+      // Prepend DB creatives before existing mock entries (keep pinned mock first)
+      var pinned = CS_LIBRARY.filter(function(c) { return c.id === 'cr_w1' || c.id === 'cr_w2'; });
+      var rest   = CS_LIBRARY.filter(function(c) { return c.id !== 'cr_w1' && c.id !== 'cr_w2'; });
+      // Remove any previously loaded DB entries to avoid duplicates
+      rest = rest.filter(function(c) { return c.id.indexOf('dbcr') !== 0; });
+      CS_LIBRARY = pinned.concat(data.creatives).concat(rest);
+      csRenderLibrary();
+    })
+    .catch(function(e) { console.warn('creatives API unavailable:', e.message); });
 }
 
 // ── Creative Library ──────────────────────────────────────────────────────────
