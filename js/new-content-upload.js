@@ -2,11 +2,8 @@
 
 function renderSdtContentForm() {
   setTimeout(sdtInit, 0);
-  return `
-<div class="ptitle">New Content Upload</div>
-<div class="psub" style="margin-bottom:20px">Select a process to get started</div>
-
-<div id="sdt-grid" style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
+  return UI.pageHeader({ title: 'New Content Upload', subtitle: 'Select a process to get started'})
+    + `<div id="sdt-grid" style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
 
   <!-- ── Left: sidebar nav ── -->
   <div class="sdt-sb" id="sdt-sb" style="position:sticky;top:0;align-self:start;">
@@ -467,7 +464,7 @@ function csStartProcessing() {
   var stepIdx = 0;
 
   var iv = setInterval(function() {
-    pct = Math.min(pct + Math.floor(Math.random() * 3 + 1), 100);
+    pct = Math.min(pct + 2, 100);
 
     var bar    = document.getElementById('cs-proc-bar');
     var pctEl  = document.getElementById('cs-proc-pct');
@@ -505,7 +502,7 @@ function csStartProcessing() {
         if (nb) { nb.disabled = false; nb.style.opacity = ''; nb.style.pointerEvents = ''; }
       }, 350);
     }
-  }, 65);
+  }, 80);
 }
 
 function csUpdateModalStepper() {

@@ -1,4 +1,57 @@
-// media-planner-v2.js — Media Planner (v2) page  (self-contained module)
+// media-planner-v2.js — Media Planner page  (self-contained module)
+
+// ── Shared creative assets for asset strips (plan detail + analysis) ──────────
+var mp2MockCreatives = [
+  { id:'mpc1', name:'campaign-hero.mp4', type:'MP4', thumb:'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=640&h=360&fit=crop&q=80', templates:[] },
+  { id:'mpc2', name:'banner-static.jpg', type:'JPG', thumb:'/Asset%20Demo%20K1/walmart-ad.jpg',                    templates:[] }
+];
+
+function _mp2CreativeTilesHtml() {
+  var PLUS = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  return mp2MockCreatives.map(function(cr) {
+    var tpls = cr.templates || [];
+    var tplChips = tpls.map(function(t) {
+      return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + t + '</span>';
+    }).join('');
+    var addTplBtn = '<button onclick="event.stopPropagation();mp2AddTemplate(\'' + cr.id + '\')" style="display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 6px;border:1px solid var(--border-md);border-radius:5px;font-size:9px;font-weight:500;color:var(--muted);background:var(--surface);cursor:pointer;font-family:inherit;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">' + PLUS + 'Add Template</button>';
+    var bottomSection = tpls.length
+      ? '<div style="padding:4px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:3px">' + tplChips + '</div>'
+      : '<div style="padding:5px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;align-items:center;justify-content:center">' + addTplBtn + '</div>';
+    var hasTpls = tpls.length > 0;
+    return '<div onclick="mp2AddTemplate(\'' + cr.id + '\')" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);position:relative;display:flex;flex-direction:column;width:140px;flex-shrink:0;' + (hasTpls ? 'cursor:pointer' : '') + '" ' + (hasTpls ? 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'"' : '') + '>'
+      + '<div style="aspect-ratio:16/9;background:#e5e7eb;overflow:hidden;flex-shrink:0">'
+      +   '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
+      + '</div>'
+      + '<div style="position:absolute;top:4px;left:4px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.5);color:#fff;letter-spacing:.3px">' + cr.type + '</div>'
+      + '<div style="padding:4px 6px;flex-shrink:0">'
+      +   '<div style="font-size:10px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + cr.name + '</div>'
+      + '</div>'
+      + bottomSection
+      + '</div>';
+  }).join('');
+}
+
+function mp2AddTemplate(crId) {
+  var selectedIdx = 0;
+  for (var i = 0; i < mp2MockCreatives.length; i++) {
+    if (mp2MockCreatives[i].id === crId) { selectedIdx = i; break; }
+  }
+  window._mp2AddTemplateCreativeId = true;
+  window._mp2TemplateReturnUrl  = location.pathname;
+  window._mp2TemplateReturnState = history.state || {};
+  csEditorAssets = mp2MockCreatives.map(function(cr) {
+    return { id: cr.id, name: cr.name, type: cr.type, thumb: cr.thumb, templates: (cr.templates || []).slice() };
+  });
+  csBuildSelectedAsset = selectedIdx;
+  var existing = document.getElementById('cs-editor-overlay');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.id = 'cs-editor-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;background:#0d1117';
+  overlay.innerHTML = _csEditorHtml();
+  document.body.appendChild(overlay);
+  history.pushState({ id: 'creative-studio', label: 'Creative Studio', openEditor: true, csAssetId: crId }, '', '/creative-studio/build-template/' + crId);
+}
 
 var mp2TaxStep      = 'upload';
 var mp2TaxInputType = 'video';
@@ -9,25 +62,38 @@ function renderMediaPlannerV2() {
     mp2TaxStep = 'upload'; mp2TaxInputType = 'video'; mp2TaxFileName = '';
     sdtInjectStyles();
     mp2InjectSliderStyles();
-    mp2ShowUpload();
+    mp2SwitchHomeTab(mp2HomeTab, true); // restore correct tab without pushing history
   }, 0);
-  return `
-<div class="ptitle">Media Planner (v2)</div>
-<div class="psub" style="margin-bottom:24px">Upload an ad or brief to see recommendations on moments to engage your ideal audience</div>
-<div id="sdt-panel-taxonomy2">
-  <div class="cs-card" style="padding:32px">
+  var mp2PillTabs = [{id:'new-plan',label:'New Plan'},{id:'plans',label:'Media Plans',dividerBefore:true},{id:'analyses',label:'Previous Analysis'}];
+  return UI.pageHeader({ title: 'Media Planner', subtitle: 'Upload an ad or brief to see recommendations on moments to engage your ideal audience'})
+    + '<div id="mp2-pills" style="margin-bottom:20px">' + UI.tabNav(mp2PillTabs, mp2HomeTab, 'mp2SwitchHomeTab') + '</div>'
+    + `<div id="sdt-panel-taxonomy2">
+  <div class="cs-card" id="mp2-outer-card" style="padding:${mp2HomeTab === 'new-plan' ? '32px' : '0'};overflow:hidden">
     <div id="tx2-content-area"></div>
   </div>
 </div>`;
 }
 
-function mp2ShowMediaPlanDetail(idx) {
+function mp2OpenPlanById(id, noPush) {
+  var idx = savedMediaPlansV2.findIndex(function(p) { return p.id === id; });
+  if (idx < 0) { mp2SwitchHomeTab('plans'); return; }
+  mp2ShowMediaPlanDetail(idx, noPush);
+}
+
+function mp2ShowMediaPlanDetail(idx, noPush) {
   var plan = savedMediaPlansV2[idx];
   if (!plan) return;
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
   mp2HomeTab = 'plans';
+
+  // Hide tab nav while a plan detail is open
+  var pills = document.getElementById('mp2-pills');
+  if (pills) pills.style.display = 'none';
+
+  var outerCard = document.getElementById('mp2-outer-card');
+  if (outerCard) outerCard.style.padding = '20px';
 
   var TH  = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap';
   var TOT = 'padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg)';
@@ -57,126 +123,237 @@ function mp2ShowMediaPlanDetail(idx) {
   var fmtTotImp       = totalImpNum >= 1 ? totalImpNum.toFixed(1) + 'M' : totalImpNum > 0 ? Math.round(totalImpNum * 1000) + 'K' : '—';
   var fmtAvgCpm       = avgCpm > 0 ? '$' + avgCpm : '—';
 
+  var fmtDollars = function(n) {
+    if (!n) return '—';
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000)    return '$' + Math.round(n / 1000) + 'K';
+    return '$' + Math.round(n);
+  };
+  var fmtTotDollars = fmtDollars(totalDollarsNum);
+
   var tableRowsHtml = allItems.length === 0
-    ? '<tr><td colspan="6" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No moments in this plan.</td></tr>'
+    ? '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No moments in this plan.</td></tr>'
     : allItems.map(function(item) {
-        var chansHtml = item.channels.length
-          ? item.channels.map(function(c) {
-              return '<span style="font-size:10px;font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap">' + c + '</span>';
-            }).join(' ')
-          : '<span style="color:var(--faint)">—</span>';
         var rowType = item.type || 'ads';
         var typeBadge = rowType === 'live'
           ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
           : rowType === 'organic'
           ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
           : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>';
+        var chCount = item.channels.length;
+        var chList  = item.channels.join(', ');
+        var chChip  = chCount > 0
+          ? '<div style="position:relative;display:inline-block" onmouseenter="this.querySelector(\'.mp2-ch-tt\').style.display=\'block\'" onmouseleave="this.querySelector(\'.mp2-ch-tt\').style.display=\'none\'">'
+          +   '<span class="mp2-ch-chip" style="font-size:10px;font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 8px;cursor:default;white-space:nowrap">' + chCount + ' channel' + (chCount > 1 ? 's' : '') + '</span>'
+          +   '<div style="display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:200;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.6;padding:6px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:nowrap;pointer-events:none" class="mp2-ch-tt">' + chList + '</div>'
+          + '</div>'
+          : '<span style="color:var(--faint)">—</span>';
+        var estDollars = fmtDollars(item._dollarsNum);
         return '<tr style="border-bottom:1px solid var(--border)">'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + item.name + '</td>'
-          + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
-          + '<td style="padding:10px 12px">' + typeBadge + '</td>'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + (item.inventory || '—') + '</td>'
+          + '<td style="padding:10px 12px">' + typeBadge + '</td>'
+          + '<td style="padding:10px 12px">' + chChip + '</td>'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + (item.impressionsLabel || '—') + '</td>'
-          + '<td style="padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);text-align:right;white-space:nowrap">' + (item._cpm > 0 ? '$' + item._cpm : '—') + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + (item._cpm > 0 ? '$' + item._cpm : '—') + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);text-align:right;white-space:nowrap">' + estDollars + '</td>'
           + '<td style="padding:6px 8px;text-align:center;width:32px">'
           +   '<button style="' + DELBTN + '" onclick="mp2DeletePlanItem(' + idx + ',' + item._idx + ')" onmouseenter="this.style.color=\'var(--accent)\'" onmouseleave="this.style.color=\'var(--faint)\'">×</button>'
           + '</td>'
           + '</tr>';
       }).join('');
 
+  // Update URL
+  if (!noPush && plan.id) {
+    history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2PlanId: plan.id }, '', '/media-planner-v2/media-plans/' + plan.id);
+  }
+
   // Update breadcrumb
   var pgname = document.getElementById('content-bc');
   if (pgname) pgname.innerHTML =
-    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2ShowUpload()">Media Planner (v2)</span>'
+    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2SwitchHomeTab(\'plans\')">Media Planner</span>'
     + ' &nbsp;/&nbsp; ' + plan.name;
+
+  // ── Campaign panel (same structure as analysis detail) ────────────────────────
+  function infoField(label, value) {
+    return '<div style="display:flex;align-items:baseline;gap:8px;min-width:0">'
+      + '<span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">' + label + '</span>'
+      + '<span style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + value + '</span>'
+      + '</div>';
+  }
+  function chipList(items) {
+    if (!items || !items.length) return '<span style="font-size:12px;color:var(--faint)">—</span>';
+    return items.map(function(v) {
+      return '<span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;color:var(--text);padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:var(--bg);white-space:nowrap">' + v + '</span>';
+    }).join('');
+  }
+  function sectionLabel(text) {
+    return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">' + text + '</div>';
+  }
+
+  var planCampName = plan.campaign || '—';
+  var planAdvName  = plan.advertiser || '—';
+  var planFdLabel  = (plan.flightStart && plan.flightEnd) ? plan.flightStart + ' → ' + plan.flightEnd : '—';
+  var SEP = '<span style="color:var(--border-md);margin:0 10px">·</span>';
+
+  function metaChunk(label, value) {
+    return '<span style="font-size:12px;color:var(--faint)">' + label + ':</span>'
+      + '<span style="font-size:12px;font-weight:500;color:var(--text);margin-left:5px">' + value + '</span>';
+  }
+
+  var campCardHeader =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border)">'
+    + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;min-width:0">'
+    +   metaChunk('Campaign', planCampName)
+    +   SEP
+    +   metaChunk('Advertiser', planAdvName)
+    +   SEP
+    +   metaChunk('Flight Dates', planFdLabel)
+    +   SEP
+    +   metaChunk('Geography', 'All regions')
+    + '</div>'
+    + '<button id="mp2-plan-camp-toggle" onclick="mp2TogglePlanCampStrip()" title="Toggle campaign details" '
+    +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s;flex-shrink:0;margin-left:16px" '
+    +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
+    +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
+    +   '−'
+    + '</button>'
+    + '</div>';
+
+  var campAssetStrip =
+    '<div id="mp2-plan-camp-strip" style="border-bottom:1px solid var(--border)">'
+    + '<div style="display:flex;align-items:stretch">'
+
+    + '<div style="flex:1;padding:12px 20px">'
+    + sectionLabel('Asset')
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml() + '</div>'
+    + '</div>'
+
+    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    + '<div style="flex:1;padding:12px 20px">'
+    + sectionLabel('Campaign')
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    +   infoField('Campaign', planCampName)
+    +   infoField('Advertiser', planAdvName)
+    +   infoField('Geography', 'All regions')
+    +   infoField('Flight Dates', planFdLabel)
+    + '</div>'
+    + '</div>'
+
+    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    + '<div style="flex:1;padding:12px 20px">'
+    + sectionLabel('Additional Details')
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    +   infoField('Est. Impressions', plan.impressions || '—')
+    +   infoField('Avg CPM', plan.avgCpm || '—')
+    +   infoField('Est. $ Value', plan.dollars || '—')
+    +   infoField('Moments', allItems.length + '')
+    + '</div>'
+    + '</div>'
+
+    + '</div>'
+    + '</div>';
+
+  var campPanel = '<div class="cs-card" style="padding:0;overflow:hidden;margin-bottom:20px">' + campCardHeader + campAssetStrip + '</div>';
 
   ca.innerHTML =
 
-    // Header
-    '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:nowrap;margin-bottom:20px;gap:16px">'
-    +   '<div style="min-width:0;flex:1">'
-    // Inline-editable title
-    +     '<div id="mp-title-wrap-' + idx + '">'
-    +       '<div id="mp-title-display-' + idx + '" style="display:flex;align-items:center;gap:6px;cursor:pointer" onmouseenter="document.getElementById(\'mp-pencil-' + idx + '\').style.opacity=\'1\'" onmouseleave="document.getElementById(\'mp-pencil-' + idx + '\').style.opacity=\'0\'" onclick="mp2StartEditPlanName(' + idx + ')">'
-    +         '<span style="font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.3px">' + plan.name + '</span>'
-    +         '<span id="mp-pencil-' + idx + '" style="opacity:0;transition:opacity .15s;color:var(--faint);display:flex;align-items:center">' + pencilSvg + '</span>'
-    +       '</div>'
-    +     '</div>'
-    +     '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px">'
-    +       '<span style="font-size:12px;color:var(--faint)">Created ' + plan.date + '</span>'
-      + (plan.flightStart && plan.flightEnd
-          ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--faint)">'
-          +   '<svg width="10" height="10" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 5h10M4 1v2M8 1v2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>'
-          +   plan.flightStart + ' → ' + plan.flightEnd
-          + '</span>'
-          : '')
-    +     '</div>'
-    +   '</div>'
-    +   '<div style="display:flex;align-items:center;gap:20px;flex:0 0 auto">'
-    +     '<div style="text-align:right">'
-    +       '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:2px">Moments</div>'
-    +       '<div style="font-size:20px;font-weight:700;color:var(--text)">' + allItems.length + '</div>'
-    +     '</div>'
-    +     (totalImpNum > 0
-          ? '<div style="text-align:right">'
-          +   '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:2px">Est. Impressions</div>'
-          +   '<div style="font-size:20px;font-weight:700;color:var(--text)">' + fmtTotImp + '</div>'
-          + '</div>'
-          : '')
-    +     (avgCpm > 0
-          ? '<div style="text-align:right">'
-          +   '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:2px">Avg CPM</div>'
-          +   '<div style="font-size:20px;font-weight:700;color:var(--accent)">' + fmtAvgCpm + '</div>'
-          + '</div>'
-          : '')
-    +     '<button onclick="mp2DeleteMediaPlan(' + idx + ')" title="Delete plan" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid #fecaca;border-radius:7px;background:#fff5f5;color:#ef4444;cursor:pointer;padding:0">'
-    +       '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 4h10M5 4V2.5h4V4M5.5 6.5v4M8.5 6.5v4M3 4l.8 7.5A1 1 0 004.8 12.5h4.4a1 1 0 001-.9L11 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    +     '</button>'
-    +   '</div>'
-    + '</div>'
+    // Campaign accordion — TOP
+    campPanel
 
-    // Episodes table — scrollable
-    + '<div style="overflow-y:auto;max-height:calc(100vh - 440px);border:1px solid var(--border);border-radius:10px">'
-    +   '<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg);position:sticky;top:0;z-index:1">'
-    +     '<th style="text-align:left;' + TH + '">Moment</th>'
-    +     '<th style="text-align:left;' + TH + '">Channels</th>'
-    +     '<th style="text-align:left;' + TH + '">Type</th>'
-    +     '<th style="text-align:right;' + TH + '">Inventory / PODs</th>'
-    +     '<th style="text-align:right;' + TH + '">Est. Impressions</th>'
-    +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
-    +     '<th style="' + TH + ';width:40px"></th>'
-    +   '</tr></thead>'
-    +   '<tbody>' + tableRowsHtml + '</tbody>'
-    +   '<tfoot style="position:sticky;bottom:0;z-index:1">'
-    +     '<tr>'
-    +       '<td style="' + TOT + '">Total</td>'
-    +       '<td style="' + TOT + '"></td>'
-    +       '<td style="' + TOT + '"></td>'
-    +       '<td style="' + TOT + '"></td>'
-    +       '<td style="' + TOT + ';text-align:right">' + fmtTotImp + '</td>'
-    +       '<td style="' + TOT + ';text-align:right">' + fmtAvgCpm + '</td>'
-    +       '<td style="' + TOT + '"></td>'
-    +     '</tr>'
-    +   '</tfoot>'
-    +   '</table>'
-    + '</div>'
+    // Plan card (accordion)
+    + (function() {
+        var planCardHeader =
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border)">'
+          + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;min-width:0">'
+          +   metaChunk('Plan Name', plan.name)
+          +   SEP
+          +   metaChunk('Created by', plan.author || '—')
+          +   SEP
+          +   metaChunk('At', plan.date || '—')
+          +   SEP
+          +   metaChunk('Moments', allItems.length + '')
+          +   (totalImpNum > 0 ? SEP + metaChunk('Est. Impr.', fmtTotImp) : '')
+          +   (avgCpm > 0     ? SEP + metaChunk('Avg CPM', fmtAvgCpm)    : '')
+          +   (totalDollarsNum > 0 ? SEP + metaChunk('Est. $ Value', fmtTotDollars) : '')
+          + '</div>'
+          + '<button id="mp2-plan-body-toggle" onclick="mp2TogglePlanBody()" '
+          +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s;flex-shrink:0;margin-left:16px" '
+          +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
+          +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">−</button>'
+          + '</div>';
+
+        var planCardBody =
+          '<div id="mp2-plan-body">'
+
+          // Title row
+          + '<div style="padding:16px 20px 0">'
+          +   '<div id="mp-title-wrap-' + idx + '">'
+          +     '<div id="mp-title-display-' + idx + '" style="display:flex;align-items:center;gap:8px">'
+          +       '<span onclick="mp2StartEditPlanName(' + idx + ')" style="font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.3px;cursor:pointer">' + plan.name + '</span>'
+          +       '<button onclick="mp2StartEditPlanName(' + idx + ')" title="Rename plan" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;padding:0;transition:border-color .12s,color .12s,background .12s" onmouseenter="this.style.borderColor=\'var(--border-md)\';this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.background=\'transparent\';this.style.color=\'var(--faint)\'">' + pencilSvg + '</button>'
+          +       '<button onclick="mp2DeleteMediaPlan(' + idx + ')" title="Delete plan" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;padding:0;transition:border-color .12s,color .12s,background .12s" onmouseenter="this.style.borderColor=\'#fecaca\';this.style.background=\'#fff5f5\';this.style.color=\'#ef4444\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.background=\'transparent\';this.style.color=\'var(--faint)\'">'
+          +         '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 4h10M5 4V2.5h4V4M5.5 6.5v4M8.5 6.5v4M3 4l.8 7.5A1 1 0 004.8 12.5h4.4a1 1 0 001-.9L11 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          +       '</button>'
+          +     '</div>'
+          +   '</div>'
+          +   '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;margin-bottom:16px">'
+          +     '<span style="font-size:12px;color:var(--faint)">Created by ' + (plan.author || '—') + ',</span>'
+          +     '<span style="font-size:12px;color:var(--faint)">' + (plan.date || '—') + '</span>'
+          +   '</div>'
+          + '</div>'
+
+          // Table
+          + '<div style="border-top:1px solid var(--border)">'
+          +   '<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--bg);position:sticky;top:0;z-index:1">'
+          +     '<th style="text-align:left;' + TH + '">Moment</th>'
+          +     '<th style="text-align:right;' + TH + '">PODs</th>'
+          +     '<th style="text-align:left;' + TH + '">Type</th>'
+          +     '<th style="text-align:left;' + TH + '">Channels</th>'
+          +     '<th style="text-align:right;' + TH + '">Est. Imp.</th>'
+          +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
+          +     '<th style="text-align:right;' + TH + '">Est. $ Value</th>'
+          +     '<th style="' + TH + ';width:40px"></th>'
+          +   '</tr></thead>'
+          +   '<tbody>' + tableRowsHtml + '</tbody>'
+          +   '<tfoot style="position:sticky;bottom:0;z-index:1"><tr>'
+          +     '<td style="' + TOT + '">Total</td>'
+          +     '<td style="' + TOT + '"></td>'
+          +     '<td style="' + TOT + '"></td>'
+          +     '<td style="' + TOT + '"></td>'
+          +     '<td style="' + TOT + ';text-align:right">' + fmtTotImp + '</td>'
+          +     '<td style="' + TOT + ';text-align:right">' + fmtAvgCpm + '</td>'
+          +     '<td style="' + TOT + ';text-align:right">' + fmtTotDollars + '</td>'
+          +     '<td style="' + TOT + '"></td>'
+          +   '</tr></tfoot>'
+          +   '</table>'
+          + '</div>'
+
+          // Add more moments — inside card body
+          + '<div style="padding:12px 20px;border-top:1px solid var(--border)">'
+          +   '<button onclick="mp2AddMoreMoments(' + idx + ')" style="width:100%;height:36px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:8px;border:1px solid var(--border-md);background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit" onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'var(--surface)\'">'
+          +     '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+          +     'Add more moments'
+          +   '</button>'
+          + '</div>'
+
+          + '</div>'; // #mp2-plan-body
+
+        return '<div class="cs-card" style="padding:0;overflow:hidden;margin-bottom:20px">' + planCardHeader + planCardBody + '</div>';
+      })()
 
     // Action buttons
-    + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">'
-    +   '<button onclick="mp2AddMoreMoments(' + idx + ')" style="width:100%;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid var(--border-md);background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit" onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'var(--surface)\'">'
-    +     '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
-    +     'Add more moments'
+    + '<div style="display:flex;gap:8px">'
+    +   '<button id="inv-export-btn-' + idx + '" onclick="mp2ExportInsertionOrder(' + idx + ',this)" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:#0f172a;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit" onmouseenter="this.style.background=\'#1e293b\'" onmouseleave="this.style.background=\'#0f172a\'">'
+    +     '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 10v1.5A1.5 1.5 0 003.5 13h7a1.5 1.5 0 001.5-1.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    +     'Export to IO'
     +   '</button>'
-    +   '<div style="display:flex;gap:8px">'
-    +     '<button id="inv-export-btn-' + idx + '" onclick="mp2ExportInsertionOrder(' + idx + ',this)" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'
-    +       '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 10v1.5A1.5 1.5 0 003.5 13h7a1.5 1.5 0 001.5-1.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    +       'Export to IO'
-    +     '</button>'
-    +     '<button onclick="mp2ActivateDSP(' + idx + ')" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:#0f172a;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit" onmouseenter="this.style.background=\'#1e293b\'" onmouseleave="this.style.background=\'#0f172a\'">'
-    +       '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="5" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="4.5" cy="11.5" r="1" fill="currentColor"/><circle cx="11.5" cy="11.5" r="1" fill="currentColor"/></svg>'
-    +       'Activate via DSP'
-    +     '</button>'
-    +   '</div>'
+    +   '<button onclick="mp2ActivateDSP(' + idx + ')" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'
+    +     '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="5" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="4.5" cy="11.5" r="1" fill="currentColor"/><circle cx="11.5" cy="11.5" r="1" fill="currentColor"/></svg>'
+    +     'Activate via DSP / SSP'
+    +   '</button>'
     + '</div>';
 }
 
@@ -512,7 +689,222 @@ function mp2DeleteMediaPlan(idx) {
   if (!plan) return;
   if (!confirm('Delete "' + plan.name + '"? This cannot be undone.')) return;
   savedMediaPlansV2.splice(idx, 1);
-  mp2ShowUpload();
+  mp2SwitchHomeTab('plans');
+}
+
+var mp2NewPlanStep    = 1;
+var mp2CampaignMode   = 'select';   // 'create' | 'select'
+var mp2SelectedCampaign = null;
+var mp2LibrarySelected  = null;     // selected CS_LIBRARY item (first selected, for step-1 compat)
+var mp2LibrarySelectedItems = [];   // all selected CS_LIBRARY items
+
+function mp2RefreshStep1() {
+  var el = document.getElementById('mp2-step2');
+  if (el) el.innerHTML = _mp2Step1Html();
+}
+
+function _mp2Step1Html() {
+  var INP = 'width:100%;height:36px;border:1px solid var(--border-md);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;transition:border .15s,box-shadow .15s;box-sizing:border-box';
+  var FOCUS = 'onfocus="this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'0 0 0 3px rgba(237,0,94,.08)\'" onblur="this.style.borderColor=\'var(--border-md)\';this.style.boxShadow=\'none\'"';
+  var CHEVRON = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0;color:var(--faint)"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var TRIGBTN = 'width:100%;height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;border:1px solid var(--border-md);border-radius:8px;background:var(--surface);font-size:13px;font-family:inherit;cursor:pointer;transition:border .15s,box-shadow .15s;text-align:left';
+
+  var DISABLED = 'width:100%;height:36px;border:1px solid var(--border);border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit;color:var(--muted);background:var(--bg);outline:none;cursor:not-allowed;box-sizing:border-box';
+  var LBL = 'display:block;font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px';
+
+  // If an asset was selected from the library, show pre-filled locked fields
+  if (mp2LibrarySelected) {
+    var cr = mp2LibrarySelected;
+    return '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Campaign</label>'
+      + '<input type="text" value="' + (cr.campaign || '—') + '" disabled style="' + DISABLED + '">'
+      + '</div>'
+      + '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Advertiser</label>'
+      + '<input type="text" value="' + (cr.advertiser || '—') + '" disabled style="' + DISABLED + '">'
+      + '</div>'
+      + '<div>'
+      + '<label style="' + LBL + '">Geography</label>'
+      + '<input type="text" value="All regions" disabled style="' + DISABLED + '">'
+      + '</div>';
+  }
+
+  var toggle = _segControlHtml(mp2CampaignMode, [
+    { id: 'select', label: 'Select Campaign', onclick: "mp2CampaignMode='select';mp2RefreshStep1()" },
+    { id: 'create', label: 'Create Campaign', onclick: "mp2CampaignMode='create';mp2RefreshStep1()" },
+  ]);
+
+  var campField;
+  if (mp2CampaignMode === 'select') {
+    var selCamp = mp2SelectedCampaign; // full object or null
+    campField = '<div style="margin-bottom:14px">'
+      + '<label style="display:block;font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">Campaign</label>'
+      + '<div style="position:relative">'
+      + '<button id="mp2-camp-trigger" onclick="toggleSharedCampaignPanel(event,\'mp2-camp-trigger\',\'mp2-camp-panel\',\'mp2SelectedCampaign\',\'mp2RefreshStep1\')" style="' + TRIGBTN + ';color:' + (selCamp ? 'var(--text)' : 'var(--faint)') + '">'
+      + '<span class="camp-lbl">' + (selCamp ? selCamp.name : '— select a campaign —') + '</span>'
+      + CHEVRON + '</button>'
+      + '<div id="mp2-camp-panel" style="display:none"></div>'
+      + '</div></div>';
+    if (selCamp) {
+      campField +=
+        '<div style="margin-bottom:14px">'
+        + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Advertiser</label>'
+        + '<input type="text" value="' + selCamp.advertiserName + '" disabled style="' + DISABLED + '">'
+        + '</div>'
+        + '<div>'
+        + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Geography</label>'
+        + '<input type="text" value="' + selCamp.geography + '" disabled style="' + DISABLED + '">'
+        + '</div>';
+    }
+    return toggle + campField;
+  }
+
+  // Create mode
+  campField = '<div style="margin-bottom:14px">'
+    + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Campaign Name</label>'
+    + '<input id="mp2-campaign-name" type="text" placeholder="e.g. Walmart Summer Launch" style="' + INP + '" ' + FOCUS + '>'
+    + '</div>';
+
+  var advField = '<div style="margin-bottom:14px">'
+    + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Advertiser</label>'
+    + '<div style="position:relative">'
+    + '<button id="mp2-adv-trigger" onclick="toggleSharedAdvPanel(event,\'mp2-adv-trigger\',\'mp2-adv-panel\')" style="' + TRIGBTN + ';color:var(--text)">'
+    + '<span class="adv-lbl">' + ((APP_ADVERTISERS.find(function(a){return a.id===selectedAdvId;})||{}).name||'Select Advertiser') + '</span>'
+    + CHEVRON + '</button>'
+    + '<div id="mp2-adv-panel" style="display:none"></div>'
+    + '</div></div>';
+
+  var geoField = '<div>'
+    + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Geography</label>'
+    + '<div style="position:relative">'
+    + '<button id="mp2-geo-trigger" onclick="mp2ToggleGeoPanel(event)" style="' + TRIGBTN + ';color:var(--faint)">'
+    + '<span id="mp2-geo-label">All regions</span>'
+    + CHEVRON + '</button>'
+    + UI.searchCheckboxPanel({ id:'mp2-geo-panel', placeholder:'Search regions…', onChangeFn:'mp2GeoToggle', items:[
+        {val:'europe',label:'Europe',checked:false},{val:'united-states',label:'United States',checked:false},
+        {val:'canada',label:'Canada',checked:false},{val:'united-kingdom',label:'United Kingdom',checked:false},
+        {val:'australia',label:'Australia',checked:false},{val:'new-zealand',label:'New Zealand',checked:false},
+        {val:'japan',label:'Japan',checked:false},{val:'brazil',label:'Brazil',checked:false},
+        {val:'germany',label:'Germany',checked:false},{val:'france',label:'France',checked:false},
+        {val:'italy',label:'Italy',checked:false},{val:'spain',label:'Spain',checked:false},
+      ]})
+    + '</div></div>';
+
+  return toggle + campField + advField + geoField;
+}
+
+function _mp2StepHdrHtml() {
+  var steps = [{n:1,label:'Add Asset'},{n:2,label:'Add Campaign'},{n:3,label:'Add Campaign Details'}];
+  var html = '<div style="display:flex;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border)">';
+  steps.forEach(function(s, i) {
+    var done   = mp2NewPlanStep > s.n;
+    var active = mp2NewPlanStep === s.n;
+    var circleBg = (done || active) ? 'var(--accent)' : 'transparent';
+    var circleBd = (done || active) ? 'none' : '1.5px solid var(--border-md)';
+    var inner = done
+      ? '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '<span style="font-size:11px;font-weight:700;color:' + (active ? '#fff' : 'var(--faint)') + '">' + s.n + '</span>';
+    var lc = active ? 'var(--text)' : done ? 'var(--accent)' : 'var(--faint)';
+    var lw = active ? '600' : '400';
+    html += '<div style="display:flex;align-items:center;gap:8px">'
+      + '<div style="width:24px;height:24px;border-radius:50%;background:' + circleBg + ';border:' + circleBd + ';display:flex;align-items:center;justify-content:center;flex-shrink:0">' + inner + '</div>'
+      + '<span style="font-size:12px;font-weight:' + lw + ';color:' + lc + ';white-space:nowrap">' + s.label + '</span>'
+      + '</div>';
+    if (i < 2) html += '<div style="flex:1;height:1px;background:' + (mp2NewPlanStep > s.n ? 'var(--accent)' : 'var(--border)') + ';margin:0 12px"></div>';
+  });
+  return html + '</div>';
+}
+
+function _mp2StepNavHtml() {
+  var BACK = 'display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:1px solid var(--border-md);border-radius:8px;background:none;font-size:12px;font-weight:500;font-family:inherit;color:var(--muted);cursor:pointer';
+  var NEXT = 'display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 3px 10px rgba(225,29,143,.28)';
+  var html = '<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">';
+  html += mp2NewPlanStep > 1
+    ? '<button onclick="mp2StepNav(-1)" style="' + BACK + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'
+    : '<div></div>';
+  var right = '';
+  if (mp2NewPlanStep >= 2 && !(mp2NewPlanStep === 2 && mp2LibrarySelected)) right += '<button type="button" onclick="mp2StepNav(1)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
+  right += mp2NewPlanStep < 3
+    ? '<button onclick="mp2StepNav(1)" style="' + NEXT + '">Next<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>'
+    : '<button onclick="mp2Analyze()" style="' + NEXT + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>Start Analysis</button>';
+  html += '<div style="display:inline-flex;align-items:center;gap:16px">' + right + '</div>';
+  return html + '</div>';
+}
+
+function mp2StepNav(dir) {
+  mp2NewPlanStep = Math.min(3, Math.max(1, mp2NewPlanStep + dir));
+  var hdr = document.getElementById('mp2-step-hdr');
+  if (hdr) hdr.innerHTML = _mp2StepHdrHtml();
+  [1,2,3].forEach(function(n) {
+    var el = document.getElementById('mp2-step' + n);
+    if (el) el.style.display = mp2NewPlanStep === n ? '' : 'none';
+  });
+  var nav = document.getElementById('mp2-step-nav');
+  if (nav) nav.innerHTML = _mp2StepNavHtml();
+  if (mp2NewPlanStep === 1) setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
+  if (mp2NewPlanStep === 2) { var s2 = document.getElementById('mp2-step2'); if (s2) s2.innerHTML = _mp2Step1Html(); }
+  if (mp2NewPlanStep === 3) mp2BuildNewPlanAIPanel();
+}
+
+var _mp2GeoSelected = new Set();
+
+function mp2ToggleGeoPanel(e) {
+  if (e) e.stopPropagation();
+  var panel   = document.getElementById('mp2-geo-panel');
+  var trigger = document.getElementById('mp2-geo-trigger');
+  if (!panel) return;
+  var opening = !panel.classList.contains('open');
+
+  if (opening && trigger) {
+    // Use fixed positioning so the panel escapes overflow:hidden on the card
+    var rect      = trigger.getBoundingClientRect();
+    var panelH    = 280;
+    var spaceBelow = window.innerHeight - rect.bottom - 8;
+    var spaceAbove = rect.top - 8;
+    panel.style.position = 'fixed';
+    panel.style.width    = rect.width + 'px';
+    panel.style.left     = rect.left + 'px';
+    panel.style.right    = 'auto';
+    if (spaceBelow >= panelH || spaceBelow >= spaceAbove) {
+      panel.style.top    = (rect.bottom + 6) + 'px';
+      panel.style.bottom = 'auto';
+    } else {
+      panel.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+      panel.style.top    = 'auto';
+    }
+    panel.style.zIndex = '9999';
+    panel.style.maxHeight = Math.max(spaceBelow, spaceAbove) - 8 + 'px';
+    panel.style.overflowY = 'auto';
+  }
+
+  panel.classList.toggle('open', opening);
+  if (trigger) {
+    trigger.style.borderColor = opening ? 'var(--accent)' : 'var(--border-md)';
+    trigger.style.boxShadow   = opening ? '0 0 0 3px rgba(237,0,94,.08)' : 'none';
+  }
+  if (opening) {
+    setTimeout(function() {
+      document.addEventListener('click', function _close(ev) {
+        var p = document.getElementById('mp2-geo-panel');
+        var t = document.getElementById('mp2-geo-trigger');
+        if (p && !p.contains(ev.target) && ev.target !== t && !t.contains(ev.target)) {
+          p.classList.remove('open');
+          if (t) { t.style.borderColor = 'var(--border-md)'; t.style.boxShadow = 'none'; }
+          document.removeEventListener('click', _close);
+        }
+      });
+    }, 0);
+  }
+}
+
+function mp2GeoToggle(val, checked) {
+  if (checked) _mp2GeoSelected.add(val);
+  else _mp2GeoSelected.delete(val);
+  var lbl = document.getElementById('mp2-geo-label');
+  if (!lbl) return;
+  var count = _mp2GeoSelected.size;
+  lbl.textContent = count === 0 ? 'All regions' : count + ' region' + (count > 1 ? 's' : '') + ' selected';
+  lbl.style.color = count > 0 ? 'var(--text)' : 'var(--faint)';
 }
 
 function mp2BuildNewPlanAIPanel() {
@@ -523,10 +915,10 @@ function mp2BuildNewPlanAIPanel() {
     '<div style="display:flex;flex-direction:column;min-height:200px">'
     + '<div style="width:100%">'
 
-    + '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 1 — Setup your Campaign Details</div>'
+    + '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 2 — Add Campaign Details</div>'
     + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px;text-align:left">'
     +   'The budget for my media plan is ' + aiTriggerHtml('budget')
-    +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions. '
+    +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions per day. '
     +   'The Channels should be ' + aiTriggerHtml('channels')
     +   ' and the type ' + aiTriggerHtml('type') + '. '
     +   'My Brand Safety parameters are ' + aiTriggerHtml('brand') + '. '
@@ -590,7 +982,7 @@ function mp2RenderNewPlanAIResults() {
     +     '<th style="text-align:left;'  + TH + '">Moment</th>'
     +     '<th style="text-align:left;'  + TH + '">Channels</th>'
     +     '<th style="text-align:left;'  + TH + '">Type</th>'
-    +     '<th style="text-align:right;' + TH + '">Inventory</th>'
+    +     '<th style="text-align:right;' + TH + '">PODs</th>'
     +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
     +     '<th style="text-align:right;' + TH + '">Est. Impressions</th>'
     +     '<th style="' + TH + 'width:32px"></th>'
@@ -642,31 +1034,43 @@ function mp2RenderNewPlanAIResults() {
 
 function mp2ShowUpload() {
   mp2TaxStep = 'upload';
+  mp2NewPlanStep = 1;
+  _mp2GeoSelected = new Set();
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
+  // Restore tab nav when returning to the home view
+  var pills = document.getElementById('mp2-pills');
+  if (pills) pills.style.display = '';
+
   var pgname = document.getElementById('content-bc');
-  if (pgname) pgname.textContent = 'Media Planner (v2)';
+  if (pgname) pgname.textContent = 'Media Planner';
 
   function inputArea(type) {
-    var uploadZone =
-        '<div class="tx2-upload-zone" onclick="document.getElementById(\'tx2-file-input-' + type + '\').click()">'
-      + '  <input type="file" id="tx2-file-input-' + type + '" style="display:none"'
-      + (type === 'video' ? ' accept="video/*"' : ' accept=".pdf,.doc,.docx"') + '>'
-      + '  <svg width="28" height="28" viewBox="0 0 32 32" fill="none" style="color:var(--faint)">'
-      + (type === 'video'
-          ? '<rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
-          : '<path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.6"/><path d="M20 4v6h6M10 14h12M10 18h12M10 22h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>')
-      + '  </svg>'
-      + '  <div style="font-size:13px;font-weight:500;color:var(--text);margin-top:6px">'
-      + (type === 'video' ? 'Drop video file here' : 'Drop PDF or document here')
-      + '  </div>'
-      + '  <div style="font-size:11px;color:var(--faint);margin-top:2px">'
-      + (type === 'video' ? 'MP4, MOV, AVI — up to 2 GB' : 'PDF, DOCX, TXT — up to 50 MB')
-      + '  </div>'
-      + '</div>';
+    var uploadZone = type === 'video'
+      ? '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="document.getElementById(\'tx2-file-input-video\').click()">'
+        + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*,image/*">'
+        + '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="color:var(--faint)"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+        + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Drop Asset Here</div>'
+        + '<div style="font-size:11px;color:var(--faint);margin-top:1px">MP4, MOV, JPG, PNG — up to 2 GB</div>'
+        + '<button onclick="event.stopPropagation();document.getElementById(\'tx2-file-input-video\').click()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Browse</button>'
+        + '</div>'
+      : type === 'library'
+      ? '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="mp2OpenLibraryModal()">'
+        + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint)"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+        + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Upload Asset from Library</div>'
+        + '<div style="font-size:11px;color:var(--faint);margin-top:1px">Browse and select from your Creative Library</div>'
+        + '<button onclick="event.stopPropagation();mp2OpenLibraryModal()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Browse</button>'
+        + '</div>'
+      : '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="document.getElementById(\'tx2-file-input-doc\').click()">'
+        + '<input type="file" id="tx2-file-input-doc" style="display:none" accept=".pdf,.doc,.docx">'
+        + '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="color:var(--faint)"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.6"/><path d="M20 4v6h6M10 14h12M10 18h12M10 22h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+        + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Drop PDF or document here</div>'
+        + '<div style="font-size:11px;color:var(--faint);margin-top:1px">PDF, DOCX, TXT — up to 50 MB</div>'
+        + '<button onclick="event.stopPropagation();document.getElementById(\'tx2-file-input-doc\').click()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Browse</button>'
+        + '</div>';
     var textArea =
-        '<textarea class="cs-textarea" id="tx2-text-input" placeholder="Paste or type your text here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" style="width:100%;box-sizing:border-box;min-height:160px;resize:vertical"></textarea>';
+        '<textarea class="cs-textarea" id="tx2-text-input" placeholder="Paste or type your text here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" style="width:100%;box-sizing:border-box;min-height:120px;resize:vertical"></textarea>';
     return type === 'text' ? textArea : uploadZone;
   }
 
@@ -687,168 +1091,195 @@ function mp2ShowUpload() {
     { type:'doc',   name:'Brand-safety-guidelines.docx', date:'3 Apr 2025',   moments:3,  taxonomies:9,  lookback:'90 sec', flightStart:'1 Jun 2025',  flightEnd:'15 Jun 2025'  },
   ];
 
-  var libraryRows = TX2_LIBRARY.map(function(item, i) {
-    return '<div class="tx2-lib-row" onclick="mp2LibLoad(' + i + ')">'
-      + '<div class="tx2-lib-icon">' + typeIcon(item.type) + '</div>'
-      + '<div style="flex:1;min-width:0">'
-      +   '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.name + '</div>'
-      +   '<div style="font-size:11px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.date + ' &nbsp;·&nbsp; ' + item.moments + ' moments &nbsp;·&nbsp; ' + item.taxonomies + ' taxonomies</div>'
-      + '</div>'
-      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
-      +   '<span style="font-size:10px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px">Completed</span>'
-      + '</div>'
+  var libCols = [
+    { label: 'Source',          width: '220px' },
+    { label: 'Date',            width: '110px' },
+    { label: 'Lookback',        width: '90px'  },
+    { label: 'Flight Dates',    width: '180px' },
+    { label: 'Moments',         width: '90px',  align: 'right' },
+    { label: 'Taxonomies',      width: '100px', align: 'right' },
+    { label: 'Status',          width: '100px', align: 'center' },
+  ];
+  var TDl  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
+  var TDlm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TDln = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
+  var TDlc = 'padding:11px 16px;font-size:12px;border-bottom:1px solid var(--border);text-align:center';
+  var libTbody = TX2_LIBRARY.map(function(item, i) {
+    var last  = i === TX2_LIBRARY.length - 1;
+    var fix   = last ? ';border-bottom:none' : '';
+    var nameCell = '<span style="display:inline-flex;align-items:center;gap:7px;color:var(--muted)">'
+      + typeIcon(item.type)
+      + '<span style="font-weight:500;color:var(--text)">' + item.name + '</span></span>';
+    var flightCell = (item.flightStart && item.flightEnd)
+      ? item.flightStart + ' → ' + item.flightEnd
+      : '—';
+    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + i + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDl  + fix + '">' + nameCell  + '</td>'
+      + '<td style="' + TDlm + fix + '">' + item.date + '</td>'
+      + '<td style="' + TDlm + fix + '">' + item.lookback + '</td>'
+      + '<td style="' + TDlm + fix + '">' + flightCell + '</td>'
+      + '<td style="' + TDln + fix + '">' + item.moments + '</td>'
+      + '<td style="' + TDln + fix + '">' + item.taxonomies + '</td>'
+      + '<td style="' + TDlc + fix + '"><span style="font-size:10px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px">Completed</span></td>'
+      + '</tr>';
+  }).join('');
+  var libSearchBar = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+    + UI.searchBar('mp2-lib-search', 'Search analyses…', 'mp2LibSearch(this.value)')
+    + '</div>';
+  var libraryRows = UI.cardHeader({
+    title: 'Previous Analysis',
+    subtitle: TX2_LIBRARY.length + ' analyses',
+    padding: '0',
+    bodyHtml: libSearchBar + UI.tableScroll(libCols, libTbody, 'mp2-lib-tbody', 0, null, { inCard: true }),
+  });
+
+  var planCols = [
+    { label: 'Plan Name',        width: '240px' },
+    { label: 'Campaign',         width: '190px' },
+    { label: 'Advertiser',       width: '130px' },
+    { label: 'Moments',          width: '80px',  align: 'right' },
+    { label: 'Est. Impressions', width: '120px', align: 'right' },
+    { label: 'Est. CPM',         width: '90px',  align: 'right' },
+    { label: 'Est. $ Value',     width: '100px', align: 'right' },
+    { label: 'Created By',       width: '120px' },
+    { label: 'Created At',       width: '100px' },
+    { label: '',                 width: '90px',  align: 'center' },
+  ];
+  var TDp  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
+  var TDpm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TDpn = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
+  var TDpc = 'padding:11px 16px;font-size:12px;border-bottom:1px solid var(--border);text-align:center';
+  var IBTN = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--muted);transition:background .12s,color .12s';
+  var IHOV = 'onmouseenter="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'"';
+  var IDELHOV = 'onmouseenter="this.style.background=\'#fef2f2\';this.style.color=\'#dc2626\';this.style.borderColor=\'#fecaca\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\';this.style.borderColor=\'var(--border)\'"';
+
+  var plansTbody = savedMediaPlansV2.length === 0 ? '' : savedMediaPlansV2.map(function(mp, i) {
+    var last = i === savedMediaPlansV2.length - 1;
+    var fix  = last ? ';border-bottom:none' : '';
+    var momentsCount = (mp.moments || []).length + (mp.programs || []).length + (mp.episodes || []).length;
+
+    // Campaign cell: name + flight dates below (or assign button if no campaign)
+    var flightStr = (mp.flightStart && mp.flightEnd) ? mp.flightStart + ' → ' + mp.flightEnd : null;
+    var FOLDER_SYMLINK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h7"/><path d="m16 20 2-2-2-2"/><path d="M13 18h5"/></svg>';
+    var campaignCell = mp.campaign
+      ? '<div style="font-size:12px;font-weight:500;color:var(--text)">' + mp.campaign + '</div>'
+        + (flightStr ? '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + flightStr + '</div>' : '')
+      : '<button onclick="event.stopPropagation()" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">'
+        + FOLDER_SYMLINK + 'Assign Campaign</button>';
+
+    var createdByCell = '<span style="font-size:12px;color:var(--muted)">' + (mp.author || '—') + '</span>';
+
+    var actionsCell = '<div style="display:inline-flex;align-items:center;gap:4px">'
+      + '<button title="Edit" onclick="mp2ShowMediaPlanDetail(' + i + ')" style="' + IBTN + '" ' + IHOV + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+      + '<button title="Delete" onclick="mp2DeletePlan(' + i + ',event)" style="' + IBTN + '" ' + IDELHOV + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5h4v1M5.5 6v4M8.5 6v4M3 3.5l.7 8h6.6l.7-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
       + '</div>';
+
+    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2ShowMediaPlanDetail(' + i + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDp  + fix + ';font-weight:600">' + (mp.name || '—') + '</td>'
+      + '<td style="' + TDp  + fix + '">' + campaignCell + '</td>'
+      + '<td style="' + TDpm + fix + '">' + (mp.advertiser || '—') + '</td>'
+      + '<td style="' + TDpn + fix + '">' + momentsCount + '</td>'
+      + '<td style="' + TDpn + fix + '">' + (mp.impressions || '—') + '</td>'
+      + '<td style="' + TDpn + fix + '">' + (mp.avgCpm || '—') + '</td>'
+      + '<td style="' + TDpn + fix + '">' + (mp.dollars || '—') + '</td>'
+      + '<td style="' + TDpm + fix + '">' + createdByCell + '</td>'
+      + '<td style="' + TDpm + fix + '">' + (mp.date || '—') + '</td>'
+      + '<td style="' + TDpc + fix + '" onclick="event.stopPropagation()">' + actionsCell + '</td>'
+      + '</tr>';
   }).join('');
 
-  var plansRows = savedMediaPlansV2.length === 0
-    ? '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet.<br>Build one with the AI planner and hit Save.</div>'
-    : savedMediaPlansV2.map(function(mp, i) {
-        var inputIco =
-          mp.inputType === 'video'
-            ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>'
-            : mp.inputType === 'document'
-            ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 2v3h3M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
-            : '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
-        var momentsCount = mp.source === 'ai'
-          ? (mp.moments || []).length
-          : (mp.programs || []).length + (mp.episodes || []).length;
-        var cpmStr = mp.avgCpm ? ' &nbsp;·&nbsp; Avg. CPM ' + mp.avgCpm : (mp.dollars ? ' &nbsp;·&nbsp; ' + mp.dollars : '');
-        var flightStr = (mp.flightStart && mp.flightEnd) ? ' &nbsp;·&nbsp; ' + mp.flightStart + ' → ' + mp.flightEnd : '';
-
-        // DSP badge
-        var dspBadge = '';
-        if (mp.dsp && mp.dsp.name) {
-          var dspCol = DSP_COLORS_V2[mp.dsp.name] || 'var(--muted)';
-          dspBadge = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap;flex-shrink:0">'
-            + '<span style="width:6px;height:6px;border-radius:50%;background:' + dspCol + ';flex-shrink:0"></span>'
-            + mp.dsp.name
-            + '</span>';
-        }
-
-        // Status badge
-        var statusBadge = '';
-        if (mp.dsp && mp.dsp.status) {
-          var st = mp.dsp.status;
-          var stCol = st === 'active'  ? '#16a34a' : st === 'pending' ? '#d97706' : '#dc2626';
-          var stBg  = st === 'active'  ? '#f0fdf4' : st === 'pending' ? '#fffbeb' : '#fef2f2';
-          var stBd  = st === 'active'  ? '#bbf7d0' : st === 'pending' ? '#fde68a' : '#fecaca';
-          var stTxt = st === 'active'  ? 'Live'    : st === 'pending' ? 'Pending' : 'Error';
-          statusBadge = '<span style="font-size:10px;font-weight:600;color:' + stCol + ';background:' + stBg + ';border:1px solid ' + stBd + ';border-radius:20px;padding:2px 8px;white-space:nowrap;flex-shrink:0">' + stTxt + '</span>';
-        }
-
-        // Action buttons
-        var IBTN = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--muted);transition:background .12s,color .12s;flex-shrink:0';
-        var IHOV = 'onmouseenter="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'"';
-        var IDELHOV = 'onmouseenter="this.style.background=\'#fef2f2\';this.style.color=\'#dc2626\';this.style.borderColor=\'#fecaca\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\';this.style.borderColor=\'var(--border)\'"';
-        var btnRefresh = '<button title="Refresh DSP" onclick="mp2RefreshDSP(' + i + ',event)" style="' + IBTN + '" ' + IHOV + '>'
-          + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>'
-          + '</button>';
-        var btnEdit = '<button title="Edit" onclick="mp2ShowMediaPlanDetail(' + i + ')" style="' + IBTN + '" ' + IHOV + '>'
-          + '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-          + '</button>';
-        var btnDelete = '<button title="Delete" onclick="mp2DeletePlan(' + i + ',event)" style="' + IBTN + '" ' + IDELHOV + '>'
-          + '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5h4v1M5.5 6v4M8.5 6v4M3 3.5l.7 8h6.6l.7-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-          + '</button>';
-
-        return '<div class="tx2-lib-row" style="align-items:center;cursor:default">'
-          + '<div class="tx2-lib-icon" style="flex-shrink:0;cursor:pointer" onclick="mp2ShowMediaPlanDetail(' + i + ')">' + inputIco + '</div>'
-          + '<div style="flex:1;min-width:0;cursor:pointer" onclick="mp2ShowMediaPlanDetail(' + i + ')">'
-          +   '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + mp.name + '</div>'
-          +   '<div style="font-size:11px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-          +     mp.date
-          +     (mp.author ? ' &nbsp;·&nbsp; ' + mp.author : '')
-          +     flightStr
-          +     (mp.impressions ? ' &nbsp;·&nbsp; ' + mp.impressions + ' imp.' : '')
-          +     cpmStr
-          +     ' &nbsp;·&nbsp; ' + momentsCount + ' moments'
-          +   '</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-left:12px">'
-          +   dspBadge
-          +   statusBadge
-          +   '<div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>'
-          +   btnRefresh
-          +   btnEdit
-          +   btnDelete
-          + '</div>'
-          + '</div>';
-      }).join('');
+  var plansSearchBar = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+    + UI.searchBar('mp2-plans-search', 'Search media plans…', 'mp2PlansSearch(this.value)')
+    + '</div>';
+  var plansEmptyHtml = '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet.<br>Build one with the AI planner and hit Save.</div>';
+  var plansBodyHtml  = savedMediaPlansV2.length === 0
+    ? plansEmptyHtml
+    : plansSearchBar + UI.tableScroll(planCols, plansTbody, 'mp2-plans-tbody', 0, null, { inCard: true });
+  var plansRows = UI.cardHeader({
+    title: 'Media Plans',
+    subtitle: savedMediaPlansV2.length ? savedMediaPlansV2.length + ' plans' : 'No plans yet',
+    padding: savedMediaPlansV2.length === 0 ? '0 20px' : '0',
+    bodyHtml: plansBodyHtml,
+  });
 
   ca.innerHTML =
     '<div style="display:flex;flex-direction:column;min-height:400px">'
 
-    // ── Top-level tabs: New Plan | Media Plans | Previous Analysis ──
-    + '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;flex-shrink:0">'
-    +   '<div class="tx2-home-tab' + (mp2HomeTab === 'new-plan' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'new-plan\')">New Plan</div>'
-    +   '<div style="width:1px;background:var(--border);margin:8px 4px;align-self:stretch"></div>'
-    +   '<div id="tx2-plans-tab-btn" class="tx2-home-tab' + (mp2HomeTab === 'plans' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'plans\')">Media Plans</div>'
-    +   '<div class="tx2-home-tab' + (mp2HomeTab === 'analyses' ? ' tx2-home-tab--act' : '') + '" onclick="mp2SwitchHomeTab(\'analyses\')">Previous Analysis</div>'
-    + '</div>'
-
     // ── New Plan tab — gradient bg, 2 columns: AI panel | upload form ──
-    + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px">'
-    +   '<div style="text-align:center;margin-bottom:32px">'
-    +     '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:10px">'
-    +       '<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(225,29,143,.28)">'
-    +         '<svg width="17" height="17" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
+    + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px;display:flex;flex-direction:column">'
+    +   '<div style="text-align:center;margin-bottom:16px">'
+    +     '<div style="display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:6px">'
+    +       '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(225,29,143,.28)">'
+    +         '<svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
     +       '</div>'
     +     '</div>'
-    +     '<div style="font-size:18px;font-weight:700;color:#0D1E36;margin-bottom:6px">Get AI personalized Media Plans</div>'
-    +     '<div style="font-size:12px;color:var(--muted)">Describe your campaigns, scan your creatives and let the AI find the best placements.</div>'
+    +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">Get AI personalized Media Plans</div>'
+    +     '<div style="font-size:11px;color:var(--muted)">Describe your campaigns, scan your creatives and let the AI find the best placements.</div>'
     +   '</div>'
-    +   '<div style="display:flex;gap:52px;align-items:flex-start">'
-    +     '<div style="flex:1;min-width:0;padding-left:130px" id="mp2-new-plan-ai-panel"></div>'
-    +     '<div style="flex:1;min-width:0;padding-left:48px;padding-right:130px;border-left:1px solid var(--border)">'
-    +       '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 2 — Add your creative asset or your creative brief</div>'
-    +       '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:16px">'
-    +         '<div class="tx2-seg tx2-seg--act" id="tx2-opt-video" onclick="mp2SelectInput(\'video\')">'
-    +           '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
-    +           '<span>Video</span>'
-    +         '</div>'
-    +         '<div class="tx2-seg" id="tx2-opt-brief" onclick="mp2SelectInput(\'brief\')">'
-    +           '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-    +           '<span>Brief</span>'
-    +         '</div>'
-    +       '</div>'
-    +       '<div id="tx2-input-area" style="margin-bottom:16px">' + inputArea('video') + '</div>'
-    +       '<div style="margin-bottom:16px">'
-    +         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
-    +           '<div style="display:flex;align-items:center;gap:4px">'
-    +             '<span style="font-size:11px;font-weight:500;color:var(--text)">Lookback Window</span>'
-    +             '<span style="position:relative;display:inline-flex;align-items:center" onmouseenter="this.querySelector(\'.mp2-lbw-tt\').style.display=\'block\'" onmouseleave="this.querySelector(\'.mp2-lbw-tt\').style.display=\'none\'">'
-    +               '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="color:var(--faint);cursor:default"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="5" r=".6" fill="currentColor"/></svg>'
-    +               '<span class="mp2-lbw-tt" style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:220px;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.5;padding:7px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999;pointer-events:none">The lookback window indicates the time before an Ad Break used to qualify the scene as a Moment</span>'
-    +             '</span>'
+    // ── Stepper card ──
+    +   '<div style="max-width:520px;width:100%;margin:0 auto;flex:1;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
+
+    // Stepper header
+    +     '<div id="mp2-step-hdr">' + _mp2StepHdrHtml() + '</div>'
+
+    // Step content area
+    +     '<div style="padding:16px 20px;flex:1">'
+
+    // Step 1 — Add Asset
+    +       '<div id="mp2-step1">'
+    +         '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:10px">'
+    +           '<div class="tx2-seg tx2-seg--act" id="tx2-opt-video" onclick="mp2SelectInput(\'video\')">'
+    +             '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+    +             '<span>New Asset</span>'
     +           '</div>'
-    +           '<span id="mp2-lookback-label" style="font-size:11px;font-weight:600;color:var(--accent)">4 min</span>'
+    +           '<div class="tx2-seg" id="tx2-opt-library" onclick="mp2SelectInput(\'library\')">'
+    +             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+    +             '<span>Asset from Library</span>'
+    +           '</div>'
+    +           '<div class="tx2-seg" id="tx2-opt-brief" onclick="mp2SelectInput(\'brief\')">'
+    +             '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    +             '<span>Brief</span>'
+    +           '</div>'
     +         '</div>'
-    +         '<input type="range" id="mp2-lookback-slider" min="30" max="300" value="240" step="15"'
-    +           ' oninput="mp2UpdateLookback(this.value)"'
-    +           ' style="accent-color:var(--accent)">'
-    +         '<div style="display:flex;justify-content:space-between;margin-top:1px">'
-    +           '<span style="font-size:9px;color:var(--faint)">30 sec</span>'
-    +           '<span style="font-size:9px;color:var(--faint)">5 min</span>'
+    +         '<div id="tx2-input-area" style="margin-bottom:10px">' + inputArea('video') + '</div>'
+    +         '<div style="margin-bottom:0">'
+    +           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
+    +             '<div style="display:flex;align-items:center;gap:4px">'
+    +               '<span style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px">Lookback Window</span>'
+    +               '<span style="position:relative;display:inline-flex;align-items:center" onmouseenter="this.querySelector(\'.mp2-lbw-tt\').style.display=\'block\'" onmouseleave="this.querySelector(\'.mp2-lbw-tt\').style.display=\'none\'">'
+    +                 '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="color:var(--faint);cursor:default"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="5" r=".6" fill="currentColor"/></svg>'
+    +                 '<span class="mp2-lbw-tt" style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:220px;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.5;padding:7px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999;pointer-events:none">The lookback window indicates the time before an Ad Break used to qualify the scene as a Moment</span>'
+    +               '</span>'
+    +             '</div>'
+    +             '<span id="mp2-lookback-label" style="font-size:11px;font-weight:600;color:var(--accent)">4 min</span>'
+    +           '</div>'
+    +           '<input type="range" id="mp2-lookback-slider" min="30" max="300" value="240" step="15" oninput="mp2UpdateLookback(this.value)" style="accent-color:var(--accent)">'
+    +           '<div style="display:flex;justify-content:space-between;margin-top:1px">'
+    +             '<span style="font-size:9px;color:var(--faint)">30 sec</span>'
+    +             '<span style="font-size:9px;color:var(--faint)">5 min</span>'
+    +           '</div>'
     +         '</div>'
     +       '</div>'
+
+    // Step 2 — Add Campaign
+    +       '<div id="mp2-step2" style="display:none">' + _mp2Step1Html() + '</div>'
+
+    // Step 3 — Add Campaign Details
+    +       '<div id="mp2-step3" style="display:none"><div id="mp2-new-plan-ai-panel"></div></div>'
+
     +     '</div>'
-    +   '</div>'
-    +   '<div style="margin-top:32px;display:flex;justify-content:center">'
-    +     '<button onclick="mp2Analyze()" style="height:46px;padding:0 40px;display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:12px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 4px 18px rgba(225,29,143,.32);letter-spacing:.01em">'
-    +       '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
-    +       'Start Analysis and Generate AI Plan'
-    +     '</button>'
+    // Stepper nav footer
+    +     '<div id="mp2-step-nav">' + _mp2StepNavHtml() + '</div>'
     +   '</div>'
     + '</div>'
 
     // ── Media Plans tab ──
     + '<div id="tx2-home-panel-plans" style="flex:1;overflow-y:auto;' + (mp2HomeTab !== 'plans' ? 'display:none' : '') + '">'
-    +   '<div style="font-size:16px;font-weight:700;color:#0D1E36;margin-bottom:18px">Media Plans</div>'
     +   plansRows
     + '</div>'
 
     // ── Previous Analysis tab ──
     + '<div id="tx2-home-panel-analyses" style="flex:1;overflow-y:auto;flex-direction:column;gap:0;' + (mp2HomeTab !== 'analyses' ? 'display:none' : 'display:flex') + '">'
-    +   '<div style="font-size:16px;font-weight:700;color:#0D1E36;margin-bottom:18px">Previous Analysis</div>'
     +   libraryRows
     + '</div>'
 
@@ -856,8 +1287,273 @@ function mp2ShowUpload() {
 
   setTimeout(function(){
     mp2SliderFill(mp2LookbackSecs);
-    mp2BuildNewPlanAIPanel();
   }, 0);
+}
+
+function mp2OpenLibraryModal() {
+  var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
+
+  var PINNED = ['cr_w1', 'cr_w2'];
+  var sorted = lib.slice().sort(function(a, b) {
+    var pa = PINNED.indexOf(a.id), pb = PINNED.indexOf(b.id);
+    if (pa >= 0 || pb >= 0) {
+      if (pa < 0) pa = 999; if (pb < 0) pb = 999;
+      return pa - pb;
+    }
+    if (a.campaign && !b.campaign) return -1;
+    if (!a.campaign && b.campaign) return 1;
+    if (a.campaign && b.campaign && a.campaign !== b.campaign) return a.campaign < b.campaign ? -1 : 1;
+    return 0;
+  });
+
+  var BADGE = 'font-size:9px;font-weight:600;border-radius:4px;padding:2px 7px;border:1px solid;white-space:nowrap';
+  var TD    = 'padding:10px 16px;vertical-align:middle;border-bottom:1px solid var(--border)';
+
+  var rows = sorted.map(function(cr) {
+    var lbl = (cr.name + ' ' + (cr.campaign || '') + ' ' + cr.advertiser + ' ' + (cr.mediaType || '') + ' ' + (cr.fileType || '')).toLowerCase();
+
+    var chk = '<td style="' + TD + ';width:36px;padding-right:0;padding-left:14px" onclick="event.stopPropagation();mp2LibModalSelect(\'' + cr.id + '\')">'
+      + '<input type="checkbox" id="mp2-lm-chk-' + cr.id + '" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;display:block">'
+      + '</td>';
+
+    var thumb = '<td style="' + TD + ';padding-right:6px;width:60px">'
+      + '<div style="width:56px;height:32px;border-radius:4px;overflow:hidden;background:#e5e7eb">'
+      + '<img src="' + (cr.thumb || '') + '" style="width:100%;height:100%;object-fit:cover;display:block"></div></td>';
+
+    var name = '<td style="' + TD + '">'
+      + '<div style="font-weight:600;color:var(--text);font-size:12px">' + (cr.name || '—') + '</div>'
+      + '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + (cr.fileType || '') + '</div></td>';
+
+    var adv  = '<td style="' + TD + ';font-size:12px">' + (cr.advertiser || '—') + '</td>';
+    var camp = '<td style="' + TD + ';font-size:12px;color:' + (cr.campaign ? 'var(--text)' : 'var(--faint)') + '">' + (cr.campaign || '—') + '</td>';
+
+    var mtStyle = cr.mediaType === 'CTV' ? 'color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe'
+                : cr.mediaType === 'Web' ? 'color:#7c3aed;background:#f5f3ff;border-color:#ddd6fe'
+                :                          'color:#0369a1;background:#f0f9ff;border-color:#bae6fd';
+    var mt = '<td style="' + TD + '"><span style="' + BADGE + ';' + mtStyle + '">' + (cr.mediaType || '—') + '</span></td>';
+
+    var tpls = (cr.templates && cr.templates.length)
+      ? cr.templates.map(function(t) {
+          return '<span style="' + BADGE + ';color:#e11d8f;background:#fdf2f8;border-color:#f9a8d4;margin-right:3px">' + t + '</span>';
+        }).join('')
+      : '<span style="font-size:11px;color:var(--faint)">—</span>';
+    var tpl  = '<td style="' + TD + '">' + tpls + '</td>';
+    var date = '<td style="' + TD + ';color:var(--muted);font-size:11px">' + (cr.date || '—') + '</td>';
+
+    return '<tr data-id="' + cr.id + '" data-lbl="' + lbl + '"'
+      + ' onclick="mp2LibModalSelect(\'' + cr.id + '\')"'
+      + ' style="cursor:pointer;transition:background .12s"'
+      + ' onmouseover="if(!this.classList.contains(\'mp2-lm-sel\'))this.style.background=\'var(--hover)\'"'
+      + ' onmouseout="if(!this.classList.contains(\'mp2-lm-sel\'))this.style.background=\'\'">'
+      + chk + thumb + name + adv + camp + mt + tpl + date + '</tr>';
+  }).join('');
+
+  var cols = [
+    { label: '',           width: '36px'  },
+    { label: '',           width: '60px'  },
+    { label: 'Creative'                   },
+    { label: 'Advertiser', width: '130px' },
+    { label: 'Campaign',   width: '170px' },
+    { label: 'Media',      width: '75px'  },
+    { label: 'Templates'                  },
+    { label: 'Date',       width: '105px' },
+  ];
+
+  var searchBar = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+    + UI.searchBar('mp2-lib-modal-search', 'Search creatives, campaigns, advertisers…', 'mp2FilterLibraryModal(this.value)')
+    + '</div>';
+
+  var bodyHtml = '<div style="margin:-20px -24px">'
+    + searchBar + UI.tableScroll(cols, rows, 'mp2-lib-modal-tbody', 0, null, { inCard: true })
+    + '</div>';
+
+  UI.openModal({
+    id: 'mp2-library-modal',
+    title: 'Select Asset from Creative Library',
+    subtitle: lib.length + ' creatives',
+    width: '860px',
+    closeFn: 'mp2CloseLibraryModal',
+    bodyHtml: bodyHtml,
+    footerLeft: UI.btnText('Cancel', 'mp2CloseLibraryModal()', 'var(--muted)'),
+    footerRight: UI.btnPrimary('Select', 'mp2ConfirmLibraryAsset()'),
+  });
+}
+
+function mp2CloseLibraryModal() { UI.closeModal('mp2-library-modal'); }
+
+function mp2LibModalSelect(id) {
+  var row = document.querySelector('#mp2-lib-modal-tbody tr[data-id="' + id + '"]');
+  if (!row) return;
+  var nowSel = !row.classList.contains('mp2-lm-sel');
+  row.classList.toggle('mp2-lm-sel', nowSel);
+  row.style.background = nowSel ? 'var(--subtle)' : '';
+  var chk = row.querySelector('input[type="checkbox"]');
+  if (chk) chk.checked = nowSel;
+}
+
+function mp2ConfirmLibraryAsset() {
+  var selRows = document.querySelectorAll('#mp2-lib-modal-tbody .mp2-lm-sel');
+  if (!selRows.length) return;
+  var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
+  var items = [];
+  selRows.forEach(function(row) {
+    var id = row.getAttribute('data-id');
+    var cr = lib.filter(function(c) { return c.id === id; })[0];
+    if (cr) items.push(cr);
+  });
+  if (!items.length) return;
+  mp2LibrarySelectedItems = items;
+  mp2LibrarySelected = items[0]; // keep first for step-1 compat
+  var area = document.getElementById('tx2-input-area');
+  if (area) area.innerHTML = _mp2LibrarySelectedGridHtml(items);
+  mp2CloseLibraryModal();
+}
+
+function mp2DeselectLibraryItem(id) {
+  mp2LibrarySelectedItems = mp2LibrarySelectedItems.filter(function(c) { return c.id !== id; });
+  mp2LibrarySelected = mp2LibrarySelectedItems.length ? mp2LibrarySelectedItems[0] : null;
+  var area = document.getElementById('tx2-input-area');
+  if (!area) return;
+  if (mp2LibrarySelectedItems.length === 0) {
+    mp2LibrarySelected = null;
+    mp2LibrarySelectedItems = [];
+    // Revert to empty library zone
+    area.innerHTML = '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="mp2OpenLibraryModal()">'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint)"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+      + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Upload Asset from Library</div>'
+      + '<div style="font-size:11px;color:var(--faint);margin-top:1px">Browse and select from your Creative Library</div>'
+      + '<button onclick="event.stopPropagation();mp2OpenLibraryModal()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Browse</button>'
+      + '</div>';
+  } else {
+    area.innerHTML = _mp2LibrarySelectedGridHtml(mp2LibrarySelectedItems);
+  }
+}
+
+function _mp2LibrarySelectedGridHtml(items) {
+  var tiles = items.map(function(a) {
+    var tpls = (a.templates && a.templates.length) ? a.templates : [];
+    var tplChips = tpls.map(function(t) {
+      return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + t + '</span>';
+    }).join('');
+    var bottomSection = tpls.length
+      ? '<div style="padding:4px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:3px">' + tplChips + '</div>'
+      : '<div style="padding:5px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;align-items:center;justify-content:center"><span style="font-size:9px;color:var(--faint)">No templates</span></div>';
+    var fileType = a.fileType || a.mediaType || '';
+    return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);position:relative;display:flex;flex-direction:column">'
+      + '<div style="aspect-ratio:16/9;background:#e5e7eb;overflow:hidden;flex-shrink:0">'
+      +   '<img src="' + (a.thumb || '') + '" style="width:100%;height:100%;object-fit:cover;display:block">'
+      + '</div>'
+      + '<div style="position:absolute;top:4px;left:4px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.5);color:#fff">' + fileType + '</div>'
+      + '<button onclick="mp2DeselectLibraryItem(\'' + a.id + '\')" style="position:absolute;top:3px;right:3px;width:17px;height:17px;border:none;border-radius:4px;background:rgba(0,0,0,.4);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:background .12s" onmouseover="this.style.background=\'#ef4444\'" onmouseout="this.style.background=\'rgba(0,0,0,.4)\'">'
+      +   '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      + '</button>'
+      + '<div style="padding:4px 6px;flex-shrink:0">'
+      +   '<div style="font-size:10px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.name || '—') + '</div>'
+      + '</div>'
+      + bottomSection
+      + '</div>';
+  }).join('');
+
+  var addMoreTile = '<div onclick="mp2OpenLibraryModal()" '
+    + 'style="border:1.5px dashed var(--border-md);border-radius:8px;cursor:pointer;transition:border-color .15s;background:var(--bg);display:flex;align-items:center;justify-content:center;min-height:60px" '
+    + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'">'
+    +   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    + '</div>';
+
+  return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">' + tiles + addMoreTile + '</div>';
+}
+
+function _mp2LibrarySelectedHtml(cr) {
+  // Template icon map
+  function tplIcon(name) {
+    var n = (name || '').toLowerCase();
+    if (n.indexOf('l-bar') >= 0 || n.indexOf('lbar') >= 0)
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="7" rx="2"/><rect x="2" y="3" width="9" height="9" rx="2"/></svg>';
+    if (n.indexOf('sync') >= 0)
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>';
+    if (n.indexOf('pause') >= 0)
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>';
+  }
+
+  var tpls = (cr.templates && cr.templates.length) ? cr.templates : [];
+  var tilesHtml = tpls.length
+    ? tpls.map(function(t) {
+        return '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">'
+          + '<span style="color:var(--text);display:flex;align-items:center;flex-shrink:0">' + tplIcon(t) + '</span>'
+          + '<span style="font-size:11px;font-weight:500;color:var(--text);white-space:nowrap">' + t + '</span>'
+          + '</div>';
+      }).join('')
+    : '<span style="font-size:11px;color:var(--faint)">No templates assigned</span>';
+
+  var mtStyle = cr.mediaType === 'CTV' ? 'color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe'
+              : cr.mediaType === 'Web' ? 'color:#7c3aed;background:#f5f3ff;border-color:#ddd6fe'
+              :                          'color:#0369a1;background:#f0f9ff;border-color:#bae6fd';
+  var BADGE = 'font-size:9px;font-weight:600;border-radius:4px;padding:2px 7px;border:1px solid;white-space:nowrap';
+
+  var SECTION_LBL = 'font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px';
+
+  var leftCol = '<div style="flex:0 0 52%;display:flex;flex-direction:column;gap:8px">'
+    + '<div style="' + SECTION_LBL + '">Asset</div>'
+    // thumbnail + name block
+    + '<div style="display:flex;gap:10px;align-items:flex-start">'
+    +   '<img src="' + (cr.thumb || '') + '" style="width:72px;height:42px;object-fit:cover;border-radius:5px;border:1px solid var(--border);flex-shrink:0">'
+    +   '<div style="min-width:0">'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (cr.name || '—') + '</div>'
+    +     '<div style="font-size:10px;color:var(--faint);margin-top:3px">'
+    +       (cr.fileType || '') + (cr.mediaType ? ' · ' + cr.mediaType : '')
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+    // advertiser row
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border)">'
+    +   '<span style="font-size:10px;color:var(--faint);flex-shrink:0;margin-right:6px">Advertiser</span>'
+    +   '<span style="font-size:10px;font-weight:500;color:var(--text);text-align:right;word-break:break-all">' + (cr.advertiser || '—') + '</span>'
+    + '</div>'
+    // campaign row
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border)">'
+    +   '<span style="font-size:10px;color:var(--faint);flex-shrink:0;margin-right:6px">Campaign</span>'
+    +   '<span style="font-size:10px;font-weight:500;color:' + (cr.campaign ? 'var(--text)' : 'var(--faint)') + ';text-align:right;word-break:break-all">' + (cr.campaign || '—') + '</span>'
+    + '</div>'
+    + '</div>';
+
+  var rightCol = '<div style="flex:1;display:flex;flex-direction:column;gap:8px;border-left:1px solid var(--border);padding-left:14px">'
+    + '<div style="' + SECTION_LBL + '">Templates</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + tilesHtml + '</div>'
+    + '</div>';
+
+  return '<div style="border:1px solid var(--border-md);border-radius:8px;overflow:hidden;background:var(--surface)">'
+    + '<div style="padding:14px;display:flex;gap:14px">' + leftCol + rightCol + '</div>'
+    + '<div style="height:1px;background:var(--border)"></div>'
+    + '<label onclick="mp2OpenLibraryModal()"'
+    +   ' style="display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;color:var(--muted);font-size:12px;transition:background .13s,color .13s;border-radius:0 0 8px 8px"'
+    +   ' onmouseenter="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'"'
+    +   ' onmouseleave="this.style.background=\'\';this.style.color=\'var(--muted)\'">'
+    +   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+    +   '<span>Change Asset</span>'
+    + '</label>'
+    + '</div>';
+}
+
+function mp2FilterLibraryModal(q) {
+  var term = (q || '').toLowerCase().trim();
+  document.querySelectorAll('#mp2-lib-modal-tbody tr[data-id]').forEach(function(el) {
+    el.style.display = (!term || (el.getAttribute('data-lbl') || '').indexOf(term) >= 0) ? '' : 'none';
+  });
+}
+
+function mp2LibSearch(q) {
+  var term = (q || '').toLowerCase().trim();
+  document.querySelectorAll('#mp2-lib-tbody tr').forEach(function(tr) {
+    tr.style.display = (!term || tr.textContent.toLowerCase().indexOf(term) >= 0) ? '' : 'none';
+  });
+}
+
+function mp2PlansSearch(q) {
+  var term = (q || '').toLowerCase().trim();
+  document.querySelectorAll('#mp2-plans-tbody tr').forEach(function(tr) {
+    tr.style.display = (!term || tr.textContent.toLowerCase().indexOf(term) >= 0) ? '' : 'none';
+  });
 }
 
 function mp2LibLoad(idx) {
@@ -876,17 +1572,31 @@ function mp2LibLoad(idx) {
   mp2ShowResults();
 }
 
-function mp2SwitchHomeTab(tab) {
+function mp2SwitchHomeTab(tab, noPush) {
   mp2HomeTab = tab;
-  document.querySelectorAll('.tx2-home-tab').forEach(function(el) {
-    el.classList.toggle('tx2-home-tab--act', el.getAttribute('onclick').indexOf("'" + tab + "'") >= 0);
-  });
+  var mp2PillTabs = [{id:'new-plan',label:'New Plan'},{id:'plans',label:'Media Plans',dividerBefore:true},{id:'analyses',label:'Previous Analysis'}];
+  var pillsEl = document.getElementById('mp2-pills');
+  if (pillsEl) { pillsEl.style.display = ''; pillsEl.innerHTML = UI.tabNav(mp2PillTabs, tab, 'mp2SwitchHomeTab'); }
+  // If home panels were replaced by analysis content, re-render home first
+  if (!document.getElementById('tx2-home-panel-new-plan')) {
+    mp2ShowUpload();
+  }
   var newPlan  = document.getElementById('tx2-home-panel-new-plan');
   var plans    = document.getElementById('tx2-home-panel-plans');
   var analyses = document.getElementById('tx2-home-panel-analyses');
   if (newPlan)  newPlan.style.display  = tab === 'new-plan'  ? ''     : 'none';
   if (plans)    plans.style.display    = tab === 'plans'     ? ''     : 'none';
   if (analyses) analyses.style.display = tab === 'analyses'  ? 'flex' : 'none';
+  var outerCard = document.getElementById('mp2-outer-card');
+  if (outerCard) outerCard.style.padding = tab === 'new-plan' ? '32px' : '0';
+  // Update URL
+  if (!noPush) {
+    var urlMap = { 'new-plan': '/media-planner-v2', 'plans': '/media-planner-v2/media-plans', 'analyses': '/media-planner-v2/previous-analysis' };
+    var url = urlMap[tab] || '/media-planner-v2';
+    var stateObj = { id: 'media-planner-v2', label: 'Media Planner' };
+    if (tab !== 'new-plan') stateObj.mp2Tab = tab;
+    history.pushState(stateObj, '', url);
+  }
 }
 
 var mp2LookbackSecs = 240;
@@ -1074,7 +1784,7 @@ function mp2DeletePlan(idx, e) {
   if (e) e.stopPropagation();
   if (!confirm('Delete "' + savedMediaPlansV2[idx].name + '"?')) return;
   savedMediaPlansV2.splice(idx, 1);
-  mp2ShowUpload();
+  mp2SwitchHomeTab('plans');
 }
 
 function mp2RefreshDSP(idx, e) {
@@ -1097,8 +1807,87 @@ function mp2RefreshDSP(idx, e) {
 
 // ── Media Planner v2: self-contained upload → analyze → results flow ─────────
 
+function _mp2LibraryPanelHtml() {
+  var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
+
+  // ── left: searchable list ──
+  var rows = lib.map(function(cr) {
+    var sel = mp2LibrarySelected && mp2LibrarySelected.id === cr.id;
+    var bg  = sel ? 'var(--subtle)' : 'transparent';
+    var brd = sel ? '1px solid var(--accent)' : '1px solid transparent';
+    return '<div data-id="' + cr.id + '" data-lbl="' + (cr.name + ' ' + cr.advertiser + ' ' + (cr.campaign||'')).toLowerCase() + '"'
+      + ' onclick="mp2SelectLibraryItem(\'' + cr.id + '\')"'
+      + ' style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px;border:' + brd + ';background:' + bg + ';transition:background .1s"'
+      + ' onmouseover="if(!this.classList.contains(\'mp2-lib-sel\'))this.style.background=\'var(--hover)\'"'
+      + ' onmouseout="if(!this.classList.contains(\'mp2-lib-sel\'))this.style.background=\'transparent\'"'
+      + (sel ? ' class="mp2-lib-sel"' : '') + '>'
+      + '<img src="' + cr.thumb + '" style="width:36px;height:22px;object-fit:cover;border-radius:3px;flex-shrink:0">'
+      + '<div style="min-width:0;flex:1">'
+      +   '<div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + cr.name + '</div>'
+      +   '<div style="font-size:10px;color:var(--muted)">' + cr.advertiser + ' · ' + cr.fileType + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  var leftCol = '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">'
+    + UI.searchBar('mp2-lib-asset-search', 'Search library…', 'mp2FilterLibraryItems(this.value)')
+    + '<div id="mp2-lib-asset-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px">'
+    + rows
+    + '</div>'
+    + '</div>';
+
+  // ── right: selected item detail ──
+  var rightCol;
+  if (mp2LibrarySelected) {
+    var cr  = mp2LibrarySelected;
+    var tpls = (cr.templates || []);
+    var badgesHtml = tpls.length
+      ? tpls.map(function(t) {
+          return '<span style="font-size:10px;font-weight:500;background:var(--bg);border:1px solid var(--border-md);border-radius:6px;padding:3px 8px;color:var(--text);white-space:nowrap">' + t + '</span>';
+        }).join('')
+      : '<span style="font-size:10px;color:var(--faint)">No templates assigned</span>';
+    rightCol = '<div style="flex:0 0 170px;display:flex;flex-direction:column;gap:8px;border-left:1px solid var(--border);padding-left:14px">'
+      + '<div>'
+      +   '<div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-bottom:2px">Advertiser</div>'
+      +   '<div style="font-size:13px;font-weight:600;color:var(--text)">' + cr.advertiser + '</div>'
+      + '</div>'
+      + '<img src="' + cr.thumb + '" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'
+      + '<div>'
+      +   '<div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-bottom:5px">Templates</div>'
+      +   '<div style="display:flex;flex-wrap:wrap;gap:4px">' + badgesHtml + '</div>'
+      + '</div>'
+      + '</div>';
+  } else {
+    rightCol = '<div style="flex:0 0 170px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border);padding-left:14px">'
+      + '<div style="text-align:center;color:var(--faint)">'
+      +   '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="display:block;margin:0 auto 6px"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>'
+      +   '<div style="font-size:11px">Select an asset</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  return '<div style="display:flex;gap:0">' + leftCol + rightCol + '</div>';
+}
+
+function mp2SelectLibraryItem(id) {
+  var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
+  mp2LibrarySelected = lib.filter(function(c) { return c.id === id; })[0] || null;
+  var area = document.getElementById('tx2-input-area');
+  if (area) area.innerHTML = _mp2LibraryPanelHtml();
+}
+
+function mp2FilterLibraryItems(q) {
+  var term = (q || '').toLowerCase().trim();
+  var list = document.getElementById('mp2-lib-asset-list');
+  if (!list) return;
+  list.querySelectorAll('[data-id]').forEach(function(el) {
+    var lbl = el.getAttribute('data-lbl') || '';
+    el.style.display = (!term || lbl.indexOf(term) >= 0) ? '' : 'none';
+  });
+}
+
 function mp2SelectInput(type) {
-  ['video', 'brief'].forEach(function(t) {
+  ['video', 'library', 'brief'].forEach(function(t) {
     var el = document.getElementById('tx2-opt-' + t);
     if (el) el.className = 'tx2-seg' + (t === type ? ' tx2-seg--act' : '');
   });
@@ -1106,15 +1895,29 @@ function mp2SelectInput(type) {
   if (!area) return;
   if (type === 'video') {
     mp2TaxInputType = 'video';
+    mp2LibrarySelected = null;
+    mp2LibrarySelectedItems = [];
     area.innerHTML =
-      '<div class="tx2-upload-zone" onclick="document.getElementById(\'tx2-file-input-video\').click()">'
-      + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*">'
-      + '<svg width="28" height="28" viewBox="0 0 32 32" fill="none" style="color:var(--faint)"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>'
-      + '<div style="font-size:13px;font-weight:500;color:var(--text);margin-top:6px">Drop video file here</div>'
-      + '<div style="font-size:11px;color:var(--faint);margin-top:2px">MP4, MOV, AVI — up to 2 GB</div>'
+      '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="document.getElementById(\'tx2-file-input-video\').click()">'
+      + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*,image/*">'
+      + '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="color:var(--faint)"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+      + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Drop Asset Here</div>'
+      + '<div style="font-size:11px;color:var(--faint);margin-top:1px">MP4, MOV, JPG, PNG — up to 2 GB</div>'
+      + '<button onclick="event.stopPropagation();document.getElementById(\'tx2-file-input-video\').click()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Browse</button>'
+      + '</div>';
+  } else if (type === 'library') {
+    mp2TaxInputType = 'library';
+    area.innerHTML =
+      '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="mp2OpenLibraryModal()">'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint)"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+      + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Upload Asset from Library</div>'
+      + '<div style="font-size:11px;color:var(--faint);margin-top:1px">Browse and select from your Creative Library</div>'
+      + '<button onclick="event.stopPropagation();mp2OpenLibraryModal()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Browse</button>'
       + '</div>';
   } else {
     mp2TaxInputType = 'text';
+    mp2LibrarySelected = null;
+    mp2LibrarySelectedItems = [];
     area.innerHTML = mp2BriefHtml();
   }
 }
@@ -1123,7 +1926,7 @@ function mp2BriefHtml() {
   return '<div style="border:1px solid var(--border-md);border-radius:8px;overflow:hidden;background:var(--surface)">'
     + '<textarea id="tx2-text-input"'
     + ' placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…"'
-    + ' style="width:100%;box-sizing:border-box;min-height:160px;resize:none;border:none;outline:none;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;display:block"></textarea>'
+    + ' style="width:100%;box-sizing:border-box;min-height:110px;resize:none;border:none;outline:none;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;display:block"></textarea>'
     + '<div style="height:1px;background:var(--border)"></div>'
     + '<label for="tx2-file-input-doc" id="tx2-brief-upload-label"'
     +   ' style="display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;color:var(--muted);font-size:12px;transition:background .13s,color .13s;border-radius:0 0 8px 8px"'
@@ -1188,7 +1991,7 @@ function mp2Analyze() {
 
   var pct = 0; var stepIdx = 0; var scanPct = 0; var frameIdx = 0;
   var interval = setInterval(function() {
-    pct = Math.min(pct + 0.45, 100);
+    pct = Math.min(pct + 1.0, 100);
     scanPct = (scanPct + 3) % 100;
     var bar = document.getElementById('tx2-progress-bar');
     var label = document.getElementById('tx2-progress-label');
@@ -1229,6 +2032,13 @@ function mp2ShowResults() {
   mp2TaxStep = 'results';
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
+
+  // Hide tab nav while analysis results are open
+  var pills = document.getElementById('mp2-pills');
+  if (pills) pills.style.display = 'none';
+
+  history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' }, '', '/media-planner-v2/analysis');
+
   var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border)';
   var fileIcon = mp2TaxInputType === 'video'
     ? '<svg width="12" height="12" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
@@ -1238,86 +2048,166 @@ function mp2ShowResults() {
 
   var pgname = document.getElementById('content-bc');
   if (pgname) pgname.innerHTML =
-    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2ShowUpload()">Media Planner (v2)</span>'
+    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2SwitchHomeTab(mp2HomeTab)">Media Planner</span>'
     + ' &nbsp;/&nbsp; Analysis';
 
   var typeLabel = mp2TaxInputType === 'video' ? 'Video' : mp2TaxInputType === 'doc' ? 'Document' : 'Text';
 
-  ca.innerHTML =
-    '<div style="display:flex;gap:20px;align-items:start;height:calc(100vh - 260px);min-height:460px">'
-    + '<div style="width:164px;flex-shrink:0;display:flex;flex-direction:column;gap:14px">'
-    +   '<div>'
-    +     '<div style="position:relative;width:100%;padding-top:56.25%;border-radius:8px;overflow:hidden;margin-bottom:10px">'
-    +       '<img id="tx-thumb-img" src="https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=640&h=360&fit=crop&q=80" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#e5e7eb">'
-    +       '<div style="position:absolute;inset:0;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center">'
-    +         '<div style="width:26px;height:26px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center">'
-    +           '<svg width="9" height="11" viewBox="0 0 11 13" fill="none"><path d="M1 1.5l9 5-9 5V1.5z" fill="#111" stroke="#111" stroke-width=".5" stroke-linejoin="round"/></svg>'
-    +         '</div>'
-    +       '</div>'
-    +     '</div>'
-    +     '<div style="font-size:12px;font-weight:600;color:var(--text);word-break:break-word;line-height:1.4;margin-bottom:6px">kroger-ad.mp4</div>'
-    +     '<div style="display:flex;align-items:center;gap:5px;margin-bottom:10px">'
-    +       '<span style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:3px">' + fileIcon + ' ' + typeLabel + '</span>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div style="display:flex;flex-direction:column;gap:0">'
-    + (function() {
-        var adRow = function(label, val) {
-          return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border)">'
-            + '<span style="font-size:10px;color:var(--faint);flex-shrink:0;margin-right:6px">' + label + '</span>'
-            + '<span style="font-size:10px;font-weight:500;color:var(--text);text-align:right;word-break:break-all">' + val + '</span>'
-            + '</div>';
-        };
-        var lbSecs = mp2LookbackSecs || 240;
-        var lbLabel = lbSecs >= 60 ? Math.round(lbSecs / 60) + ' min' : lbSecs + ' sec';
-        var fdLabel = (mp2FlightDates && mp2FlightDates.start && mp2FlightDates.end)
-          ? (function(s,e){ return new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + ' → ' + new Date(e+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); })(mp2FlightDates.start, mp2FlightDates.end)
-          : '—';
-        return adRow('Advertiser','Kroger') + adRow('Domain','kroger.com')
-          + adRow('Language','English') + adRow('Duration','30s') + adRow('Format','MP4')
-          + '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">'
-          +   '<span style="font-size:10px;color:var(--faint);flex-shrink:0;margin-right:6px">IAB</span>'
-          +   '<span style="display:flex;align-items:center;gap:5px;justify-content:flex-end;flex-wrap:wrap">'
-          +     '<span style="font-size:10px;font-weight:500;color:var(--text);text-align:right">Grocery & Supermarket</span>'
-          +     '<span style="font-size:9px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:1px 6px;white-space:nowrap">92%</span>'
-          +   '</span>'
-          + '</div>'
-          + adRow('Lookback', lbLabel)
-          + adRow('Flight Dates', fdLabel);
-      })()
+  var outerCard = document.getElementById('mp2-outer-card');
+  if (outerCard) outerCard.style.padding = '0';
+
+  var advName   = (APP_ADVERTISERS.find(function(a){ return a.id === selectedAdvId; }) || {}).name || 'Walmart';
+  var campName  = 'Walmart Summer Launch';
+
+  var filmIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>';
+
+  var cardHeader =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border)">'
+    + '<div style="display:flex;align-items:center;gap:10px">'
+    +   '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0">' + filmIcon + '</div>'
+    +   '<div style="display:flex;align-items:center;gap:8px">'
+    +     '<span style="font-size:13px;font-weight:600;color:var(--text)">' + campName + '</span>'
+    +     '<span style="width:3px;height:3px;border-radius:50%;background:var(--border-md);flex-shrink:0"></span>'
+    +     '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
     +   '</div>'
     + '</div>'
+    + '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" title="Show asset details" '
+    +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s" '
+    +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
+    +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
+    +   '+'
+    + '</button>'
+    + '</div>';
 
-    + '<div style="flex:1;min-width:0;display:flex;gap:16px;height:100%;overflow:hidden">'
-    +   '<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
-    +   '<div class="cs-dv-tabnav" style="margin-bottom:16px;flex-shrink:0">'
+  var fdLabel = (mp2FlightDates && mp2FlightDates.start && mp2FlightDates.end)
+    ? (function(s,e){ return new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + ' → ' + new Date(e+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); })(mp2FlightDates.start, mp2FlightDates.end)
+    : '—';
+  // ── helpers ──
+  function infoField(label, value) {
+    return '<div style="display:flex;align-items:baseline;gap:8px;min-width:0">'
+      + '<span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">' + label + '</span>'
+      + '<span style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + value + '</span>'
+      + '</div>';
+  }
+  function chipList(items) {
+    if (!items || !items.length) return '<span style="font-size:12px;color:var(--faint)">—</span>';
+    return items.map(function(v) {
+      return '<span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;color:var(--text);padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:var(--bg);white-space:nowrap">' + v + '</span>';
+    }).join('');
+  }
+  function sectionLabel(text) {
+    return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">' + text + '</div>';
+  }
+
+  var geoLabel = _mp2GeoSelected.size > 0
+    ? _mp2GeoSelected.size + ' region' + (_mp2GeoSelected.size > 1 ? 's' : '')
+    : 'All regions';
+
+  var assetStrip =
+    '<div id="mp2-asset-strip" style="display:none;border-bottom:1px solid var(--border)">'
+    + '<div style="display:flex;align-items:stretch">'
+
+    // Asset (creatives) — first
+    + '<div style="flex:1;padding:12px 20px">'
+    + sectionLabel('Asset')
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml() + '</div>'
+    + '</div>'
+
+    // Divider — full height
+    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    // Campaign info
+    + '<div style="flex:1;padding:12px 20px">'
+    + sectionLabel('Campaign')
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    +   infoField('Campaign', campName)
+    +   infoField('Advertiser', advName)
+    +   infoField('Geography', geoLabel)
+    +   infoField('Flight Dates', fdLabel)
+    + '</div>'
+    + '</div>'
+
+    // Divider — full height
+    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    // Additional details
+    + '<div style="flex:1;padding:12px 20px">'
+    + sectionLabel('Additional Details')
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    +   infoField('Budget', '$420K')
+    +   infoField('Impr. / Day', '680K')
+    +   '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">Channels</span><div style="display:flex;flex-wrap:wrap;gap:4px">' + chipList(['CTV','Web']) + '</div></div>'
+    +   '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">Type</span><div style="display:flex;flex-wrap:wrap;gap:4px">' + chipList(['VoD','Organic Pause']) + '</div></div>'
+    +   '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">Brand Safety</span><div style="display:flex;flex-wrap:wrap;gap:4px">' + chipList(['Standard']) + '</div></div>'
+    +   infoField('Match Score', 'High')
+    + '</div>'
+    + '</div>'
+
+    + '</div>'
+    + '</div>';  // closes mp2-asset-strip
+
+  ca.innerHTML = cardHeader + assetStrip +
+    '<div style="padding:20px;display:flex;flex-direction:column;gap:20px">'
+
+    // ── Tab nav + content (free-flowing) ──
+    + '<div>'
+    +   '<div class="cs-dv-tabnav" style="margin-bottom:16px">'
     +     '<button class="cs-dv-tab" id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')">Ad Analysis</button>'
     +     '<span style="width:1px;height:16px;background:var(--border);align-self:center;flex-shrink:0;margin:0 12px"></span>'
     +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')">Moments Match</button>'
-    +     '<button class="cs-dv-tab cs-dv-tab--ai"  id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')">'
+    +     '<button class="cs-dv-tab cs-dv-tab--ai" id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')">'
     +       '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2L7.3 5.7 11 7 7.3 8.3 6 12 4.7 8.3 1 7 4.7 5.7Z"/><path d="M12.5 1L13.3 3.2 15.5 4 13.3 4.8 12.5 7 11.7 4.8 9.5 4 11.7 3.2Z" opacity=".65"/></svg>'
     +       'AI Media Plan'
     +     '</button>'
     +   '</div>'
-    +   '<div id="tx2-sub-content-ad-analysis" style="display:none;flex:1;min-height:0;flex-direction:column">'
-    +     '<div style="overflow-y:auto;flex:1;min-height:0">'
-    +       '<table style="width:100%;border-collapse:collapse"><thead><tr>'
-    +         '<th style="text-align:left;'  + TH + '">Moment</th>'
-    +         '<th style="text-align:right;' + TH + '">Score</th>'
-    +         '<th style="text-align:right;' + TH + '">Inventory / PODs</th>'
-    +       '</tr></thead><tbody id="tx-cat-body"></tbody></table>'
+    +   '<div style="display:flex;gap:16px">'
+    +     '<div style="flex:1;min-width:0">'
+    +       '<div id="tx2-sub-content-ad-analysis" style="display:none">'
+    +         '<table style="width:100%;border-collapse:collapse"><thead><tr>'
+    +           '<th style="text-align:left;'  + TH + '">Moment</th>'
+    +           '<th style="text-align:right;' + TH + '">Score</th>'
+    +           '<th style="text-align:right;' + TH + '">PODs</th>'
+    +         '</tr></thead><tbody id="tx-cat-body"></tbody></table>'
+    +       '</div>'
+    +       '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
+    +       '<div id="tx2-sub-content-ai-media-plan" style="display:none;border-radius:10px;margin-top:4px"></div>'
     +     '</div>'
+    +     '<div id="inv-media-plan" style="display:none;width:220px;flex-shrink:0;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px"></div>'
     +   '</div>'
-    +   '<div id="tx2-sub-content-moments" style="display:flex;flex:1;min-height:0;flex-direction:column"></div>'
-    +   '<div id="tx2-sub-content-ai-media-plan" style="display:none;flex:1;min-height:0;overflow:hidden;border-radius:10px;margin-top:4px"></div>'
-    +   '</div>'
-    + '<div id="inv-media-plan" style="display:none;width:220px;flex-shrink:0;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;overflow:hidden"></div>'
     + '</div>'
+
     + '</div>';
 
   if (typeof txInjectStyles === 'function') txInjectStyles();
   txCustomSelections = [];
   mp2SubTab('moments');
+}
+
+function mp2TogglePlanBody() {
+  var body = document.getElementById('mp2-plan-body');
+  var btn  = document.getElementById('mp2-plan-body-toggle');
+  if (!body) return;
+  var open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? '+' : '−';
+}
+
+function mp2TogglePlanCampStrip() {
+  var strip = document.getElementById('mp2-plan-camp-strip');
+  var btn   = document.getElementById('mp2-plan-camp-toggle');
+  if (!strip) return;
+  var open = strip.style.display !== 'none';
+  strip.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? '+' : '−';
+}
+
+function mp2ToggleAssetStrip() {
+  var strip  = document.getElementById('mp2-asset-strip');
+  var btn    = document.getElementById('mp2-asset-toggle');
+  if (!strip) return;
+  var open = strip.style.display !== 'none';
+  strip.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? '+' : '−';
 }
 
 function mp2SubTab(tab) {
@@ -1365,22 +2255,66 @@ var INV_PROGRAMS_V2 = [
     moments:[{label:'Family',score:94},{label:'Comedy',score:88},{label:'Everyday Life',score:83},{label:'Warmth',score:78},{label:'Parenting',score:74},{label:'Humor',score:70},{label:'Relationships',score:65},{label:'Home Life',score:60}] },
   { id:6, title:'The Tonight Show — Ep. 312',        channel:'NBC', category:'Entertainment',   daypart:'Late Night',  match:77, scenes:['Scene 1 (00:00 – 1:30)'],                            impressionsLabel:'3.6M', impressionsNum:3.6,
     moments:[{label:'Comedy',score:88},{label:'Live Entertainment',score:83},{label:'Pop Culture',score:78},{label:'Celebrity',score:73},{label:'Music',score:68},{label:'Humor',score:63},{label:'Late Night',score:58}] },
-  { id:7, title:'Ellen DeGeneres Show — Ep. 1847',   channel:'CBS', category:'Entertainment',   daypart:'Daytime',     match:74, scenes:['Scene 6 (14:22 – 15:05)'],                           impressionsLabel:'2.8M', impressionsNum:2.8,
+  { id:7,  title:'Ellen DeGeneres Show — Ep. 1847',        channel:'CBS',          category:'Entertainment',   daypart:'Daytime',      match:74, scenes:['Scene 6 (14:22 – 15:05)'],                           impressionsLabel:'2.8M', impressionsNum:2.8,
     moments:[{label:'Joy',score:90},{label:'Community',score:84},{label:'Lifestyle',score:79},{label:'Positivity',score:75},{label:'Surprise',score:70},{label:'Generosity',score:65},{label:'Fun',score:60}] },
-  { id:8, title:'Good Morning America — 08 May',     channel:'ABC', category:'News & Morning',  daypart:'Morning',     match:71, scenes:['Scene 2 (09:15 – 10:00)'],                           impressionsLabel:'4.1M', impressionsNum:4.1,
-    moments:[{label:'Morning Routine',score:82},{label:'Lifestyle',score:77},{label:'Positivity',score:73},{label:'News',score:68},{label:'Family',score:64},{label:'Health',score:59},{label:'Community',score:55}] }
+  { id:8,  title:'Good Morning America — 08 May',          channel:'ABC',          category:'News & Morning',  daypart:'Morning',      match:71, scenes:['Scene 2 (09:15 – 10:00)'],                           impressionsLabel:'4.1M', impressionsNum:4.1,
+    moments:[{label:'Morning Routine',score:82},{label:'Lifestyle',score:77},{label:'Positivity',score:73},{label:'News',score:68},{label:'Family',score:64},{label:'Health',score:59},{label:'Community',score:55}] },
+  { id:9,  title:'Yellowstone — Ep. 5x08',                 channel:'Paramount',    category:'Drama',           daypart:'Prime Time',   match:68, scenes:['Scene 4 (12:30 – 13:45)','Scene 10 (38:00 – 39:10)'], impressionsLabel:'6.8M', impressionsNum:6.8,
+    moments:[{label:'Outdoors & Nature',score:93},{label:'Family',score:86},{label:'Drama',score:81},{label:'Conflict',score:76},{label:'Loyalty',score:72},{label:'Power',score:67},{label:'Landscape',score:62}] },
+  { id:10, title:'The Bear — Ep. 2x05',                    channel:'FX',           category:'Drama',           daypart:'Prime Time',   match:65, scenes:['Scene 1 (00:00 – 2:10)'],                            impressionsLabel:'2.4M', impressionsNum:2.4,
+    moments:[{label:'Food & Cooking',score:95},{label:'Pressure',score:89},{label:'Skill & Craft',score:84},{label:'Passion',score:80},{label:'Teamwork',score:75},{label:'Ambition',score:69},{label:'Drama',score:63}] },
+  { id:11, title:'Succession — Ep. 4x09',                  channel:'HBO',          category:'Drama',           daypart:'Prime Time',   match:63, scenes:['Scene 7 (22:15 – 23:30)'],                           impressionsLabel:'3.9M', impressionsNum:3.9,
+    moments:[{label:'Power',score:91},{label:'Family',score:85},{label:'Business',score:80},{label:'Conflict',score:76},{label:'Tension',score:72},{label:'Drama',score:68},{label:'Wealth',score:63}] },
+  { id:12, title:'The Marvelous Mrs. Maisel — Ep. 5x03',   channel:'Prime Video',  category:'Comedy',          daypart:'Prime Time',   match:61, scenes:['Scene 3 (08:40 – 9:55)'],                            impressionsLabel:'2.1M', impressionsNum:2.1,
+    moments:[{label:'Humor',score:92},{label:'Empowerment',score:86},{label:'1950s Nostalgia',score:81},{label:'Comedy',score:77},{label:'Fashion',score:73},{label:'Female Lead',score:68},{label:'Music',score:63}] },
+  { id:13, title:'The Voice — S24 Ep. 12',                 channel:'NBC',          category:'Reality',         daypart:'Prime Time',   match:59, scenes:['Scene 9 (31:20 – 32:45)'],                           impressionsLabel:'5.5M', impressionsNum:5.5,
+    moments:[{label:'Talent',score:89},{label:'Emotion',score:83},{label:'Music',score:79},{label:'Competition',score:75},{label:'Inspiration',score:71},{label:'Achievement',score:66},{label:'Entertainment',score:60}] },
+  { id:14, title:'Jeopardy! — Ep. 4012',                   channel:'ABC',          category:'Game Show',       daypart:'Early Fringe', match:56, scenes:['Scene 5 (14:00 – 15:20)'],                           impressionsLabel:'3.3M', impressionsNum:3.3,
+    moments:[{label:'Knowledge',score:88},{label:'Competition',score:82},{label:'Intelligence',score:77},{label:'Fun',score:72},{label:'Tension',score:67},{label:'Pop Culture',score:61}] },
+  { id:15, title:'Abbott Elementary — Ep. 3x07',           channel:'ABC',          category:'Comedy',          daypart:'Prime Time',   match:54, scenes:['Scene 2 (04:05 – 5:00)','Scene 8 (20:10 – 20:55)'],  impressionsLabel:'4.2M', impressionsNum:4.2,
+    moments:[{label:'Comedy',score:91},{label:'Education',score:85},{label:'Community',score:80},{label:'Workplace',score:75},{label:'Warmth',score:70},{label:'Family',score:65},{label:'Humor',score:60}] },
+  { id:16, title:'Top Chef — S21 Ep. 09',                  channel:'Bravo',        category:'Reality',         daypart:'Prime Time',   match:52, scenes:['Scene 6 (18:30 – 19:50)'],                           impressionsLabel:'1.9M', impressionsNum:1.9,
+    moments:[{label:'Food & Cooking',score:96},{label:'Competition',score:90},{label:'Creativity',score:84},{label:'Skill & Craft',score:79},{label:'Tension',score:74},{label:'Achievement',score:69},{label:'Passion',score:64}] },
+  { id:17, title:'The Daily Show — Ep. 2201',               channel:'Comedy Central',category:'Entertainment',  daypart:'Late Night',   match:50, scenes:['Scene 1 (00:00 – 1:45)'],                            impressionsLabel:'1.7M', impressionsNum:1.7,
+    moments:[{label:'Comedy',score:87},{label:'Politics',score:82},{label:'Satire',score:78},{label:'News',score:73},{label:'Pop Culture',score:68},{label:'Humor',score:63}] },
+  { id:18, title:'Grey\'s Anatomy — Ep. 20x04',             channel:'ABC',          category:'Drama',           daypart:'Prime Time',   match:48, scenes:['Scene 5 (15:20 – 16:30)'],                           impressionsLabel:'4.7M', impressionsNum:4.7,
+    moments:[{label:'Emotion',score:90},{label:'Medical',score:85},{label:'Drama',score:80},{label:'Relationships',score:75},{label:'Hope',score:70},{label:'Tension',score:65},{label:'Human Spirit',score:60}] },
+  { id:19, title:'Wheel of Fortune — Ep. 4208',             channel:'CBS',          category:'Game Show',       daypart:'Early Fringe', match:46, scenes:['Scene 3 (07:00 – 8:15)'],                            impressionsLabel:'5.9M', impressionsNum:5.9,
+    moments:[{label:'Fun',score:86},{label:'Excitement',score:80},{label:'Winning',score:75},{label:'Entertainment',score:70},{label:'Family',score:65},{label:'Luck',score:60}] },
+  { id:20, title:'Saturday Night Live — Ep. 49x14',         channel:'NBC',          category:'Entertainment',   daypart:'Late Night',   match:44, scenes:['Scene 4 (11:30 – 12:45)'],                           impressionsLabel:'3.1M', impressionsNum:3.1,
+    moments:[{label:'Comedy',score:93},{label:'Satire',score:87},{label:'Pop Culture',score:82},{label:'Live Entertainment',score:77},{label:'Music',score:72},{label:'Humor',score:67},{label:'Celebrity',score:62}] },
+  { id:21, title:'Survivor — S46 Ep. 07',                   channel:'CBS',          category:'Reality',         daypart:'Prime Time',   match:42, scenes:['Scene 8 (26:10 – 27:30)'],                           impressionsLabel:'4.4M', impressionsNum:4.4,
+    moments:[{label:'Competition',score:90},{label:'Strategy',score:84},{label:'Outdoor Life',score:79},{label:'Drama',score:75},{label:'Teamwork',score:70},{label:'Tension',score:65},{label:'Resilience',score:60}] },
+  { id:22, title:'How I Met Your Father — Ep. 2x10',        channel:'Hulu',         category:'Comedy',          daypart:'Prime Time',   match:40, scenes:['Scene 2 (03:55 – 5:10)'],                            impressionsLabel:'1.5M', impressionsNum:1.5,
+    moments:[{label:'Friendship',score:89},{label:'Romance',score:83},{label:'Comedy',score:78},{label:'Urban Lifestyle',score:73},{label:'Nostalgia',score:68},{label:'Relationships',score:63}] },
+  { id:23, title:'60 Minutes — Ep. S56E30',                 channel:'CBS',          category:'News & Morning',  daypart:'Prime Time',   match:38, scenes:['Scene 1 (00:00 – 3:00)'],                            impressionsLabel:'6.2M', impressionsNum:6.2,
+    moments:[{label:'Journalism',score:88},{label:'Society',score:82},{label:'Investigation',score:77},{label:'Human Interest',score:72},{label:'Drama',score:67},{label:'Emotion',score:62}] },
+  { id:24, title:'Dancing with the Stars — S32 Ep. 05',     channel:'ABC',          category:'Reality',         daypart:'Prime Time',   match:36, scenes:['Scene 7 (22:45 – 23:50)'],                           impressionsLabel:'3.8M', impressionsNum:3.8,
+    moments:[{label:'Entertainment',score:91},{label:'Dance',score:86},{label:'Celebrity',score:81},{label:'Emotion',score:76},{label:'Competition',score:71},{label:'Style',score:66},{label:'Achievement',score:61}] },
+  { id:25, title:'The Price Is Right — Ep. 7314',           channel:'CBS',          category:'Game Show',       daypart:'Daytime',      match:34, scenes:['Scene 4 (10:00 – 11:15)'],                           impressionsLabel:'3.5M', impressionsNum:3.5,
+    moments:[{label:'Fun',score:88},{label:'Excitement',score:82},{label:'Consumer Products',score:77},{label:'Winning',score:72},{label:'Entertainment',score:67},{label:'Audience Participation',score:62}] },
+  { id:26, title:'Oprah Daily — Ep. 211',                   channel:'OWN',          category:'Entertainment',   daypart:'Daytime',      match:32, scenes:['Scene 3 (06:20 – 7:35)'],                            impressionsLabel:'2.0M', impressionsNum:2.0,
+    moments:[{label:'Empowerment',score:92},{label:'Wellness',score:87},{label:'Lifestyle',score:82},{label:'Inspiration',score:77},{label:'Community',score:72},{label:'Positivity',score:67},{label:'Growth',score:62}] },
+  { id:27, title:'The Late Late Show — Ep. 3108',           channel:'CBS',          category:'Entertainment',   daypart:'Late Night',   match:30, scenes:['Scene 6 (17:00 – 18:10)'],                           impressionsLabel:'1.4M', impressionsNum:1.4,
+    moments:[{label:'Comedy',score:86},{label:'Celebrity',score:80},{label:'Music',score:75},{label:'Entertainment',score:70},{label:'Humor',score:65},{label:'Late Night',score:60}] },
+  { id:28, title:'Family Feud — Ep. S26E44',                channel:'ABC',          category:'Game Show',       daypart:'Early Fringe', match:28, scenes:['Scene 5 (13:40 – 14:50)'],                           impressionsLabel:'4.9M', impressionsNum:4.9,
+    moments:[{label:'Family',score:90},{label:'Fun',score:84},{label:'Humor',score:79},{label:'Competition',score:74},{label:'Entertainment',score:69},{label:'Pop Culture',score:64},{label:'Winning',score:59}] }
 ];
 
 var savedMediaPlansV2     = [
   {
+    id:          'mp1',
     name:        'Kroger — Fresh & Family Moments',
     date:        '9 May 2026',
-    author:      'Bruna',
+    author:      'Bruna M.',
+    campaign:    'Fresh & Family Q2',
+    advertiser:  'Kroger',
     inputType:   'video',
     flightStart: '2 Jun 2026',
     flightEnd:   '29 Jun 2026',
     dsp:         { name: 'DV360', status: 'active', pushedAt: '10 May 2026', refId: 'DV3-48821' },
     impressions: '14.3M',
+    avgCpm:      '$24',
     dollars:     '$341K',
     moments: [
       { name:'Family Dinner Time',   channels:['NBC','Fox','ABC','Food Network'],   inventory:312, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:28, type:'ads'     },
@@ -1391,14 +2325,18 @@ var savedMediaPlansV2     = [
     ]
   },
   {
+    id:          'mp2',
     name:        'Spring Campaign — Comedy Block',
     date:        '1 May 2026',
-    author:      'Bruna',
+    author:      'Bruna M.',
+    campaign:    'Spring Comedy',
+    advertiser:  'NBC Universal',
     inputType:   'document',
     flightStart: '12 May 2026',
     flightEnd:   '8 Jun 2026',
     dsp:         { name: 'The Trade Desk', status: 'pending', pushedAt: '2 May 2026', refId: 'TTD-73041' },
     impressions: '6.6M',
+    avgCpm:      '$19',
     dollars:     '$142K',
     moments: [
       { name:'Urban Lifestyle',      channels:['NBC','ABC','Fox','Peacock'],        inventory:156, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:18 },
@@ -1407,14 +2345,18 @@ var savedMediaPlansV2     = [
     ]
   },
   {
+    id:          'mp3',
     name:        'Heineken — Late Night Sports',
     date:        '24 Apr 2026',
-    author:      'Marika',
+    author:      'Marika L.',
+    campaign:    'Late Night Sports',
+    advertiser:  'Heineken',
     inputType:   'text',
     flightStart: '5 May 2026',
     flightEnd:   '18 May 2026',
     dsp:         { name: 'Xandr', status: 'error', pushedAt: '25 Apr 2026', refId: 'XND-29104' },
     impressions: '6.7M',
+    avgCpm:      '$21',
     dollars:     '$153K',
     moments: [
       { name:'Sports Drama',         channels:['Paramount','NBC','Discovery'],      inventory:167, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:21 },
@@ -1423,19 +2365,118 @@ var savedMediaPlansV2     = [
     ]
   },
   {
+    id:          'mp4',
     name:        'Spotify — Daytime Discovery',
     date:        '18 Apr 2026',
-    author:      'Bruna',
+    author:      'Luca R.',
+    campaign:    'Daytime Discovery',
+    advertiser:  'Spotify',
     inputType:   'video',
     flightStart: '26 Apr 2026',
     flightEnd:   '31 May 2026',
     dsp:         null,
     impressions: '6.9M',
+    avgCpm:      '$16',
     dollars:     '$104K',
     moments: [
       { name:'Adventure Travel',     channels:['Discovery','NatGeo','NBC'],         inventory:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:16 },
       { name:'Outdoor & Nature',     channels:['NatGeo','Discovery','PBS'],         inventory:211, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:15 },
       { name:'Motivation & Mindset', channels:['NBC','ABC','Peacock','TNT'],        inventory:302, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:17 }
+    ]
+  },
+  {
+    id:          'mp5',
+    name:        'Q3 Walmart — Summer Refresh',
+    date:        '12 Apr 2026',
+    author:      'Sara L.',
+    campaign:    'Summer Fresh Campaign',
+    advertiser:  'Walmart',
+    inputType:   'video',
+    flightStart: '1 Jul 2026',
+    flightEnd:   '31 Aug 2026',
+    dsp:         null,
+    impressions: '11.2M',
+    avgCpm:      '$18',
+    dollars:     '$201K',
+    moments: [
+      { name:'Summer Grilling',      channels:['Food Network','NBC','ABC'],         inventory:245, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:18 },
+      { name:'Outdoor Activities',   channels:['Discovery','ESPN','Fox'],           inventory:189, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:17 },
+      { name:'Family Weekends',      channels:['ABC','CBS','NBC','Peacock'],        inventory:312, impressionsNum:4.3, impressionsLabel:'4.3M', cpm:19 }
+    ]
+  },
+  {
+    id:          'mp6',
+    name:        'Audience Segmentation Test',
+    date:        '8 Apr 2026',
+    author:      'Bruna M.',
+    campaign:    null,
+    advertiser:  null,
+    inputType:   'text',
+    flightStart: null,
+    flightEnd:   null,
+    dsp:         null,
+    impressions: '4.1M',
+    avgCpm:      '$14',
+    dollars:     '$57K',
+    moments: [
+      { name:'In-Market Shoppers',   channels:['NBC','CBS','Fox'],                  inventory:143, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:15 },
+      { name:'Value Seekers',        channels:['ABC','Peacock','TBS'],              inventory:201, impressionsNum:2.1, impressionsLabel:'2.1M', cpm:13 }
+    ]
+  },
+  {
+    id:          'mp7',
+    name:        'P&G — Evening Essentials',
+    date:        '3 Apr 2026',
+    author:      'Marco F.',
+    campaign:    'Everyday Essentials',
+    advertiser:  'P&G',
+    inputType:   'document',
+    flightStart: '15 Apr 2026',
+    flightEnd:   '15 Jun 2026',
+    dsp:         null,
+    impressions: '8.4M',
+    avgCpm:      '$20',
+    dollars:     '$168K',
+    moments: [
+      { name:'Evening Routines',     channels:['CBS','NBC','Lifetime'],             inventory:267, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:21 },
+      { name:'Homecare Moments',     channels:['HGTV','Bravo','TLC'],              inventory:198, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:19 },
+      { name:'Personal Care',        channels:['Lifetime','E!','TLC'],             inventory:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:20 }
+    ]
+  },
+  {
+    id:          'mp8',
+    name:        'Q2 Funnel Draft',
+    date:        '28 Mar 2026',
+    author:      'Luca R.',
+    campaign:    null,
+    advertiser:  null,
+    inputType:   'video',
+    flightStart: null,
+    flightEnd:   null,
+    dsp:         null,
+    impressions: '—',
+    avgCpm:      '—',
+    dollars:     '—',
+    moments: []
+  },
+  {
+    id:          'mp9',
+    name:        'Nike — Running Season',
+    date:        '21 Mar 2026',
+    author:      'Sara L.',
+    campaign:    'Running Season Q2',
+    advertiser:  'Nike',
+    inputType:   'video',
+    flightStart: '1 Apr 2026',
+    flightEnd:   '31 May 2026',
+    dsp:         null,
+    impressions: '9.7M',
+    avgCpm:      '$26',
+    dollars:     '$252K',
+    moments: [
+      { name:'Morning Run',          channels:['ESPN','NBC Sports','Fox Sports'],   inventory:156, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:27 },
+      { name:'Race Day',             channels:['NBC','ESPN','CBS Sports'],          inventory:201, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:25 },
+      { name:'Recovery & Wellness',  channels:['Discovery','NBC','Peacock'],        inventory:143, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:26 }
     ]
   }
 ];
@@ -2188,7 +3229,7 @@ function csTx2BuildAIParamsPanel() {
     // Conversational sentence — free-flowing, centered, wraps naturally
     + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px">'
     +   'The budget for my media plan is ' + aiTriggerHtml('budget')
-    +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions. '
+    +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions per day. '
     +   'The Channels should be ' + aiTriggerHtml('channels')
     +   ' and the type ' + aiTriggerHtml('type') + '. '
     +   'My Brand Safety parameters are ' + aiTriggerHtml('brand') + '. '
@@ -2420,7 +3461,7 @@ function aiRenderResultsPanel() {
     +     '<th style="text-align:left;'  + TH + '">Moment</th>'
     +     '<th style="text-align:left;'  + TH + '">Channels</th>'
     +     '<th style="text-align:left;'  + TH + '">Type</th>'
-    +     '<th style="text-align:right;' + TH + '">Inventory</th>'
+    +     '<th style="text-align:right;' + TH + '">PODs</th>'
     +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
     +     '<th style="text-align:right;' + TH + '">Est. Impr.</th>'
     +     '<th style="' + TH + 'width:32px"></th>'
@@ -2509,12 +3550,11 @@ function aiSaveAIMediaPlan() {
   var newIdx = savedMediaPlansV2.length - 1;
 
   // Go home, then switch to plans tab and highlight the new item
-  mp2HomeTab = 'plans';
-  mp2ShowUpload();
+  mp2SwitchHomeTab('plans');
   setTimeout(function() {
     mp2RenderAIPlansPanel(newIdx);
     // Temporary counter badge on the Media Plans tab
-    var tabBtn = document.getElementById('tx2-plans-tab-btn');
+    var tabBtn = document.querySelector('#mp2-pills button[onclick*="\'plans\'"]');
     if (tabBtn) {
       var badge = document.createElement('span');
       badge.id = 'tx2-plans-tab-badge';
@@ -3365,7 +4405,7 @@ function mp2RenderMoments() {
       +     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'
       +       '<div><div style="' + LABEL + '">Est. Impr.</div><div id="mp2-kv-imp-' + safeId + '" style="' + VALUE + '">' + dispImpM + 'M</div></div>'
       +       '<div><div style="' + LABEL + '">CPM</div><div id="mp2-kv-cpm-' + safeId + '" style="' + VALUE + '">$' + dispCpm + '</div></div>'
-      +       '<div><div style="' + LABEL + '">Inventory</div><div id="mp2-kv-inv-' + safeId + '" style="' + VALUE + '">' + dispInv.toLocaleString() + '</div></div>'
+      +       '<div><div style="' + LABEL + '">PODs</div><div id="mp2-kv-inv-' + safeId + '" style="' + VALUE + '">' + dispInv.toLocaleString() + '</div></div>'
       +     '</div>'
       +     '<div>'
       +       '<div style="' + LABEL + '">Channels</div>'
@@ -4719,7 +5759,7 @@ function mp2BuildMfPanel(panel) {
 
   // Platform checkboxes
   var platformBody =
-    '<div style="display:flex;flex-direction:column;gap:2px">'
+    '<div style="display:flex;flex-direction:column;gap:4px">'
     + '<label style="display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer;font-size:12px;color:var(--text)">'
     +   '<input type="checkbox"' + (mp2MfPlatforms.length === 0 ? ' checked' : '') + ' onchange="mp2MfSetAllPlatforms()" style="accent-color:var(--accent);cursor:pointer">All</label>'
     + MP2_MF_ALL_PLATFORMS.map(function(p) {

@@ -2,11 +2,8 @@
 
 function renderTaxonomyExplorer() {
   setTimeout(txInit, 0);
-  return `
-<div class="ptitle">Taxonomy Explorer</div>
-<div class="psub" style="margin-bottom:20px">Analyze an ad to find the best-matching content in your inventory</div>
-
-<div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start">
+  return UI.pageHeader({ title: 'Taxonomy Explorer', subtitle: 'Analyze an ad to find the best-matching content in your inventory'})
+    + `<div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start">
 
   <!-- ── LEFT: Input panel ── -->
   <div class="tx-panel">

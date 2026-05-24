@@ -348,10 +348,8 @@ function renderInventoryExplorerV2() {
     sdtInjectStyles();
     mp1ShowUpload();
   }, 0);
-  return `
-<div class="ptitle">Media Planner (v1)</div>
-<div class="psub" style="margin-bottom:24px">Upload a video or brief and let KervSDT analyse moments, metadata and taxonomy classifications</div>
-<div id="sdt-panel-taxonomy2">
+  return UI.pageHeader({ title: 'Media Planner (v1)', subtitle: 'Upload a video or brief and let KervSDT analyse moments, metadata and taxonomy classifications'})
+    + `<div id="sdt-panel-taxonomy2">
   <div class="cs-card" style="padding:32px">
     <div id="tx2-content-area"></div>
   </div>
