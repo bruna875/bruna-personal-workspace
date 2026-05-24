@@ -1134,71 +1134,27 @@ function mp2ShowUpload() {
   });
 
   var planCols = [
-    { label: 'Plan Name',        width: '240px' },
-    { label: 'Campaign',         width: '190px' },
+    { label: 'Campaign',         width: '220px' },
+    { label: 'Client',           width: '140px' },
     { label: 'Advertiser',       width: '130px' },
     { label: 'Moments',          width: '80px',  align: 'right' },
     { label: 'Est. Impressions', width: '120px', align: 'right' },
-    { label: 'Est. CPM',         width: '90px',  align: 'right' },
-    { label: 'Est. $ Value',     width: '100px', align: 'right' },
+    { label: 'Avg CPM',          width: '90px',  align: 'right' },
+    { label: 'Est. $ Value',     width: '110px', align: 'right' },
     { label: 'Created By',       width: '120px' },
-    { label: 'Created At',       width: '100px' },
-    { label: '',                 width: '90px',  align: 'center' },
+    { label: 'Last Updated',     width: '110px' },
   ];
-  var TDp  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
-  var TDpm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
-  var TDpn = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
-  var TDpc = 'padding:11px 16px;font-size:12px;border-bottom:1px solid var(--border);text-align:center';
-  var IBTN = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--muted);transition:background .12s,color .12s';
-  var IHOV = 'onmouseenter="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'"';
-  var IDELHOV = 'onmouseenter="this.style.background=\'#fef2f2\';this.style.color=\'#dc2626\';this.style.borderColor=\'#fecaca\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\';this.style.borderColor=\'var(--border)\'"';
 
-  var plansTbody = savedMediaPlansV2.length === 0 ? '' : savedMediaPlansV2.map(function(mp, i) {
-    var last = i === savedMediaPlansV2.length - 1;
-    var fix  = last ? ';border-bottom:none' : '';
-    var momentsCount = (mp.moments || []).length + (mp.programs || []).length + (mp.episodes || []).length;
-
-    // Campaign cell: name + flight dates below (or assign button if no campaign)
-    var flightStr = (mp.flightStart && mp.flightEnd) ? mp.flightStart + ' → ' + mp.flightEnd : null;
-    var FOLDER_SYMLINK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h7"/><path d="m16 20 2-2-2-2"/><path d="M13 18h5"/></svg>';
-    var campaignCell = mp.campaign
-      ? '<div style="font-size:12px;font-weight:500;color:var(--text)">' + mp.campaign + '</div>'
-        + (flightStr ? '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + flightStr + '</div>' : '')
-      : '<button onclick="event.stopPropagation()" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">'
-        + FOLDER_SYMLINK + 'Assign Campaign</button>';
-
-    var createdByCell = '<span style="font-size:12px;color:var(--muted)">' + (mp.author || '—') + '</span>';
-
-    var actionsCell = '<div style="display:inline-flex;align-items:center;gap:4px">'
-      + '<button title="Edit" onclick="mp2ShowMediaPlanDetail(' + i + ')" style="' + IBTN + '" ' + IHOV + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-      + '<button title="Delete" onclick="mp2DeletePlan(' + i + ',event)" style="' + IBTN + '" ' + IDELHOV + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 3.5h10M5 3.5V2.5h4v1M5.5 6v4M8.5 6v4M3 3.5l.7 8h6.6l.7-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-      + '</div>';
-
-    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2ShowMediaPlanDetail(' + i + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TDp  + fix + ';font-weight:600">' + (mp.name || '—') + '</td>'
-      + '<td style="' + TDp  + fix + '">' + campaignCell + '</td>'
-      + '<td style="' + TDpm + fix + '">' + (mp.advertiser || '—') + '</td>'
-      + '<td style="' + TDpn + fix + '">' + momentsCount + '</td>'
-      + '<td style="' + TDpn + fix + '">' + (mp.impressions || '—') + '</td>'
-      + '<td style="' + TDpn + fix + '">' + (mp.avgCpm || '—') + '</td>'
-      + '<td style="' + TDpn + fix + '">' + (mp.dollars || '—') + '</td>'
-      + '<td style="' + TDpm + fix + '">' + createdByCell + '</td>'
-      + '<td style="' + TDpm + fix + '">' + (mp.date || '—') + '</td>'
-      + '<td style="' + TDpc + fix + '" onclick="event.stopPropagation()">' + actionsCell + '</td>'
-      + '</tr>';
-  }).join('');
-
-  var plansSearchBar = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+  // Shell — rows injected async by mp2LoadPlansTable()
+  var plansBodyHtml = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('mp2-plans-search', 'Search media plans…', 'mp2PlansSearch(this.value)')
-    + '</div>';
-  var plansEmptyHtml = '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet.<br>Build one with the AI planner and hit Save.</div>';
-  var plansBodyHtml  = savedMediaPlansV2.length === 0
-    ? plansEmptyHtml
-    : plansSearchBar + UI.tableScroll(planCols, plansTbody, 'mp2-plans-tbody', 0, null, { inCard: true });
+    + '</div>'
+    + UI.tableScroll(planCols, '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 0, null, { inCard: true });
+
   var plansRows = UI.cardHeader({
     title: 'Media Plans',
-    subtitle: savedMediaPlansV2.length ? savedMediaPlansV2.length + ' plans' : 'No plans yet',
-    padding: savedMediaPlansV2.length === 0 ? '0 20px' : '0',
+    subtitle: '<span id="mp2-plans-subtitle">Loading…</span>',
+    padding: '0',
     bodyHtml: plansBodyHtml,
   });
 
@@ -1572,6 +1528,65 @@ function mp2LibLoad(idx) {
   mp2ShowResults();
 }
 
+// ── Media Plans table — DB-backed ─────────────────────────────────────────────
+var _mp2PlansCache = null; // cache fetched rows; cleared on tab re-enter if needed
+
+function mp2LoadPlansTable() {
+  var tbody    = document.getElementById('mp2-plans-tbody');
+  var subtitle = document.getElementById('mp2-plans-subtitle');
+  if (!tbody) return;
+
+  // Show loading row while we fetch
+  tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
+  if (subtitle) subtitle.textContent = 'Loading…';
+
+  fetch('/api/media-plans-summary')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var plans = data.plans || [];
+      _mp2PlansCache = plans;
+      if (subtitle) subtitle.textContent = plans.length + ' plan' + (plans.length !== 1 ? 's' : '');
+      _mp2RenderPlanRows(plans);
+    })
+    .catch(function(e) {
+      if (subtitle) subtitle.textContent = 'Error';
+      tbody.innerHTML = '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading plans: ' + e.message + '</td></tr>';
+    });
+}
+
+function _mp2RenderPlanRows(plans) {
+  var tbody = document.getElementById('mp2-plans-tbody');
+  if (!tbody) return;
+
+  if (!plans.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No media plans in the database yet.</td></tr>';
+    return;
+  }
+
+  var TDp  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
+  var TDpm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TDpn = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
+
+  tbody.innerHTML = plans.map(function(p, i) {
+    var last = i === plans.length - 1;
+    var fix  = last ? ';border-bottom:none' : '';
+    var campCell = p.campaign_name
+      ? '<div style="font-size:12px;font-weight:500;color:var(--text)">' + p.campaign_name + '</div>'
+      : '<span style="font-size:11px;color:var(--faint);font-style:italic">No campaign assigned</span>';
+    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDp  + fix + '">' + campCell + '</td>'
+      + '<td style="' + TDpm + fix + '">' + (p.client_name     || '—') + '</td>'
+      + '<td style="' + TDpm + fix + '">' + (p.advertiser_name || '—') + '</td>'
+      + '<td style="' + TDpn + fix + '">' + p.moment_count + '</td>'
+      + '<td style="' + TDpn + fix + '">' + p.total_impressions  + '</td>'
+      + '<td style="' + TDpn + fix + '">' + p.avg_cpm            + '</td>'
+      + '<td style="' + TDpn + fix + ';color:#16a34a">' + p.total_dollar_value + '</td>'
+      + '<td style="' + TDpm + fix + '">' + p.created_by   + '</td>'
+      + '<td style="' + TDpm + fix + '">' + p.last_updated + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
 function mp2SwitchHomeTab(tab, noPush) {
   mp2HomeTab = tab;
   var mp2PillTabs = [{id:'new-plan',label:'New Plan'},{id:'plans',label:'Media Plans',dividerBefore:true},{id:'analyses',label:'Previous Analysis'}];
@@ -1589,6 +1604,8 @@ function mp2SwitchHomeTab(tab, noPush) {
   if (analyses) analyses.style.display = tab === 'analyses'  ? 'flex' : 'none';
   var outerCard = document.getElementById('mp2-outer-card');
   if (outerCard) outerCard.style.padding = tab === 'new-plan' ? '32px' : '0';
+  // Lazy-load the plans table from DB every time the tab becomes visible
+  if (tab === 'plans') mp2LoadPlansTable();
   // Update URL
   if (!noPush) {
     var urlMap = { 'new-plan': '/media-planner-v2', 'plans': '/media-planner-v2/media-plans', 'analyses': '/media-planner-v2/previous-analysis' };
