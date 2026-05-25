@@ -65,10 +65,10 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.advertiser_id, a.client_org_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
-      LEFT JOIN client_organizations o ON a.client_org_id  = o.client_org_id
+      LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
       WHERE c.campaign_id = ${parseInt(campaign_id)}
       ORDER BY c.campaign_id
     ` : client_org_id ? await sql`
@@ -76,21 +76,21 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.advertiser_id, a.client_org_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
-      LEFT JOIN client_organizations o ON a.client_org_id  = o.client_org_id
-      WHERE a.client_org_id = ${parseInt(client_org_id)}
+      LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
+      WHERE c.client_org_id = ${parseInt(client_org_id)}
       ORDER BY c.campaign_id
     ` : await sql`
       SELECT
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.advertiser_id, a.client_org_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
-      LEFT JOIN client_organizations o ON a.client_org_id  = o.client_org_id
+      LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
       ORDER BY c.campaign_id
     `;
 

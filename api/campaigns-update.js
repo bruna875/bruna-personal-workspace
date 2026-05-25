@@ -16,18 +16,24 @@ export default async function handler(req, res) {
     const campaignId = parseInt(body.campaign_id || body.id);
     if (!campaignId) return res.status(400).json({ error: 'Missing campaign id' });
 
-    // ── Update details (name, advertiser) ──────────────────────────────────
-    if (body.campaign_name !== undefined || body.advertiser_name !== undefined) {
+    // ── Update details (name, client, advertiser) ───────────────────────────
+    if (body.campaign_name !== undefined || body.client_name !== undefined || body.advertiser_name !== undefined) {
+      let client_org_id = null;
+      if (body.client_name) {
+        const rows = await sql`SELECT client_org_id FROM client_organizations WHERE client_name = ${body.client_name} LIMIT 1`;
+        if (rows.length) client_org_id = rows[0].client_org_id;
+      }
       let advertiser_id = null;
-      if (body.advertiser_name) {
-        const rows = await sql`SELECT advertiser_id FROM advertisers WHERE advertiser_name = ${body.advertiser_name} LIMIT 1`;
+      if (body.advertiser_name && client_org_id) {
+        const rows = await sql`SELECT advertiser_id FROM advertisers WHERE advertiser_name = ${body.advertiser_name} AND client_org_id = ${client_org_id} LIMIT 1`;
         if (rows.length) advertiser_id = rows[0].advertiser_id;
       }
       const nameVal = (body.campaign_name && body.campaign_name.trim()) ? body.campaign_name.trim() : null;
       await sql`
         UPDATE campaigns SET
-          campaign_name = ${nameVal},
-          advertiser_id = ${advertiser_id}
+          campaign_name  = ${nameVal},
+          client_org_id  = ${client_org_id},
+          advertiser_id  = ${advertiser_id}
         WHERE campaign_id = ${campaignId}
       `;
     }
@@ -37,12 +43,9 @@ export default async function handler(req, res) {
       const ids = Array.isArray(body.partner_ids) ? body.partner_ids.map(Number).filter(Boolean) : [];
 
       if (ids.length > 0) {
-        // Fetch campaign's client_org_id (via advertisers) and advertiser_id for validation
+        // Fetch campaign's client_org_id and advertiser_id for validation
         const campRows = await sql`
-          SELECT a.client_org_id, c.advertiser_id
-          FROM campaigns c
-          JOIN advertisers a ON c.advertiser_id = a.advertiser_id
-          WHERE c.campaign_id = ${campaignId}
+          SELECT client_org_id, advertiser_id FROM campaigns WHERE campaign_id = ${campaignId}
         `;
         if (!campRows.length) return res.status(404).json({ error: 'Campaign not found' });
         const { client_org_id, advertiser_id } = campRows[0];
