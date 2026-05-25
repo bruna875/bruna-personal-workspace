@@ -2821,7 +2821,7 @@ function _cmSetupChecklist(c, opts) {
   var steps = [
     { label:'Campaign Details', done: _cmStepDone(0, c), desc:'Name, advertiser, geography, flight dates and budget.' },
     { label:'Creatives',        done: _cmStepDone(1, c), desc:'Video or image assets attached to the campaign.' },
-    { label:'Media Plan',       done: _cmStepDone(2, c), desc:'Audience moments targeted for delivery.' },
+    { label:'Moments / Media Plan', done: _cmStepDone(2, c), desc:'Audience moments targeted for delivery.' },
     { label:'Partner',          done: _cmStepDone(3, c), desc:'DSP / SSP connected for delivery.' },
   ];
 
@@ -2920,7 +2920,7 @@ function _cmSummaryHtml(c) {
   var stepLabels = [
     { label: 'Campaign Details' },
     { label: 'Creatives'       },
-    { label: 'Media Plan'      },
+    { label: 'Moments / Media Plan' },
     { label: 'Partner'         },
   ];
 
