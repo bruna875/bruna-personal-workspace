@@ -35,7 +35,6 @@ export default async function handler(req, res) {
           mm.creative_id,
           mm.creative_ids,
           mm.asset_type,
-          mm.status,
           mm.lookback_window,
           mm.moments,
           mm.media_plans,
