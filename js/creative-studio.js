@@ -1570,15 +1570,10 @@ function csRenderNewCreative() {
   var body = document.getElementById('cs-body');
   if (!body) return;
 
-  var sparkle = '<svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>';
-
   body.innerHTML =
     '<div style="background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px;display:flex;flex-direction:column">'
     // Header
     + '<div style="text-align:center;margin-bottom:16px">'
-    +   '<div style="display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:6px">'
-    +     '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(225,29,143,.28)">' + sparkle + '</div>'
-    +   '</div>'
     +   '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">Creative Studio</div>'
     +   '<div style="font-size:11px;color:var(--muted)">Upload your asset and apply contextual templates across CTV, Web and Mobile.</div>'
     + '</div>'
