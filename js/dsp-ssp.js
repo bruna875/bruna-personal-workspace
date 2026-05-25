@@ -22,7 +22,7 @@ var _dspColors = {
   'Magnite':                 '#e34040',
   'PubMatic':                '#0068b5',
   'Index Exchange':          '#1a1a2e',
-  'FreeWheel':               '#00b49c',
+  'FreeWheel':               '#00b49c', // fallback only
   'OpenX':                   '#1d5fa6',
   'TripleLift':              '#6c3de8',
 };
@@ -38,6 +38,7 @@ var _dspLogos = {
   'Index Exchange':          'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694949/index-exchange-logo_if47uv.png',
   'Amazon DSP':              'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694942/Amazon-logo-meaning_nygv5n.jpg',
   'DV360':                   'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/dv360_logo_tfrs2c.png',
+  'FreeWheel':               'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779704156/freewhile_tp8k2e.png',
   'Adobe Advertising Cloud': 'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/Adobe_Advertising_Cloud_logo_RGB_192px_no_shadow_nnbjgy.png',
 };
 
