@@ -1,14 +1,5 @@
 import { neon } from '@neondatabase/serverless';
 
-const COLS = `
-  mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
-  mp.client_org_id, mp.advertiser_id, mp.moment_id,
-  mp.est_impressions, mp.est_cpm, mp.est_dollar_value,
-  mp.moment_details, mp.moment_taxonomies,
-  mp.created_by, mp.created_at,
-  o.client_name, a.advertiser_name
-`;
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -24,7 +15,12 @@ export default async function handler(req, res) {
     let rows;
     if (campaign_id && plan_name) {
       rows = await sql`
-        SELECT ${sql.unsafe(COLS)}
+        SELECT mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
+               mp.client_org_id, mp.advertiser_id, mp.moment_id,
+               mp.est_impressions, mp.est_cpm, mp.est_dollar_value,
+               mp.moment_details, mp.moment_taxonomies,
+               mp.created_by, mp.created_at,
+               o.client_name, a.advertiser_name
         FROM media_plans mp
         LEFT JOIN advertisers          a ON mp.advertiser_id = a.advertiser_id
         LEFT JOIN client_organizations o ON mp.client_org_id = o.client_org_id
@@ -33,7 +29,12 @@ export default async function handler(req, res) {
       `;
     } else if (campaign_id) {
       rows = await sql`
-        SELECT ${sql.unsafe(COLS)}
+        SELECT mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
+               mp.client_org_id, mp.advertiser_id, mp.moment_id,
+               mp.est_impressions, mp.est_cpm, mp.est_dollar_value,
+               mp.moment_details, mp.moment_taxonomies,
+               mp.created_by, mp.created_at,
+               o.client_name, a.advertiser_name
         FROM media_plans mp
         LEFT JOIN advertisers          a ON mp.advertiser_id = a.advertiser_id
         LEFT JOIN client_organizations o ON mp.client_org_id = o.client_org_id
@@ -42,7 +43,12 @@ export default async function handler(req, res) {
       `;
     } else {
       rows = await sql`
-        SELECT ${sql.unsafe(COLS)}
+        SELECT mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
+               mp.client_org_id, mp.advertiser_id, mp.moment_id,
+               mp.est_impressions, mp.est_cpm, mp.est_dollar_value,
+               mp.moment_details, mp.moment_taxonomies,
+               mp.created_by, mp.created_at,
+               o.client_name, a.advertiser_name
         FROM media_plans mp
         LEFT JOIN advertisers          a ON mp.advertiser_id = a.advertiser_id
         LEFT JOIN client_organizations o ON mp.client_org_id = o.client_org_id
