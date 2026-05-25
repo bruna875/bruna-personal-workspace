@@ -85,9 +85,6 @@ function renderDspSsp() {
     var advData = results[1];
     _dspClients     = (orgData.orgs || []).filter(function(o) { return o.dbId !== 1; });
     _dspAdvertisers = advData.advertisers || [];
-    if (_dspClients.length && !_dspClientId) {
-      _dspClientId = _dspClients[0].dbId;
-    }
     _dspRefreshFilters();
     _dspLoad();
   }).catch(function() { _dspLoad(); });
@@ -118,26 +115,33 @@ function _dspRefreshFilters() {
   var el = document.getElementById('dsp-header-filters');
   if (!el) return;
 
-  var clientOpts = [{val: '', label: 'All clients'}].concat(
+  var clientOpts = [{val: '', label: 'Select client…'}].concat(
     _dspClients.map(function(o) { return {val: String(o.dbId), label: o.name}; })
   );
-  var advOpts = [{val: '', label: 'All advertisers'}].concat(
-    _dspAdvertisers.map(function(a) { return {val: String(a.advertiser_id), label: a.advertiser_name}; })
-  );
 
-  el.innerHTML =
-    // Client label + select
+  var html =
     '<span style="font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap">Client</span>'
-    + '<div style="width:160px">'
+    + '<div style="width:180px">'
     +   UI.customSelect('dsp-client-cs', clientOpts, _dspClientId ? String(_dspClientId) : '', 'dspSetClient')
-    + '</div>'
-    // Divider
-    + '<div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>'
-    // Advertiser label + select
-    + '<span style="font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap">Advertiser</span>'
-    + '<div style="width:160px">'
-    +   UI.customSelect('dsp-adv-cs', advOpts, _dspAdvId ? String(_dspAdvId) : '', 'dspSetAdv')
     + '</div>';
+
+  // Advertiser select — only visible when a client is selected
+  if (_dspClientId) {
+    var filteredAdvs = _dspAdvertisers.filter(function(a) {
+      return a.client_org_id === _dspClientId;
+    });
+    var advOpts = [{val: '', label: 'All advertisers'}].concat(
+      filteredAdvs.map(function(a) { return {val: String(a.advertiser_id), label: a.advertiser_name}; })
+    );
+    html +=
+      '<div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>'
+      + '<span style="font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap">Advertiser</span>'
+      + '<div style="width:180px">'
+      +   UI.customSelect('dsp-adv-cs', advOpts, _dspAdvId ? String(_dspAdvId) : '', 'dspSetAdv')
+      + '</div>';
+  }
+
+  el.innerHTML = html;
 }
 
 // ── Load data ─────────────────────────────────────────────────────────────────
@@ -158,6 +162,8 @@ function _dspLoad() {
 
 function dspSetClient(val) {
   _dspClientId = val ? parseInt(val) : null;
+  _dspAdvId    = null; // reset advertiser when client changes
+  _dspRefreshFilters();
   _dspLoad();
 }
 

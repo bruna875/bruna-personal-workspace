@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   try {
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`
-      SELECT advertiser_id, advertiser_name
+      SELECT advertiser_id, advertiser_name, client_org_id
       FROM advertisers
       ORDER BY advertiser_name ASC
     `;
