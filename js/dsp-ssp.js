@@ -56,8 +56,8 @@ function _dspLogoHtml(name, size) {
   var logoUrl = _dspLogos[name];
   if (logoUrl) {
     return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;'
-      + 'background:#fff;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;padding:5px;box-sizing:border-box">'
-      + '<img src="' + logoUrl + '" alt="' + name + '" style="width:100%;height:100%;object-fit:contain;display:block">'
+      + 'flex-shrink:0;overflow:hidden">'
+      + '<img src="' + logoUrl + '" alt="' + name + '" style="width:100%;height:100%;object-fit:cover;display:block">'
       + '</div>';
   }
   var color = _dspColor(name);
