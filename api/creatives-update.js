@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { id, ids, name, advertiser_name, client_org_id } = req.body;
+    const { id, ids, name, advertiser_name } = req.body;
     const sql = neon(process.env.DATABASE_URL);
 
     // ── Bulk metadata update (advertiser + client + dates) ────────────────
@@ -32,14 +32,8 @@ export default async function handler(req, res) {
         }
       }
 
-      const clientOrgId = client_org_id ? parseInt(client_org_id) : null;
-
-      if (advertiserId && clientOrgId) {
-        await sql`UPDATE creatives SET advertiser_id = ${advertiserId}, client_org_id = ${clientOrgId} WHERE creative_id = ANY(${creativeIds})`;
-      } else if (advertiserId) {
+      if (advertiserId) {
         await sql`UPDATE creatives SET advertiser_id = ${advertiserId} WHERE creative_id = ANY(${creativeIds})`;
-      } else if (clientOrgId) {
-        await sql`UPDATE creatives SET client_org_id = ${clientOrgId} WHERE creative_id = ANY(${creativeIds})`;
       }
 
       // Update created_at per individual ID if provided as array of {id, date} pairs

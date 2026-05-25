@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
       if (analysis_id)   { conditions.push(`ca.analysis_id   = $${params.length + 1}`); params.push(parseInt(analysis_id));   }
       if (campaign_id)   { conditions.push(`ca.campaign_id   = $${params.length + 1}`); params.push(parseInt(campaign_id));   }
-      if (client_org_id) { conditions.push(`ca.client_org_id = $${params.length + 1}`); params.push(parseInt(client_org_id)); }
+      if (client_org_id) { conditions.push(`a.client_org_id  = $${params.length + 1}`); params.push(parseInt(client_org_id)); }
       if (advertiser_id) { conditions.push(`ca.advertiser_id = $${params.length + 1}`); params.push(parseInt(advertiser_id)); }
       if (creative_id)   { conditions.push(`ca.creative_id   = $${params.length + 1}`); params.push(parseInt(creative_id));   }
       if (mediaplan_id)  { conditions.push(`ca.mediaplan_id  = $${params.length + 1}`); params.push(parseInt(mediaplan_id));  }
@@ -31,7 +31,6 @@ export default async function handler(req, res) {
         SELECT
           ca.analysis_id,
           ca.campaign_id,
-          ca.client_org_id,
           ca.advertiser_id,
           ca.creative_id,
           ca.created_at,
@@ -47,13 +46,14 @@ export default async function handler(req, res) {
           c.campaign_name,
           o.client_name,
           COALESCE(a.advertiser_name, a2.advertiser_name) AS advertiser_name,
+          COALESCE(a.client_org_id,  a2.client_org_id)  AS client_org_id,
           cr.creative_name,
           mp.media_plan_name
         FROM creatives_analysis ca
         LEFT JOIN campaigns            c  ON ca.campaign_id   = c.campaign_id
-        LEFT JOIN client_organizations o  ON ca.client_org_id = o.client_org_id
         LEFT JOIN advertisers          a  ON ca.advertiser_id = a.advertiser_id
         LEFT JOIN advertisers          a2 ON c.advertiser_id  = a2.advertiser_id
+        LEFT JOIN client_organizations o  ON COALESCE(a.client_org_id, a2.client_org_id) = o.client_org_id
         LEFT JOIN creatives            cr ON ca.creative_id   = cr.creative_id
         LEFT JOIN media_plans          mp ON ca.mediaplan_id  = mp.media_plan_id
         ${where}
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
   // ── POST ─────────────────────────────────────────────────────────────────────
   if (req.method === 'POST') {
     try {
-      const { campaign_id, client_org_id, advertiser_id, creative_id, creative_ids, created_by, mediaplan_id, lookback_window, status, moments, asset_type, brief, doc } = req.body || {};
+      const { campaign_id, advertiser_id, creative_id, creative_ids, created_by, mediaplan_id, lookback_window, status, moments, asset_type, brief, doc } = req.body || {};
 
       // Use first element of creative_ids as the primary creative_id if not provided directly
       const primaryCreativeId = creative_id
@@ -81,11 +81,10 @@ export default async function handler(req, res) {
 
       const result = await sql`
         INSERT INTO creatives_analysis
-          (campaign_id, client_org_id, advertiser_id, creative_id, creative_ids, created_by, mediaplan_id, lookback_window, status, moments, asset_type, brief, doc)
+          (campaign_id, advertiser_id, creative_id, creative_ids, created_by, mediaplan_id, lookback_window, status, moments, asset_type, brief, doc)
         VALUES
           (
             ${campaign_id     ? parseInt(campaign_id)     : null},
-            ${client_org_id   ? parseInt(client_org_id)   : null},
             ${advertiser_id   ? parseInt(advertiser_id)   : null},
             ${primaryCreativeId},
             ${creative_ids    !== undefined ? JSON.stringify(creative_ids) : null},

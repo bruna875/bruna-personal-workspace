@@ -45,8 +45,8 @@ export default async function handler(req, res) {
         MAX(mp.created_at)                                AS last_updated
       FROM media_plans mp
       LEFT JOIN campaigns            c ON mp.campaign_id  = c.campaign_id
-      LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id
       LEFT JOIN advertisers          a ON c.advertiser_id = a.advertiser_id
+      LEFT JOIN client_organizations o ON a.client_org_id = o.client_org_id
       GROUP BY mp.media_plan_name, mp.campaign_id, c.campaign_name, o.client_name, a.advertiser_name
       ORDER BY MAX(mp.created_at) DESC
     `;
