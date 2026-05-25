@@ -2719,11 +2719,17 @@ function mp2ShowResults() {
 
     // ── Tab nav + content (free-flowing) ──
     + '<div>'
-    +   '<div class="cs-dv-tabnav" style="margin-bottom:16px;margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px">'
-    +     '<button class="cs-dv-tab" id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')">Ad Analysis</button>'
-    +     '<span style="width:1px;align-self:stretch;background:var(--border);flex-shrink:0;margin:0 4px"></span>'
-    +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')">Moments Match</button>'
-    +     '<button class="cs-dv-tab cs-dv-tab--ai" id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')">'
+    +   '<div style="display:flex;align-items:center;gap:4px;padding:8px 20px;margin-left:-20px;margin-right:-20px;border-bottom:1px solid var(--border);margin-bottom:16px">'
+    +     '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--subtle);color:var(--muted);transition:background .13s,color .13s">'
+    +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
+    +       'Ad Analysis'
+    +     '</button>'
+    +     '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--accent);color:#fff;transition:background .13s,color .13s">'
+    +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
+    +       'Moments Match'
+    +     '</button>'
+    +     '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--subtle);color:var(--muted);transition:background .13s,color .13s">'
+    +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
     +       'AI Media Plan'
     +     '</button>'
     +   '</div>'
@@ -2781,7 +2787,11 @@ function mp2SubTab(tab) {
   ['ad-analysis', 'moments', 'ai-media-plan'].forEach(function(t) {
     var btn = document.getElementById('tx2-sub-tab-' + t);
     var pnl = document.getElementById('tx2-sub-content-' + t);
-    if (btn) btn.className = 'cs-dv-tab' + (t === 'ai-media-plan' ? ' cs-dv-tab--ai' : '') + (t === tab ? ' cs-dv-tab--act' : '');
+    if (btn) {
+      var isAct = t === tab;
+      btn.style.background = isAct ? 'var(--accent)' : 'var(--subtle)';
+      btn.style.color      = isAct ? '#fff'          : 'var(--muted)';
+    }
     if (pnl) pnl.style.display = t === tab ? 'flex' : 'none';
   });
   // Asset strip + toggle only visible in Moments Match
