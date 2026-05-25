@@ -29,9 +29,9 @@ var _dspColors = {
 
 // ── Logo URLs per DSP/SSP name ────────────────────────────────────────────────
 var _dspLogos = {
-  'TripleLift':              'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692667/triplelift-logo-new_opnz8i.svg',
+  'TripleLift':              'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779704072/triplelift_logo_poxw3r.jpg',
   'Magnite':                 'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694954/mglogo_f3gxp5.webp',
-  'Yahoo DSP':               'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/Yahoo-DSP-logo_cvypas.webp',
+  'Yahoo DSP':               'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779704049/yahoo_fav_jooabt.png',
   'Xandr':                   'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694968/xandr_logo_bofilp.jpg',
   'The Trade Desk':          'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694963/thetradedesk_logo_lpfoxg.webp',
   'PubMatic':                'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694959/pubmatic-small-1_fnrdng.png',
