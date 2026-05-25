@@ -64,8 +64,8 @@ export default async function handler(req, res) {
       SELECT
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
-        c.start_date, c.end_date, c.partner, c.created_by, c.created_at,
-        c.client_org_id, o.client_name, a.advertiser_name
+        c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -75,8 +75,8 @@ export default async function handler(req, res) {
       SELECT
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
-        c.start_date, c.end_date, c.partner, c.created_by, c.created_at,
-        c.client_org_id, o.client_name, a.advertiser_name
+        c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -86,35 +86,54 @@ export default async function handler(req, res) {
       SELECT
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
-        c.start_date, c.end_date, c.partner, c.created_by, c.created_at,
-        c.client_org_id, o.client_name, a.advertiser_name
+        c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers        a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id
       ORDER BY c.campaign_id
     `;
 
-    const campaigns = rows.map(r => ({
-      id:          'db' + r.campaign_id,
-      dbId:        r.campaign_id,
-      name:        r.campaign_name || '—',
-      client:      r.client_name || '—',
-      advertiser:  r.advertiser_name || '—',
-      geography:   r.geo ? r.geo.split(',').map(g => g.trim()) : [],
-      status:      r.status || 'draft',
-      pacing:      null,
-      impressions: '—',
-      goal:        fmtGoal(r.impression_goal, r.impression_goal_max),
-      budget:      fmtBudgetRange(r.budget, r.budget_max),
-      spent:       '—',
-      start:       fmtDate(r.start_date),
-      end:         fmtDate(r.end_date),
-      creatives:   0,
-      moments:     0,
-      partners:    r.partner ? r.partner.split(',').map(p => p.trim()) : [],
-      createdBy:   r.created_by || '—',
-      createdOn:   fmtDate(r.created_at),
-    }));
+    // Resolve partner names from partner_ids via dsp_ssp_connections + library
+    const allPartnerIds = [...new Set(rows.flatMap(r => r.partner_ids || []))];
+    let partnerMap = {}; // connection_id → { name, type }
+    if (allPartnerIds.length) {
+      const pRows = await sql`
+        SELECT conn.connection_id, lib.name, lib.type
+        FROM dsp_ssp_connections conn
+        JOIN dsp_ssp_library lib ON lib.library_id = conn.library_id
+        WHERE conn.connection_id = ANY(${allPartnerIds})
+      `;
+      pRows.forEach(p => { partnerMap[p.connection_id] = { name: p.name, type: p.type }; });
+    }
+
+    const campaigns = rows.map(r => {
+      const pIds = r.partner_ids || [];
+      return {
+        id:           'db' + r.campaign_id,
+        dbId:         r.campaign_id,
+        clientOrgId:  r.client_org_id  || null,
+        advertiserId: r.advertiser_id  || null,
+        name:         r.campaign_name  || '—',
+        client:       r.client_name    || '—',
+        advertiser:   r.advertiser_name || '—',
+        geography:    r.geo ? r.geo.split(',').map(g => g.trim()) : [],
+        status:       r.status || 'draft',
+        pacing:       null,
+        impressions:  '—',
+        goal:         fmtGoal(r.impression_goal, r.impression_goal_max),
+        budget:       fmtBudgetRange(r.budget, r.budget_max),
+        spent:        '—',
+        start:        fmtDate(r.start_date),
+        end:          fmtDate(r.end_date),
+        creatives:    0,
+        moments:      0,
+        partnerIds:   pIds,
+        partners:     pIds.map(id => partnerMap[id] ? partnerMap[id].name : String(id)),
+        createdBy:    r.created_by || '—',
+        createdOn:    fmtDate(r.created_at),
+      };
+    });
 
     return res.status(200).json({ campaigns });
   } catch (err) {

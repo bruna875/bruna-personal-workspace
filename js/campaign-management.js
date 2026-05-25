@@ -1298,6 +1298,254 @@ function cmSaveMediaPlans() {
   });
 }
 
+// ── Partner panel (step 3) ────────────────────────────────────────────────────
+
+function _cmPartnerTypeBadge(type) {
+  var dsp = type === 'DSP';
+  return '<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;'
+    + (dsp ? 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe'
+           : 'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0')
+    + '">' + (type || '—') + '</span>';
+}
+
+function _cmPartnerFilteredConns() {
+  var q    = (_cmPartnerSearch || '').toLowerCase();
+  var list = _cmDspConnections || [];
+  return list.filter(function(conn) {
+    var lib  = _cmDspLibraryMap[conn.library_id] || {};
+    var name = (lib.name || '').toLowerCase();
+    return !q || name.indexOf(q) >= 0;
+  });
+}
+
+function _cmPartnerGridColHtml() {
+  var filtered = _cmPartnerFilteredConns();
+  var search = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+    + UI.searchBar('cm-partner-search', 'Search platforms…', 'cmPartnerSearch(this.value)', _cmPartnerSearch || '')
+    + '</div>';
+
+  var grid = '';
+  if (!_cmDspConnections) {
+    grid = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">Loading…</div>';
+  } else if (filtered.length === 0) {
+    grid = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">No platforms connected for this client.</div>';
+  } else {
+    var logoFn = (typeof _dspLogoHtml === 'function') ? _dspLogoHtml : function(n) {
+      return '<div style="width:36px;height:36px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + (n||'?').slice(0,2).toUpperCase() + '</div>';
+    };
+    var cards = filtered.map(function(conn) {
+      var lib    = _cmDspLibraryMap[conn.library_id] || {};
+      var name   = lib.name || 'Unknown';
+      var type   = lib.type || '';
+      var isAdded = _cmDraftPartners.some(function(p) { return p.connectionId === conn.connection_id; });
+      var border = isAdded ? '2px solid var(--accent)' : '1px solid var(--border)';
+      var bg     = isAdded ? 'rgba(237,0,94,.03)' : 'var(--surface)';
+      var tick   = isAdded
+        ? '<div style="position:absolute;top:8px;right:8px;width:16px;height:16px;border-radius:4px;background:var(--accent);display:flex;align-items:center;justify-content:center">'
+          + '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          + '</div>'
+        : '';
+      var seatRow = conn.seat_id
+        ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">Seat: ' + conn.seat_id + '</div>'
+        : '';
+      return '<div onclick="cmTogglePartner(' + conn.connection_id + ')" '
+        + 'style="position:relative;border:' + border + ';border-radius:10px;background:' + bg + ';padding:12px;cursor:pointer;transition:border-color .15s,background .15s" '
+        + 'onmouseover="this.style.borderColor=\'var(--accent)\'" '
+        + 'onmouseout="this.style.borderColor=\'' + (isAdded ? 'var(--accent)' : 'var(--border)') + '\'">'
+        + tick
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        +   '<div style="flex-shrink:0">' + logoFn(name, 36) + '</div>'
+        +   '<div style="min-width:0">'
+        +     '<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</div>'
+        +     '<div style="margin-top:3px">' + _cmPartnerTypeBadge(type) + '</div>'
+        +     seatRow
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+    grid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px">' + cards + '</div>';
+  }
+
+  return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
+    + search
+    + '<div style="max-height:290px;overflow-y:auto">' + grid + '</div>'
+    + '</div>';
+}
+
+function _cmPartnerSelColHtml() {
+  if (_cmDraftPartners.length === 0) {
+    var partnerSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+    return '<div style="border:1.5px dashed var(--border-md);border-radius:10px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:28px 16px;min-height:120px">'
+      + partnerSvg
+      + '<div><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">No partners added</div>'
+      + '<div style="font-size:11px;color:var(--muted)">Select platforms from the grid</div></div>'
+      + '</div>';
+  }
+  var logoFn = (typeof _dspLogoHtml === 'function') ? _dspLogoHtml : function(n) {
+    return '<div style="width:28px;height:28px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">' + (n||'?').slice(0,2).toUpperCase() + '</div>';
+  };
+  var cards = _cmDraftPartners.map(function(p, i) {
+    return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)">'
+      + '<div style="padding:8px 10px;display:flex;align-items:center;gap:8px">'
+      +   '<div style="flex-shrink:0">' + logoFn(p.name, 28) + '</div>'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p.name + '</div>'
+      +     '<div style="margin-top:2px;display:flex;align-items:center;gap:6px">'
+      +       _cmPartnerTypeBadge(p.type)
+      +       (p.seatId ? '<span style="font-size:10px;color:var(--muted)">Seat: ' + p.seatId + '</span>' : '')
+      +     '</div>'
+      +   '</div>'
+      +   '<button onclick="cmPartnerSelRemove(' + i + ')" style="width:18px;height:18px;border:none;border-radius:3px;background:transparent;color:var(--faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .12s;flex-shrink:0" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--faint)\'">'
+      +   '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      +   '</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  return '<div style="display:flex;flex-direction:column;gap:6px">' + cards + '</div>';
+}
+
+function _cmPartnerPanelInnerHtml() {
+  return '<div style="display:flex;align-items:stretch">'
+    + '<div style="flex:65;min-width:0;padding:20px 24px;border-right:1px solid var(--border);display:flex;flex-direction:column">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">Connected Platforms</div>'
+    +   '<div id="cm-partner-grid-col">' + _cmPartnerGridColHtml() + '</div>'
+    + '</div>'
+    + '<div style="flex:35;min-width:0;padding:20px 24px;display:flex;flex-direction:column;gap:12px">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Campaign Partners</div>'
+    +   '<div id="cm-partner-sel-col">' + _cmPartnerSelColHtml() + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
+    +   '<button id="cm-partner-save-btn" onclick="cmSavePartners()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add Partners to Campaign</button>'
+    +   '<span id="cm-partner-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
+    + '</div>';
+}
+
+function _cmPartnerInnerHtml() {
+  return '<div id="cm-partner-panel" style="border-top:1px solid var(--border)">' + _cmPartnerPanelInnerHtml() + '</div>';
+}
+
+function cmLoadPartnerPanel() {
+  if (!_cmCurrentClientOrgId) {
+    var grid = document.getElementById('cm-partner-grid-col');
+    if (grid) grid.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">Save the campaign details first to load available partners.</div>';
+    return;
+  }
+  if (_cmDspConnections !== null) {
+    // Already loaded — just re-render
+    var g = document.getElementById('cm-partner-grid-col');
+    var s = document.getElementById('cm-partner-sel-col');
+    if (g) g.innerHTML = _cmPartnerGridColHtml();
+    if (s) s.innerHTML = _cmPartnerSelColHtml();
+    return;
+  }
+  fetch('/api/dsp-ssp?client_org_id=' + _cmCurrentClientOrgId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      _cmDspLibraryMap = {};
+      (data.library || []).forEach(function(item) { _cmDspLibraryMap[item.library_id] = item; });
+
+      // Filter: show only connections eligible for this campaign
+      // = org-level (advertiser_id null) OR matching this campaign's advertiser_id
+      var advId = _cmCurrentAdvertiserId;
+      _cmDspConnections = (data.connections || []).filter(function(conn) {
+        if (conn.status !== 'active') return false;
+        if (conn.advertiser_id === null || conn.advertiser_id === undefined) return true;
+        return advId && conn.advertiser_id === advId;
+      });
+
+      // Pre-select partners already saved on campaign (via partnerIds)
+      var c = CM_CAMPAIGNS.filter(function(x) { return x.dbId === _cmCurrentCampaignDbId; })[0];
+      if (c && c.partnerIds && c.partnerIds.length) {
+        _cmDraftPartners = _cmDspConnections
+          .filter(function(conn) { return c.partnerIds.indexOf(conn.connection_id) >= 0; })
+          .map(function(conn) {
+            var lib = _cmDspLibraryMap[conn.library_id] || {};
+            return { connectionId: conn.connection_id, library_id: conn.library_id, name: lib.name || '', type: lib.type || '', seatId: conn.seat_id || '' };
+          });
+      }
+      var g = document.getElementById('cm-partner-grid-col');
+      var s = document.getElementById('cm-partner-sel-col');
+      if (g) g.innerHTML = _cmPartnerGridColHtml();
+      if (s) s.innerHTML = _cmPartnerSelColHtml();
+    })
+    .catch(function() {
+      var g = document.getElementById('cm-partner-grid-col');
+      if (g) g.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:#ef4444">Failed to load partners.</div>';
+    });
+}
+
+function cmTogglePartner(connectionId) {
+  var already = _cmDraftPartners.some(function(p) { return p.connectionId === connectionId; });
+  if (already) {
+    _cmDraftPartners = _cmDraftPartners.filter(function(p) { return p.connectionId !== connectionId; });
+  } else {
+    var conn = (_cmDspConnections || []).filter(function(c) { return c.connection_id === connectionId; })[0];
+    if (!conn) return;
+    var lib = _cmDspLibraryMap[conn.library_id] || {};
+    _cmDraftPartners.push({ connectionId: connectionId, library_id: conn.library_id, name: lib.name || '', type: lib.type || '', seatId: conn.seat_id || '' });
+  }
+  var g = document.getElementById('cm-partner-grid-col');
+  var s = document.getElementById('cm-partner-sel-col');
+  if (g) g.innerHTML = _cmPartnerGridColHtml();
+  if (s) s.innerHTML = _cmPartnerSelColHtml();
+  cmRefreshStepBadges();
+}
+
+function cmPartnerSelRemove(idx) {
+  _cmDraftPartners.splice(idx, 1);
+  var g = document.getElementById('cm-partner-grid-col');
+  var s = document.getElementById('cm-partner-sel-col');
+  if (g) g.innerHTML = _cmPartnerGridColHtml();
+  if (s) s.innerHTML = _cmPartnerSelColHtml();
+  cmRefreshStepBadges();
+}
+
+function cmPartnerSearch(q) {
+  _cmPartnerSearch = q || '';
+  var g = document.getElementById('cm-partner-grid-col');
+  if (g) g.innerHTML = _cmPartnerGridColHtml();
+}
+
+function cmSavePartners() {
+  var dbId = _cmCurrentCampaignDbId;
+  var btn  = document.getElementById('cm-partner-save-btn');
+  var fb   = document.getElementById('cm-partner-feedback');
+  function _showFb(msg, color) {
+    if (!fb) return;
+    fb.textContent  = msg;
+    fb.style.color  = color;
+    fb.style.opacity = '1';
+    setTimeout(function() { fb.style.opacity = '0'; }, 3000);
+  }
+  if (!dbId) { _showFb('Save campaign details first', '#dc2626'); return; }
+  var ids = _cmDraftPartners.map(function(p) { return p.connectionId; });
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  fetch('/api/campaigns-update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ campaign_id: dbId, partner_ids: ids })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (btn) { btn.textContent = 'Add Partners to Campaign'; btn.disabled = false; }
+    if (data.error) { _showFb('Error: ' + data.error, '#dc2626'); return; }
+    _showFb('Partners saved ✓', '#16a34a');
+    CM_CAMPAIGNS = CM_CAMPAIGNS.map(function(c) {
+      if (c.dbId !== dbId) return c;
+      return Object.assign({}, c, {
+        partnerIds: ids,
+        partners:   _cmDraftPartners.map(function(p) { return p.name; }),
+      });
+    });
+    cmRefreshStepBadges();
+  })
+  .catch(function() {
+    if (btn) { btn.textContent = 'Add Partners to Campaign'; btn.disabled = false; }
+    _showFb('Save failed', '#dc2626');
+  });
+}
+
 // ── Add Creatives modal ───────────────────────────────────────────────────────
 function cmOpenAddCreativesModal() {
   var existing = document.getElementById('cm-creatives-modal');
@@ -1815,7 +2063,15 @@ var _cmDraftGeo          = [];
 var _cmDraftAdv          = '';
 var _cmDraftFlight       = { start:'', end:'' };
 var _cmDraftCampaignName = '';
-var _cmCurrentCampaignDbId = null; // set when _cmSetupChecklist renders
+var _cmCurrentCampaignDbId  = null; // set when _cmSetupChecklist renders
+var _cmCurrentClientOrgId   = null; // client_org_id of the campaign being edited
+var _cmCurrentAdvertiserId  = null; // advertiser_id of the campaign being edited
+
+// ── Partner panel state ───────────────────────────────────────────────────────
+var _cmDraftPartners  = [];   // [{ connectionId, library_id, name, type, seatId }]
+var _cmPartnerSearch  = '';
+var _cmDspConnections = null; // null = not yet loaded; [] = loaded (may be empty)
+var _cmDspLibraryMap  = {};   // library_id → { name, type, ... }
 
 // ── Client picker ─────────────────────────────────────────────────────────────
 function cmDraftClientToggle(e) {
@@ -2500,6 +2756,11 @@ function _cmDraftToggle(idx) {
     var p2 = document.getElementById('cm-draft-panel-2');
     if (p2 && p2.style.display !== 'none') cmLoadMediaPlanPanel();
   }
+  // Lazy-load partner panel when panel 3 opens
+  if (idx === 3) {
+    var p3 = document.getElementById('cm-draft-panel-3');
+    if (p3 && p3.style.display !== 'none') cmLoadPartnerPanel();
+  }
 }
 
 // ── Save campaign details to DB ───────────────────────────────────────────────
@@ -2592,8 +2853,11 @@ function _cmStepDone(stepIdx, c) {
       return (c.creatives > 0);
     case 2: // Media Plan — at least one moment linked to this campaign in DB
       return (c.moments > 0);
-    case 3: // Partner — at least one partner linked to this campaign in DB
-      return !!(c.partners && c.partners.length > 0);
+    case 3: // Partner — at least one connection_id saved on partner_ids
+      return !!(
+        (c.partnerIds && c.partnerIds.length > 0) ||
+        _cmDraftPartners.length > 0
+      );
     case 4: // Review & Launch
       return c.status !== 'draft';
     default:
@@ -2637,13 +2901,20 @@ function cmRefreshStepBadges() {
 function _cmSetupChecklist(c, opts) {
   var isNew = (opts && opts.isNew) || false;
   // Initialise shared form state from campaign data
-  _cmCurrentCampaignDbId = c.dbId || null;
+  _cmCurrentCampaignDbId = c.dbId         || null;
+  _cmCurrentClientOrgId  = c.clientOrgId  || null;
+  _cmCurrentAdvertiserId = c.advertiserId || null;
   _cmDraftClient         = c.client      || '';
   _cmDraftGeo            = (c.geography  || []).slice();
   _cmDraftAdv            = c.advertiser  || '';
   _cmDraftFlight.start   = c.start       || '';
   _cmDraftFlight.end     = c.end         || '';
   _cmDraftCampaignName   = c.name        || '';
+  // Reset partner draft state for each new campaign open
+  _cmDraftPartners  = [];
+  _cmPartnerSearch  = '';
+  _cmDspConnections = null;
+  _cmDspLibraryMap  = {};
 
   var flightLabel = (c.start && c.end) ? c.start + ' → ' + c.end : 'Set flight dates';
 
@@ -2808,13 +3079,8 @@ function _cmSetupChecklist(c, opts) {
 
     // 3 — Partner
     _stepAlert(3)
-    + '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:16px">'
-      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--border-md)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
-      + (c.partners && c.partners.length
-          ? '<span style="font-size:12px;color:var(--text);flex:1">' + c.partners.join(', ') + '</span>'
-          : '<span style="font-size:12px;color:var(--faint);flex:1">No DSP / SSP partner connected yet.</span>')
-      + '<button style="height:30px;padding:0 14px;border:none;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">+ Add Partner</button>'
-    + '</div>',
+    + '<div id="cm-partner-panel-wrap">' + _cmPartnerInnerHtml() + '</div>'
+    + '<div style="height:1px;background:var(--border);margin:0"></div>',
   ];
 
   // Dynamic completion per step
