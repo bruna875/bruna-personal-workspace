@@ -1410,6 +1410,10 @@ function mp2ShowUpload() {
 
     // Step 3 — Add Asset
     +       '<div id="mp2-step3" style="display:none">'
+    +         '<div style="margin-bottom:10px">'
+    +           '<label style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:4px">Analysis Name</label>'
+    +           '<input id="mp2-analysis-name-input" type="text" placeholder="e.g. Summer Campaign Q3" style="width:100%;box-sizing:border-box;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text);background:var(--surface);font-family:inherit;outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'">'
+    +         '</div>'
     +         '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:10px">'
     +           '<div class="tx2-seg tx2-seg--act" id="tx2-opt-video" onclick="mp2SelectInput(\'video\')">'
     +             '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
@@ -1423,10 +1427,6 @@ function mp2ShowUpload() {
     +             '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
     +             '<span>Brief</span>'
     +           '</div>'
-    +         '</div>'
-    +         '<div style="margin-bottom:10px">'
-    +           '<label style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:4px">Analysis Name</label>'
-    +           '<input id="mp2-analysis-name-input" type="text" placeholder="e.g. Summer Campaign Q3" style="width:100%;box-sizing:border-box;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text);background:var(--surface);font-family:inherit;outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'">'
     +         '</div>'
     +         '<div id="tx2-input-area" style="margin-bottom:10px">' + inputArea('video') + '</div>'
     +         '<div style="margin-bottom:0">'
