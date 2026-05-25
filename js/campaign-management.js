@@ -2185,15 +2185,22 @@ function _cmLoadPacingPlan(dbId) {
       el.innerHTML =
         '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">' + planName + '</div>'
         + unique.map(function(r) {
-            var mom = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
-            var name = mom.name || r.moment_id;
-            var cat  = mom.category || '';
+            var det  = r.moment_details || {};
+            var mock = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+            var name = det.moment_name || mock.moment_name || r.moment_id;
+            var type = det.moment_type || mock.moment_type || '';
             var impr = (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(Number(r.est_impressions)) : (r.est_impressions || '—');
             var cpm  = r.est_cpm ? '$' + parseFloat(r.est_cpm).toFixed(2) : '—';
+            var typeBadge = type
+              ? '<span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:10px;'
+                + (type === 'Live' ? 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca'
+                  : type === 'Organic Pause' ? 'background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4'
+                  : 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe') + '">' + type + '</span>'
+              : '';
             return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
               + '<div style="flex:1;min-width:0">'
-              +   '<div style="font-size:12px;font-weight:500;color:var(--text)">' + name + '</div>'
-              +   (cat ? '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + cat + '</div>' : '')
+              +   '<div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px">' + name + '</div>'
+              +   typeBadge
               + '</div>'
               + '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + impr + '</span>'
               + '<span style="font-size:10px;color:var(--faint);flex-shrink:0">' + cpm + ' CPM</span>'
