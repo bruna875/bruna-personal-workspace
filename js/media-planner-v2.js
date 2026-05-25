@@ -2721,9 +2721,9 @@ function mp2ShowResults() {
 
     // ── Tab nav + content (free-flowing) ──
     + '<div>'
-    +   '<div class="cs-dv-tabnav" style="margin-bottom:16px">'
+    +   '<div class="cs-dv-tabnav" style="margin-bottom:16px;margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px">'
     +     '<button class="cs-dv-tab" id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')">Ad Analysis</button>'
-    +     '<span style="width:1px;height:16px;background:var(--border);align-self:center;flex-shrink:0;margin:0 12px"></span>'
+    +     '<span style="width:1px;align-self:stretch;background:var(--border);flex-shrink:0;margin:0 4px"></span>'
     +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')">Moments Match</button>'
     +     '<button class="cs-dv-tab cs-dv-tab--ai" id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')">'
     +       'AI Media Plan'
