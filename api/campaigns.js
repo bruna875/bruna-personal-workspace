@@ -34,29 +34,60 @@ function fmtDate(d) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
+
+  const sql = neon(process.env.DATABASE_URL);
+
+  // ── DELETE ────────────────────────────────────────────────────────────────
+  if (req.method === 'DELETE') {
+    try {
+      const { campaign_id } = req.query;
+      if (!campaign_id) return res.status(400).json({ error: 'Missing campaign_id' });
+      await sql`DELETE FROM campaigns WHERE campaign_id = ${parseInt(campaign_id)}`;
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      console.error('campaigns DELETE error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // ── GET ───────────────────────────────────────────────────────────────────
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const sql = neon(process.env.DATABASE_URL);
+    const { campaign_id, client_org_id } = req.query;
 
-    const rows = await sql`
+    const rows = campaign_id ? await sql`
       SELECT
-        c.campaign_id,
-        c.campaign_name,
-        c.geo,
-        c.status,
-        c.impression_goal,
-        c.impression_goal_max,
-        c.budget,
-        c.budget_max,
-        c.start_date,
-        c.end_date,
-        c.partner,
-        c.created_by,
-        c.created_at,
-        c.client_org_id,
-        o.client_name,
-        a.advertiser_name
+        c.campaign_id, c.campaign_name, c.geo, c.status,
+        c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
+        c.start_date, c.end_date, c.partner, c.created_by, c.created_at,
+        c.client_org_id, o.client_name, a.advertiser_name
+      FROM campaigns c
+      LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
+      LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
+      WHERE c.campaign_id = ${parseInt(campaign_id)}
+      ORDER BY c.campaign_id
+    ` : client_org_id ? await sql`
+      SELECT
+        c.campaign_id, c.campaign_name, c.geo, c.status,
+        c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
+        c.start_date, c.end_date, c.partner, c.created_by, c.created_at,
+        c.client_org_id, o.client_name, a.advertiser_name
+      FROM campaigns c
+      LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
+      LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
+      WHERE c.client_org_id = ${parseInt(client_org_id)}
+      ORDER BY c.campaign_id
+    ` : await sql`
+      SELECT
+        c.campaign_id, c.campaign_name, c.geo, c.status,
+        c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
+        c.start_date, c.end_date, c.partner, c.created_by, c.created_at,
+        c.client_org_id, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers        a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id

@@ -771,7 +771,13 @@ function _csEditorHtml() {
     + '</div>';
 
   // ── Center — player + timeline ──
-  var ytThumb = 'https://img.youtube.com/vi/' + CS_TEMPLATE_YT_ID + '/mqdefault.jpg';
+  // Extract YouTube video ID from asset src if available, fall back to hardcoded demo
+  var _ytId = CS_TEMPLATE_YT_ID;
+  if (sel && sel.src) {
+    var _ytMatch = sel.src.match(/(?:youtube\.com\/embed\/|youtu\.be\/|v=)([A-Za-z0-9_-]{11})/);
+    if (_ytMatch) _ytId = _ytMatch[1];
+  }
+  var ytThumb = 'https://img.youtube.com/vi/' + _ytId + '/mqdefault.jpg';
   var scenes = '';
   for (var i = 0; i < 14; i++) {
     var secs = i * 3;
@@ -785,11 +791,11 @@ function _csEditorHtml() {
       + '</div>';
   }
 
-  var isImageAsset = sel && (sel.type === 'JPG' || sel.type === 'PNG' || sel.type === 'WEBP');
+  var isImageAsset = sel && (sel.assetType === 'image' || sel.type === 'JPG' || sel.type === 'PNG' || sel.type === 'WEBP');
   var playerInnerHtml = isImageAsset
     ? '<img src="' + (sel.src || sel.thumb) + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block">'
       + '<div id="cs-player-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:1"></div>'
-    : '<iframe src="https://www.youtube.com/embed/' + CS_TEMPLATE_YT_ID + '?autoplay=1&mute=1&modestbranding=1&rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>'
+    : '<iframe src="https://www.youtube.com/embed/' + _ytId + '?autoplay=1&mute=1&modestbranding=1&rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>'
       + '<div id="cs-yt-title-cover" style="position:absolute;top:0;left:0;right:0;height:22%;background:linear-gradient(to bottom,#000 0%,rgba(0,0,0,.7) 60%,transparent 100%);pointer-events:none;z-index:2;transition:opacity 1s ease;opacity:1"></div>'
       + '<div id="cs-player-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div>';
 
@@ -1598,9 +1604,11 @@ function csLibOpenEditor(crId) {
     ? CS_LIBRARY.filter(function(c) { return c.campaign === cr.campaign; })
     : [cr];
 
-  // Map to editor asset format
+  // Map to editor asset format — include assetLink as src so the builder uses the real URL
   CS_UPLOADED_ASSETS = group.map(function(c) {
-    return { id: c.id, name: c.name, type: c.fileType, thumb: c.thumb, templates: (c.templates || []).slice() };
+    return { id: c.id, name: c.name, type: c.fileType, thumb: c.thumb,
+             src: c.assetLink || '', assetType: c.assetType || '',
+             templates: (c.templates || []).slice() };
   });
 
   // Pre-fill campaign name for breadcrumb
@@ -1676,6 +1684,8 @@ function csRenderLibrary() {
 
     var adv = '<td style="' + TD + ';font-size:12px">' + (cr.advertiser||'—') + '</td>';
 
+    var client = '<td style="' + TD + ';font-size:12px;color:var(--muted)">' + (cr.client||'—') + '</td>';
+
     var camp = '<td style="' + TD + ';font-size:12px;color:' + (cr.campaign ? 'var(--text)' : 'var(--faint)') + '">'
       + (cr.campaign || '—') + '</td>';
 
@@ -1693,26 +1703,26 @@ function csRenderLibrary() {
 
     var date = '<td style="' + TD + ';color:var(--muted);font-size:11px">' + (cr.date||'—') + '</td>';
 
-    var actions = '<td style="' + TD + ';padding-right:8px;text-align:right;white-space:nowrap">'
+    var crIdSafe = cr.id.replace(/'/g, "\\'");
+    var actions = '<td style="' + TD + ';padding-right:8px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">'
       + (!cr.campaign ? iconBtn('<path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3"/><path d="m13 13 3 3-3 3"/><path d="M16 16H9a3 3 0 0 1 0-6h8"/>', 'Associate to a Campaign') : '')
-      + iconBtn('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>', 'Edit',    'csLibOpenEditor(\'' + cr.id + '\')')
-      + iconBtn('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>', 'Preview', 'csLibOpenEditor(\'' + cr.id + '\')')
-      + iconBtn('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>', 'Delete')
+      + iconBtn('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>', 'Delete', 'csDeleteCreative(\'' + crIdSafe + '\')')
       + '</td>';
 
-    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + thumb + name + adv + camp + mt + tpl + date + actions + '</tr>';
+    return '<tr style="cursor:pointer" onclick="csLibOpenEditor(\'' + crIdSafe + '\')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + thumb + name + camp + adv + client + mt + tpl + date + actions + '</tr>';
   }).join('');
 
   var cols = [
     { label: '',            width: '60px'  },
     { label: 'Creative'                    },
-    { label: 'Advertiser',  width: '140px' },
-    { label: 'Campaign',    width: '190px' },
+    { label: 'Campaign',    width: '180px' },
+    { label: 'Advertiser',  width: '130px' },
+    { label: 'Client',      width: '130px' },
     { label: 'Media',       width: '80px'  },
     { label: 'Templates'                   },
     { label: 'Date',        width: '110px' },
-    { label: '',            width: '120px', align: 'right' },
+    { label: '',            width: '70px',  align: 'right' },
   ];
 
   var searchBar = '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'
@@ -1727,6 +1737,28 @@ function csRenderLibrary() {
     padding: '0',
     bodyHtml: searchBar + UI.tableScroll(cols, rows, 'cs-lib-tbody', 0, null, { inCard: true }),
   });
+}
+
+function csDeleteCreative(id) {
+  var cr = CS_LIBRARY.find(function(c) { return c.id === id; });
+  if (!cr) return;
+  if (!confirm('Delete "' + (cr.name || 'this creative') + '"? This cannot be undone.')) return;
+
+  // If it's a DB creative, call the API first
+  if (cr.dbId) {
+    fetch('/api/creatives?creative_id=' + cr.dbId, { method: 'DELETE' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) { alert('Error: ' + data.error); return; }
+        CS_LIBRARY = CS_LIBRARY.filter(function(c) { return c.id !== id; });
+        csRenderLibrary();
+      })
+      .catch(function(e) { alert('Delete failed: ' + e.message); });
+  } else {
+    // Session-only creative — remove locally
+    CS_LIBRARY = CS_LIBRARY.filter(function(c) { return c.id !== id; });
+    csRenderLibrary();
+  }
 }
 
 function csLibSearch(q) {

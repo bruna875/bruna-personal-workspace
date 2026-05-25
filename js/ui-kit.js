@@ -204,13 +204,23 @@ var UI = (function () {
     if (!panel) return;
     var opening = !panel.classList.contains('open');
     if (opening && btn) {
-      var rect = btn.getBoundingClientRect();
+      var rect       = btn.getBoundingClientRect();
+      var panelMaxH  = 300; // conservative estimate (search + items)
+      var spaceBelow = window.innerHeight - rect.bottom - 8;
+      var spaceAbove = rect.top - 8;
       panel.style.position = 'fixed';
-      panel.style.top      = (rect.bottom + 4) + 'px';
       panel.style.left     = rect.left + 'px';
       panel.style.right    = 'auto';
       panel.style.minWidth = rect.width + 'px';
       panel.style.zIndex   = '9999';
+      if (spaceBelow < panelMaxH && spaceAbove > spaceBelow) {
+        // Flip upward
+        panel.style.top    = 'auto';
+        panel.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+      } else {
+        panel.style.top    = (rect.bottom + 4) + 'px';
+        panel.style.bottom = 'auto';
+      }
     }
     panel.classList.toggle('open', opening);
     if (btn) btn.style.borderColor = opening ? 'var(--accent)' : 'var(--border-md)';

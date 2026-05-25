@@ -6,9 +6,18 @@ var mp2MockCreatives = [
   { id:'mpc2', name:'banner-static.jpg', type:'JPG', thumb:'/Asset%20Demo%20K1/walmart-ad.jpg',                    templates:[] }
 ];
 
-function _mp2CreativeTilesHtml() {
+function _mp2CreativeTilesHtml(dbCreatives) {
   var PLUS = '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-  return mp2MockCreatives.map(function(cr) {
+  // Use DB creatives if provided, otherwise fall back to mock
+  var list = (dbCreatives && dbCreatives.length) ? dbCreatives.map(function(cr) {
+    return { id: cr.id || ('dbcr' + cr.dbId), name: cr.name, thumb: cr.thumb || '', type: cr.fileType || cr.assetType || 'VoD', templates: [] };
+  }) : mp2MockCreatives;
+
+  if (!list.length) {
+    return '<span style="font-size:12px;color:var(--faint);font-style:italic">No assets linked to this campaign.</span>';
+  }
+
+  return list.map(function(cr) {
     var tpls = cr.templates || [];
     var tplChips = tpls.map(function(t) {
       return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + t + '</span>';
@@ -18,11 +27,12 @@ function _mp2CreativeTilesHtml() {
       ? '<div style="padding:4px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:3px">' + tplChips + '</div>'
       : '<div style="padding:5px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;align-items:center;justify-content:center">' + addTplBtn + '</div>';
     var hasTpls = tpls.length > 0;
+    var thumbHtml = cr.thumb
+      ? '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
+      : '<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l5-5 4 4 3-3 6 6"/></svg></div>';
     return '<div onclick="mp2AddTemplate(\'' + cr.id + '\')" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);position:relative;display:flex;flex-direction:column;width:140px;flex-shrink:0;' + (hasTpls ? 'cursor:pointer' : '') + '" ' + (hasTpls ? 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'"' : '') + '>'
-      + '<div style="aspect-ratio:16/9;background:#e5e7eb;overflow:hidden;flex-shrink:0">'
-      +   '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
-      + '</div>'
-      + '<div style="position:absolute;top:4px;left:4px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.5);color:#fff;letter-spacing:.3px">' + cr.type + '</div>'
+      + '<div style="aspect-ratio:16/9;background:#e5e7eb;overflow:hidden;flex-shrink:0">' + thumbHtml + '</div>'
+      + '<div style="position:absolute;top:4px;left:4px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.5);color:#fff;letter-spacing:.3px">' + (cr.type || 'VoD') + '</div>'
       + '<div style="padding:4px 6px;flex-shrink:0">'
       +   '<div style="font-size:10px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + cr.name + '</div>'
       + '</div>'
@@ -191,9 +201,12 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
     return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">' + text + '</div>';
   }
 
-  var planCampName = plan.campaign || '—';
-  var planAdvName  = plan.advertiser || '—';
-  var planFdLabel  = (plan.flightStart && plan.flightEnd) ? plan.flightStart + ' → ' + plan.flightEnd : '—';
+  var cd = plan._campaignData || null;
+  var planCampName = cd ? cd.name        : (plan.campaign  || '—');
+  var planAdvName  = cd ? cd.advertiser  : (plan.advertiser || '—');
+  var planGeo      = cd && cd.geography && cd.geography.length ? cd.geography.join(', ') : 'All regions';
+  var planFdLabel  = cd && cd.start && cd.start !== '—' ? cd.start + ' → ' + (cd.end || '—') :
+                     (plan.flightStart && plan.flightEnd) ? plan.flightStart + ' → ' + plan.flightEnd : '—';
   var SEP = '<span style="color:var(--border-md);margin:0 10px">·</span>';
 
   function metaChunk(label, value) {
@@ -210,46 +223,46 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
     +   SEP
     +   metaChunk('Flight Dates', planFdLabel)
     +   SEP
-    +   metaChunk('Geography', 'All regions')
+    +   metaChunk('Geography', planGeo)
     + '</div>'
     + '<button id="mp2-plan-camp-toggle" onclick="mp2TogglePlanCampStrip()" title="Toggle campaign details" '
     +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s;flex-shrink:0;margin-left:16px" '
     +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
     +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
-    +   '−'
+    +   '+'
     + '</button>'
     + '</div>';
 
   var campAssetStrip =
-    '<div id="mp2-plan-camp-strip" style="border-bottom:1px solid var(--border)">'
+    '<div id="mp2-plan-camp-strip" style="border-bottom:1px solid var(--border);display:none">'
     + '<div style="display:flex;align-items:stretch">'
 
-    + '<div style="flex:1;padding:12px 20px">'
+    + '<div style="flex:1;padding:12px 20px;min-width:0">'
     + sectionLabel('Asset')
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml() + '</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml(plan._creativesData) + '</div>'
     + '</div>'
 
     + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
 
-    + '<div style="flex:1;padding:12px 20px">'
+    + '<div style="flex:1;padding:12px 20px;min-width:0">'
     + sectionLabel('Campaign')
     + '<div style="display:flex;flex-direction:column;gap:8px">'
     +   infoField('Campaign', planCampName)
     +   infoField('Advertiser', planAdvName)
-    +   infoField('Geography', 'All regions')
+    +   infoField('Geography', planGeo)
     +   infoField('Flight Dates', planFdLabel)
     + '</div>'
     + '</div>'
 
     + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
 
-    + '<div style="flex:1;padding:12px 20px">'
+    + '<div style="flex:1;padding:12px 20px;min-width:0">'
     + sectionLabel('Additional Details')
     + '<div style="display:flex;flex-direction:column;gap:8px">'
-    +   infoField('Est. Impressions', plan.impressions || '—')
-    +   infoField('Avg CPM', plan.avgCpm || '—')
-    +   infoField('Est. $ Value', plan.dollars || '—')
-    +   infoField('Moments', allItems.length + '')
+    +   infoField('Goal', cd ? (cd.goal || '—') : '—')
+    +   infoField('Budget', cd ? (cd.budget || '—') : '—')
+    +   infoField('Status', cd ? (cd.status || '—') : '—')
+    +   infoField('Partners', cd && cd.partners && cd.partners.length ? cd.partners.join(', ') : '—')
     + '</div>'
     + '</div>'
 
@@ -694,13 +707,100 @@ function mp2DeleteMediaPlan(idx) {
 
 var mp2NewPlanStep    = 1;
 var mp2CampaignMode   = 'select';   // 'create' | 'select'
-var mp2SelectedCampaign = null;
-var mp2LibrarySelected  = null;     // selected CS_LIBRARY item (first selected, for step-1 compat)
+var mp2SelectedCampaign   = null;
+var _mp2LastAnalysisId    = null;   // analysis_id returned from last POST to creatives-analysis
+var _mp2BriefContent      = '';     // full brief text captured before DOM replacement
+var _mp2DocName           = '';     // doc filename captured before DOM replacement
+var mp2SelectedClientId   = null;   // selected client org dbId
+var mp2Step1Clients       = null;   // null = not fetched yet; [] = loaded
+var mp2Step1Campaigns     = null;   // null = not fetched yet; [] = loaded
+var mp2LibrarySelected    = null;   // selected CS_LIBRARY item (first selected, for step-1 compat)
 var mp2LibrarySelectedItems = [];   // all selected CS_LIBRARY items
+
+// ── Search-select helper (single-select + integrated search, fixed positioning) ─
+function _mp2SearchSelectHtml(opts) {
+  // opts: { id, placeholder, selectedLabel, items:[{label, html?, searchText?, onclick, selected}], loading, emptyMsg, searchPlaceholder }
+  var id = opts.id;
+  var panelId = id + '-panel';
+  var TRIG = 'width:100%;box-sizing:border-box;padding:0 32px 0 10px;font-size:12px;border:1px solid var(--border-md);border-radius:8px;background:var(--surface);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s;height:34px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer;position:relative';
+  var chevron = '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none"><path d="M1 1l4 4 4-4" stroke="#A8A8A0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  var bodyHtml;
+  if (opts.loading) {
+    bodyHtml = '<div style="padding:10px 12px;font-size:11px;color:var(--faint)">Loading…</div>';
+  } else if (!opts.items || !opts.items.length) {
+    bodyHtml = '<div style="padding:10px 12px;font-size:11px;color:var(--faint)">' + (opts.emptyMsg || 'No results.') + '</div>';
+  } else {
+    var rows = opts.items.map(function(it) {
+      var searchKey = ((it.searchText || it.label) + '').toLowerCase().replace(/'/g, '&#39;');
+      var content   = it.html || it.label;
+      return '<div class="ui-sc-row" data-lbl="' + searchKey + '" onclick="' + it.onclick + '" '
+        + 'style="padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;transition:background .1s;'
+        + 'color:' + (it.selected ? 'var(--accent)' : 'var(--text)') + ';'
+        + 'font-weight:' + (it.selected ? '600' : '400') + ';'
+        + 'background:' + (it.selected ? 'var(--subtle)' : 'transparent') + '" '
+        + 'onmouseenter="this.style.background=\'var(--subtle)\'" '
+        + 'onmouseleave="this.style.background=\'' + (it.selected ? 'var(--subtle)' : 'transparent') + '\'">'
+        + content + '</div>';
+    }).join('');
+    var search = '<div style="padding:5px 5px 2px">'
+      + '<input type="text" placeholder="' + (opts.searchPlaceholder || 'Search…') + '" '
+      + 'oninput="UI._scFilter(\'' + panelId + '\',this.value)" '
+      + 'style="width:100%;box-sizing:border-box;height:28px;padding:0 8px;border:1px solid var(--border-md);border-radius:6px;font-size:11px;font-family:inherit;color:var(--text);background:var(--bg);outline:none" '
+      + 'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
+      + '</div>';
+    bodyHtml = search + '<div style="overflow-y:auto;max-height:196px;padding:2px 5px 5px">' + rows + '</div>';
+  }
+
+  var isEmpty = !opts.selectedLabel;
+  return '<div style="position:relative" id="' + id + '-wrap">'
+    + '<button type="button" id="' + id + '-btn" onclick="UI._csToggle(\'' + id + '\')" style="' + TRIG + '" '
+    + 'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
+    + '<span id="' + id + '-lbl" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;' + (isEmpty ? 'color:var(--faint)' : '') + '">'
+    + (isEmpty ? (opts.placeholder || '— select —') : opts.selectedLabel) + '</span>'
+    + chevron + '</button>'
+    + '<div id="' + panelId + '" class="tb-admin-dd" style="left:0;right:0;min-width:0;padding:0;overflow:hidden">'
+    + bodyHtml
+    + '</div>'
+    + '</div>';
+}
 
 function mp2RefreshStep1() {
   var el = document.getElementById('mp2-step1');
   if (el) el.innerHTML = _mp2Step1Html();
+}
+
+function mp2LoadStep1Clients() {
+  if (mp2Step1Clients !== null) return; // already loading or loaded
+  mp2Step1Clients = 'loading';          // sentinel: distinct from [] (empty) and null (not started)
+  fetch('/api/organizations')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      mp2Step1Clients = d.orgs || [];
+      mp2RefreshStep1();
+    })
+    .catch(function(e) {
+      console.error('mp2 orgs fetch error', e);
+      mp2Step1Clients = [];
+      mp2RefreshStep1();
+    });
+}
+
+function mp2SelectStep1Client(orgId) {
+  if (mp2SelectedClientId === orgId) return;
+  mp2SelectedClientId = orgId;
+  mp2SelectedCampaign = null;
+  mp2Step1Campaigns   = null;
+  mp2RefreshStep1();
+  fetch('/api/campaigns?client_org_id=' + orgId).then(function(r){return r.json();}).then(function(d){
+    mp2Step1Campaigns = d.campaigns || [];
+    mp2RefreshStep1();
+  }).catch(function(){ mp2Step1Campaigns = []; mp2RefreshStep1(); });
+}
+
+function mp2SelectStep1Campaign(idx) {
+  mp2SelectedCampaign = (mp2Step1Campaigns || [])[idx] || null;
+  mp2RefreshStep1();
 }
 
 function _mp2Step1Html() {
@@ -730,33 +830,77 @@ function _mp2Step1Html() {
   }
 
   var toggle = _segControlHtml(mp2CampaignMode, [
-    { id: 'select', label: 'Select Campaign', onclick: "mp2CampaignMode='select';mp2RefreshStep1()" },
+    { id: 'select', label: 'Select Campaign', onclick: "mp2CampaignMode='select';mp2RefreshStep1();mp2LoadStep1Clients()" },
     { id: 'create', label: 'Create Campaign', onclick: "mp2CampaignMode='create';mp2RefreshStep1()" },
   ]);
 
   var campField;
   if (mp2CampaignMode === 'select') {
-    var selCamp = mp2SelectedCampaign; // full object or null
-    campField = '<div style="margin-bottom:14px">'
-      + '<label style="display:block;font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">Campaign</label>'
-      + '<div style="position:relative">'
-      + '<button id="mp2-camp-trigger" onclick="toggleSharedCampaignPanel(event,\'mp2-camp-trigger\',\'mp2-camp-panel\',\'mp2SelectedCampaign\',\'mp2RefreshStep1\')" style="' + TRIGBTN + ';color:' + (selCamp ? 'var(--text)' : 'var(--faint)') + '">'
-      + '<span class="camp-lbl">' + (selCamp ? selCamp.name : '— select a campaign —') + '</span>'
-      + CHEVRON + '</button>'
-      + '<div id="mp2-camp-panel" style="display:none"></div>'
-      + '</div></div>';
-    if (selCamp) {
-      campField +=
-        '<div style="margin-bottom:14px">'
-        + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Advertiser</label>'
-        + '<input type="text" value="' + selCamp.advertiserName + '" disabled style="' + DISABLED + '">'
-        + '</div>'
-        + '<div>'
-        + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Geography</label>'
-        + '<input type="text" value="' + selCamp.geography + '" disabled style="' + DISABLED + '">'
-        + '</div>';
+
+    // ── Client search-select ───────────────────────────────────────────────
+    var selClientLabel = '';
+    if (mp2SelectedClientId && Array.isArray(mp2Step1Clients)) {
+      for (var ci = 0; ci < mp2Step1Clients.length; ci++) {
+        if (mp2Step1Clients[ci].dbId === mp2SelectedClientId) { selClientLabel = mp2Step1Clients[ci].name; break; }
+      }
     }
-    return toggle + campField;
+    var clientItems = Array.isArray(mp2Step1Clients)
+      ? mp2Step1Clients.map(function(c) {
+          return { label: c.name, selected: c.dbId === mp2SelectedClientId, onclick: 'mp2SelectStep1Client(' + c.dbId + ')' };
+        })
+      : [];
+    var clientField = '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Client</label>'
+      + _mp2SearchSelectHtml({
+          id: 'mp2-s1-client',
+          placeholder: '— select a client —',
+          selectedLabel: selClientLabel,
+          loading: mp2Step1Clients === 'loading' || mp2Step1Clients === null,
+          items: clientItems,
+          emptyMsg: 'No clients found.',
+          searchPlaceholder: 'Search clients…',
+        })
+      + '</div>';
+
+    // ── Campaign search-select (appears after client chosen) ───────────────
+    var campField2 = '';
+    if (mp2SelectedClientId) {
+      var selCamp = mp2SelectedCampaign;
+      var campItems = Array.isArray(mp2Step1Campaigns)
+        ? mp2Step1Campaigns.map(function(c, ci) {
+            var adv = (c.advertiser && c.advertiser !== '—') ? c.advertiser : '';
+            var html = c.name + (adv ? ' <span style="font-size:10px;font-weight:400;color:var(--faint)">(' + adv + ')</span>' : '');
+            return { html: html, label: c.name, searchText: c.name + ' ' + adv, selected: selCamp && selCamp.dbId === c.dbId, onclick: 'mp2SelectStep1Campaign(' + ci + ')' };
+          })
+        : [];
+      campField2 = '<div style="margin-bottom:' + (selCamp ? '14px' : '0') + '">'
+        + '<label style="' + LBL + '">Campaign</label>'
+        + _mp2SearchSelectHtml({
+            id: 'mp2-s1-camp',
+            placeholder: '— select a campaign —',
+            selectedLabel: selCamp ? selCamp.name : '',
+            loading: mp2Step1Campaigns === null,
+            items: campItems,
+            emptyMsg: 'No campaigns for this client.',
+            searchPlaceholder: 'Search campaigns…',
+          })
+        + '</div>';
+
+      // ── Read-only fields after campaign selected ───────────────────────
+      if (selCamp) {
+        var advVal = selCamp.advertiser || '—';
+        var geoVal = Array.isArray(selCamp.geography) ? selCamp.geography.join(', ') : (selCamp.geography || 'All regions');
+        var fdVal  = (selCamp.start && selCamp.start !== '—') ? selCamp.start + ' → ' + (selCamp.end || '—') : '—';
+        campField2 +=
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
+          + '<div><label style="' + LBL + '">Advertiser</label><input type="text" value="' + advVal + '" disabled style="' + DISABLED + '"></div>'
+          + '<div><label style="' + LBL + '">Geography</label><input type="text" value="' + geoVal + '" disabled style="' + DISABLED + '"></div>'
+          + '</div>'
+          + '<div><label style="' + LBL + '">Flight Dates</label><input type="text" value="' + fdVal + '" disabled style="' + DISABLED + '"></div>';
+      }
+    }
+
+    return toggle + clientField + campField2;
   }
 
   // Create mode
@@ -823,7 +967,7 @@ function _mp2StepNavHtml() {
     ? '<button onclick="mp2StepNav(-1)" style="' + BACK + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'
     : '<div></div>';
   var right = '';
-  if (mp2NewPlanStep >= 2) right += '<button type="button" onclick="mp2StepNav(1)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
+  if (mp2NewPlanStep !== 3) right += '<button type="button" onclick="mp2StepNav(1)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
   right += mp2NewPlanStep < 3
     ? '<button onclick="mp2StepNav(1)" style="' + NEXT + '">Next<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>'
     : '<button onclick="mp2Analyze()" style="' + NEXT + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>Start Analysis</button>';
@@ -843,7 +987,69 @@ function mp2StepNav(dir) {
   if (nav) nav.innerHTML = _mp2StepNavHtml();
   if (mp2NewPlanStep === 1) { var s1 = document.getElementById('mp2-step1'); if (s1) s1.innerHTML = _mp2Step1Html(); }
   if (mp2NewPlanStep === 2) mp2BuildNewPlanAIPanel();
-  if (mp2NewPlanStep === 3) setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
+  if (mp2NewPlanStep === 3) {
+    setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
+    // If a campaign was selected in Step 1, pre-select "Asset from Library"
+    // and auto-load its associated creatives
+    if (mp2SelectedCampaign && mp2SelectedCampaign.dbId) {
+      mp2SelectInput('library');
+      // Show campaign label between tabs and images
+      var campLbl = document.getElementById('mp2-step3-camp-label');
+      if (campLbl) {
+        var cn = mp2SelectedCampaign.name || '';
+        var an = mp2SelectedCampaign.advertiser || '';
+        campLbl.innerHTML = '<span style="font-size:11px;font-weight:600;color:var(--text)">' + cn + '</span>'
+          + (an ? '<span style="font-size:11px;color:var(--faint)"> (' + an + ')</span>' : '');
+        campLbl.style.display = '';
+      }
+      var area = document.getElementById('tx2-input-area');
+      if (area) area.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">Loading creatives…</div>';
+      fetch('/api/creatives?campaign_id=' + mp2SelectedCampaign.dbId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var creatives = data.creatives || [];
+          if (!creatives.length) {
+            // No creatives for this campaign — show empty library zone
+            if (area) area.innerHTML =
+              '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="mp2OpenLibraryModal()">'
+              + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint)"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+              + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">No creatives for this campaign</div>'
+              + '<div style="font-size:11px;color:var(--faint);margin-top:1px">Browse the library to pick one</div>'
+              + '<button onclick="event.stopPropagation();mp2OpenLibraryModal()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;margin-top:8px;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'">Browse Library</button>'
+              + '</div>';
+            return;
+          }
+          // Map API shape → mp2LibrarySelectedItems shape
+          mp2LibrarySelectedItems = creatives.map(function(c) {
+            return {
+              id:        c.id,
+              dbId:      c.dbId,
+              name:      c.name,
+              thumb:     c.thumb      || '',
+              fileType:  c.fileType   || '',
+              mediaType: c.mediaType  || '',
+              templates: c.templates  || [],
+              campaign:  c.campaign   || '',
+              advertiser: c.advertiser || ''
+            };
+          });
+          mp2LibrarySelected = mp2LibrarySelectedItems[0] || null;
+          var areaEl = document.getElementById('tx2-input-area');
+          if (areaEl) areaEl.innerHTML = _mp2LibrarySelectedGridHtml(mp2LibrarySelectedItems);
+          // Disable New Asset and Brief tabs since creatives are locked from campaign
+          ['tx2-opt-video', 'tx2-opt-brief'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.pointerEvents = 'none';
+            el.style.opacity = '0.35';
+            el.style.cursor = 'not-allowed';
+          });
+        })
+        .catch(function() {
+          if (area) area.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#dc2626">Failed to load creatives</div>';
+        });
+    }
+  }
 }
 
 var _mp2GeoSelected = new Set();
@@ -1037,6 +1243,7 @@ function mp2ShowUpload() {
   mp2TaxStep = 'upload';
   mp2NewPlanStep = 1;
   _mp2GeoSelected = new Set();
+  if (mp2CampaignMode === 'select') mp2LoadStep1Clients();
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
@@ -1093,54 +1300,37 @@ function mp2ShowUpload() {
   ];
 
   var libCols = [
-    { label: 'Source',          width: '220px' },
-    { label: 'Date',            width: '110px' },
-    { label: 'Lookback',        width: '90px'  },
-    { label: 'Flight Dates',    width: '180px' },
-    { label: 'Moments',         width: '90px',  align: 'right' },
-    { label: 'Taxonomies',      width: '100px', align: 'right' },
-    { label: 'Status',          width: '100px', align: 'center' },
+    { label: '',               width: '36px'                    },
+    { label: 'Source',         width: '200px'                   },
+    { label: 'Date',           width: '110px'                   },
+    { label: 'Client',         width: '130px'                   },
+    { label: 'Campaign',       width: '160px'                   },
+    { label: 'Advertiser',     width: '130px'                   },
+    { label: 'Moments',        width: '90px',  align: 'right'   },
+    { label: 'Status',         width: '110px', align: 'center'  },
+    { label: '',               width: '44px'                    },
   ];
   var TDl  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
   var TDlm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
   var TDln = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
   var TDlc = 'padding:11px 16px;font-size:12px;border-bottom:1px solid var(--border);text-align:center';
-  var libTbody = TX2_LIBRARY.map(function(item, i) {
-    var last  = i === TX2_LIBRARY.length - 1;
-    var fix   = last ? ';border-bottom:none' : '';
-    var nameCell = '<span style="display:inline-flex;align-items:center;gap:7px;color:var(--muted)">'
-      + typeIcon(item.type)
-      + '<span style="font-weight:500;color:var(--text)">' + item.name + '</span></span>';
-    var flightCell = (item.flightStart && item.flightEnd)
-      ? item.flightStart + ' → ' + item.flightEnd
-      : '—';
-    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + i + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TDl  + fix + '">' + nameCell  + '</td>'
-      + '<td style="' + TDlm + fix + '">' + item.date + '</td>'
-      + '<td style="' + TDlm + fix + '">' + item.lookback + '</td>'
-      + '<td style="' + TDlm + fix + '">' + flightCell + '</td>'
-      + '<td style="' + TDln + fix + '">' + item.moments + '</td>'
-      + '<td style="' + TDln + fix + '">' + item.taxonomies + '</td>'
-      + '<td style="' + TDlc + fix + '"><span style="font-size:10px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px">Completed</span></td>'
-      + '</tr>';
-  }).join('');
   var libSearchBar = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('mp2-lib-search', 'Search analyses…', 'mp2LibSearch(this.value)')
     + '</div>';
   var libraryRows = UI.cardHeader({
     title: 'Previous Analysis',
-    subtitle: TX2_LIBRARY.length + ' analyses',
+    subtitle: '<span id="mp2-analyses-subtitle">Loading…</span>',
     padding: '0',
-    bodyHtml: libSearchBar + UI.tableScroll(libCols, libTbody, 'mp2-lib-tbody', 0, null, { inCard: true }),
+    bodyHtml: libSearchBar + UI.tableScroll(libCols, '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-analyses-loading">Loading…</td></tr>', 'mp2-lib-tbody', 0, null, { inCard: true }),
   });
 
   var planCols = [
-    { label: 'Plan Name',        width: '200px' },
+    { label: 'Plan Name',        width: '260px' },
     { label: 'Campaign',         width: '190px' },
     { label: 'Client',           width: '130px' },
     { label: 'Advertiser',       width: '120px' },
     { label: 'Moments',          width: '80px',  align: 'right' },
-    { label: 'Est. Impressions', width: '120px', align: 'right' },
+    { label: 'Est. Impr.',       width: '100px', align: 'right' },
     { label: 'Avg CPM',          width: '90px',  align: 'right' },
     { label: 'Est. $ Value',     width: '110px', align: 'right' },
     { label: 'Created By',       width: '110px' },
@@ -1152,7 +1342,7 @@ function mp2ShowUpload() {
   var plansBodyHtml = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('mp2-plans-search', 'Search media plans…', 'mp2PlansSearch(this.value)')
     + '</div>'
-    + UI.tableScroll(planCols, '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 0, null, { inCard: true });
+    + UI.tableScroll(planCols, '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 1, null, { inCard: true });
 
   var plansRows = UI.cardHeader({
     title: 'Media Plans',
@@ -1206,6 +1396,7 @@ function mp2ShowUpload() {
     +             '<span>Brief</span>'
     +           '</div>'
     +         '</div>'
+    +         '<div id="mp2-step3-camp-label" style="display:none;margin-bottom:8px;padding:6px 10px;background:var(--subtle);border:1px solid var(--border);border-radius:8px"></div>'
     +         '<div id="tx2-input-area" style="margin-bottom:10px">' + inputArea('video') + '</div>'
     +         '<div style="margin-bottom:0">'
     +           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
@@ -1246,11 +1437,33 @@ function mp2ShowUpload() {
 
   setTimeout(function(){
     mp2SliderFill(mp2LookbackSecs);
+    if (mp2HomeTab === 'plans')    mp2LoadPlansTable();
+    if (mp2HomeTab === 'analyses') mp2LoadAnalysesTable();
   }, 0);
 }
 
 function mp2OpenLibraryModal() {
   var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
+
+  // If CS_LIBRARY is empty, fetch from DB first then re-open
+  if (!lib.length) {
+    fetch('/api/creatives')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.creatives && data.creatives.length) {
+          if (typeof CS_LIBRARY !== 'undefined') CS_LIBRARY = data.creatives;
+        }
+        mp2OpenLibraryModal();
+      })
+      .catch(function() { mp2OpenLibraryModal(); });
+    return;
+  }
+
+  // If no campaign/client selected, show only unassigned creatives
+  var noCampaignContext = !mp2SelectedCampaign && !mp2SelectedClientId;
+  if (noCampaignContext) {
+    lib = lib.filter(function(cr) { return !cr.campaign; });
+  }
 
   var PINNED = ['cr_w1', 'cr_w2'];
   var sorted = lib.slice().sort(function(a, b) {
@@ -1318,8 +1531,9 @@ function mp2OpenLibraryModal() {
     { label: 'Date',       width: '105px' },
   ];
 
-  var searchBar = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+  var searchBar = '<div style="padding:10px 16px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'
     + UI.searchBar('mp2-lib-modal-search', 'Search creatives, campaigns, advertisers…', 'mp2FilterLibraryModal(this.value)')
+    + '<span style="font-size:11px;color:var(--faint);white-space:nowrap;flex-shrink:0">Select one or more</span>'
     + '</div>';
 
   var bodyHtml = '<div style="margin:-20px -24px">'
@@ -1329,7 +1543,7 @@ function mp2OpenLibraryModal() {
   UI.openModal({
     id: 'mp2-library-modal',
     title: 'Select Asset from Creative Library',
-    subtitle: lib.length + ' creatives',
+    subtitle: lib.length + ' creative' + (lib.length !== 1 ? 's' : '') + (noCampaignContext ? ' · unassigned only' : ''),
     width: '860px',
     closeFn: 'mp2CloseLibraryModal',
     bodyHtml: bodyHtml,
@@ -1348,6 +1562,11 @@ function mp2LibModalSelect(id) {
   row.style.background = nowSel ? 'var(--subtle)' : '';
   var chk = row.querySelector('input[type="checkbox"]');
   if (chk) chk.checked = nowSel;
+
+  // Update Select button count
+  var count = document.querySelectorAll('#mp2-lib-modal-tbody .mp2-lm-sel').length;
+  var btn = document.querySelector('#mp2-library-modal [onclick="mp2ConfirmLibraryAsset()"]');
+  if (btn) btn.textContent = count > 0 ? 'Select (' + count + ')' : 'Select';
 }
 
 function mp2ConfirmLibraryAsset() {
@@ -1515,20 +1734,146 @@ function mp2PlansSearch(q) {
   });
 }
 
-function mp2LibLoad(idx) {
-  var TX2_LIBRARY = [
-    { type:'video', name:'kroger-ad.mp4' },
-    { type:'video', name:'parks-and-rec-s04e11.mp4' },
-    { type:'doc',   name:'Q1-content-brief.pdf' },
-    { type:'text',  name:'Campaign brief — Spring 2025' },
-    { type:'video', name:'yellowstone-s05e08.mp4' },
-    { type:'doc',   name:'Brand-safety-guidelines.docx' },
-  ];
-  var item = TX2_LIBRARY[idx];
-  if (!item) return;
-  mp2TaxInputType = item.type;
-  mp2TaxFileName  = item.name;
-  mp2ShowResults();
+function mp2DeleteAnalysis(analysisId, btn) {
+  if (!confirm('Delete this analysis?')) return;
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+  fetch('/api/creatives-analysis?analysis_id=' + analysisId, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        // Remove the row from the table
+        var row = btn ? btn.closest('tr') : null;
+        if (row) {
+          row.style.transition = 'opacity .2s';
+          row.style.opacity = '0';
+          setTimeout(function() { row.remove(); }, 200);
+        }
+        // Update subtitle count
+        var subtitle = document.getElementById('mp2-analyses-subtitle');
+        if (subtitle) {
+          var current = parseInt(subtitle.textContent) || 0;
+          var n = Math.max(0, current - 1);
+          subtitle.textContent = n + ' anal' + (n !== 1 ? 'yses' : 'ysis');
+        }
+      } else {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        alert('Delete failed: ' + (data.error || 'unknown error'));
+      }
+    })
+    .catch(function(err) {
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      alert('Delete failed: ' + err.message);
+    });
+}
+
+function mp2LibLoad(analysisId) {
+  // Navigate to analysis page with the real analysis_id
+  var url = '/media-planner-v2/analysis' + (analysisId ? '/' + analysisId : '');
+  history.pushState({ id: 'media-planner-v2-analysis', analysisId: analysisId }, '', url);
+  mp2ShowResults(analysisId);
+}
+
+// ── Previous Analysis table — DB-backed ───────────────────────────────────────
+function mp2LoadAnalysesTable() {
+  var tbody    = document.getElementById('mp2-lib-tbody');
+  var subtitle = document.getElementById('mp2-analyses-subtitle');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
+  if (subtitle) subtitle.textContent = 'Loading…';
+
+  fetch('/api/creatives-analysis')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var analyses = data.analyses || [];
+      if (subtitle) subtitle.textContent = analyses.length + ' anal' + (analyses.length !== 1 ? 'yses' : 'ysis');
+      _mp2RenderAnalysisRows(analyses);
+    })
+    .catch(function(e) {
+      if (subtitle) subtitle.textContent = 'Error';
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading analyses: ' + e.message + '</td></tr>';
+    });
+}
+
+function _mp2RenderAnalysisRows(analyses) {
+  var tbody = document.getElementById('mp2-lib-tbody');
+  if (!tbody) return;
+
+  if (!analyses.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No analyses yet. Run your first analysis from New Plan.</td></tr>';
+    return;
+  }
+
+  function typeIconForAsset(assetType) {
+    if (assetType === 'brief') return '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    if (assetType === 'doc')   return '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    // creative (video)
+    return '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  }
+
+  var TDi  = 'padding:11px 12px 11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);width:36px';
+  var TDl  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
+  var TDlm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TDln = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
+  var TDlc = 'padding:11px 16px;font-size:12px;border-bottom:1px solid var(--border);text-align:center';
+
+  tbody.innerHTML = analyses.map(function(a, i) {
+    var last = i === analyses.length - 1;
+    var fix  = last ? ';border-bottom:none' : '';
+
+    // Icon cell
+    var iconCell = '<span style="display:flex;align-items:center;justify-content:center;color:var(--muted)">'
+      + typeIconForAsset(a.asset_type) + '</span>';
+
+    // Source: if multiple creatives show count, otherwise name/brief/doc
+    var creativeIdsArr = Array.isArray(a.creative_ids) ? a.creative_ids : [];
+    var sourceName;
+    if (creativeIdsArr.length > 1) {
+      sourceName = (a.creative_name || 'Creative') + ' +' + (creativeIdsArr.length - 1) + ' more';
+    } else {
+      sourceName = a.creative_name
+        || (a.brief ? (a.brief.slice(0, 45) + (a.brief.length > 45 ? '…' : '')) : null)
+        || a.doc
+        || ('Analysis #' + a.analysis_id);
+    }
+
+    // Date
+    var dateStr = a.created_at
+      ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '—';
+
+    // Moments
+    var momentsVal = '—';
+    if (a.moments != null) {
+      momentsVal = Array.isArray(a.moments) ? a.moments.length : a.moments;
+    }
+
+    // Status badge
+    var statusBadge = a.status === 'completed'
+      ? '<span style="font-size:10px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px">Completed</span>'
+      : a.status === 'failed'
+      ? '<span style="font-size:10px;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px">Failed</span>'
+      : '<span style="font-size:10px;font-weight:600;color:var(--faint);background:var(--subtle);border:1px solid var(--border);border-radius:20px;padding:2px 8px">—</span>';
+
+    var deleteBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysis(' + a.analysis_id + ',this)"'
+      + ' style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;background:none;cursor:pointer;border-radius:6px;color:var(--faint);transition:color .15s,background .15s;margin:auto"'
+      + ' onmouseover="this.style.color=\'#dc2626\';this.style.background=\'#fef2f2\'"'
+      + ' onmouseout="this.style.color=\'var(--faint)\';this.style.background=\'none\'">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>'
+      + '</button>';
+
+    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDi  + fix + '">' + iconCell                        + '</td>'
+      + '<td style="' + TDl  + fix + '">' + sourceName                      + '</td>'
+      + '<td style="' + TDlm + fix + '">' + dateStr                         + '</td>'
+      + '<td style="' + TDlm + fix + '">' + (a.client_name     || '—')      + '</td>'
+      + '<td style="' + TDlm + fix + '">' + (a.campaign_name   || '—')      + '</td>'
+      + '<td style="' + TDlm + fix + '">' + (a.advertiser_name || '—')      + '</td>'
+      + '<td style="' + TDln + fix + '">' + momentsVal                      + '</td>'
+      + '<td style="' + TDlc + fix + '">' + statusBadge                     + '</td>'
+      + '<td style="padding:8px 12px;border-bottom:1px solid var(--border)' + fix + ';text-align:center" onclick="event.stopPropagation()">' + deleteBtn + '</td>'
+      + '</tr>';
+  }).join('');
 }
 
 // ── Media Plans table — DB-backed ─────────────────────────────────────────────
@@ -1566,9 +1911,9 @@ function _mp2RenderPlanRows(plans) {
     return;
   }
 
-  var TDp  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
-  var TDpm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
-  var TDpn = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
+  var TDp  = 'padding:13px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
+  var TDpm = 'padding:13px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TDpn = 'padding:13px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
 
   tbody.innerHTML = plans.map(function(p, i) {
     var last = i === plans.length - 1;
@@ -1576,11 +1921,13 @@ function _mp2RenderPlanRows(plans) {
     var planNameCell = p.media_plan_name
       ? '<span style="font-weight:600;color:var(--text)">' + p.media_plan_name + '</span>'
       : '<span style="font-size:11px;color:var(--faint);font-style:italic">—</span>';
+    var folderLinkIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>';
     var campCell = p.campaign_name
       ? '<div style="font-size:12px;font-weight:500;color:var(--text)">' + p.campaign_name + '</div>'
-      : '<span style="font-size:11px;color:var(--faint);font-style:italic">No campaign assigned</span>';
-    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TDp  + fix + '">' + planNameCell + '</td>'
+      : '<button onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;padding:0;cursor:pointer;color:var(--accent);font-size:12px;font-weight:500;font-family:inherit">' + folderLinkIcon + 'Add Campaign</button>';
+    var pJson = JSON.stringify(p).replace(/'/g, '&#39;');
+    return '<tr style="cursor:pointer" onclick=\'mp2EditPlan(' + pJson + ')\' onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDp  + fix + ';background:var(--surface);white-space:nowrap">' + planNameCell + '</td>'
       + '<td style="' + TDp  + fix + '">' + campCell + '</td>'
       + '<td style="' + TDpm + fix + '">' + (p.client_name     || '—') + '</td>'
       + '<td style="' + TDpm + fix + '">' + (p.advertiser_name || '—') + '</td>'
@@ -1590,111 +1937,84 @@ function _mp2RenderPlanRows(plans) {
       + '<td style="' + TDpn + fix + ';color:#16a34a">' + p.total_dollar_value + '</td>'
       + '<td style="' + TDpm + fix + '">' + p.created_by   + '</td>'
       + '<td style="' + TDpm + fix + '">' + p.last_updated + '</td>'
-      + '<td style="padding:8px 12px;border-bottom:1px solid var(--border)' + fix + ';text-align:center" onclick="event.stopPropagation()">'
-      +   '<button title="Edit plan" onclick=\'mp2EditPlan(' + JSON.stringify(p).replace(/'/g, '&#39;') + ')\' style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--muted);transition:background .12s,color .12s" onmouseenter="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'">'
-      +     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      +   '</button>'
+      + '<td style="padding:8px 12px;border-bottom:1px solid var(--border)' + fix + ';text-align:center;color:var(--faint)" onclick="event.stopPropagation()">'
+      +   '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       + '</td>'
       + '</tr>';
   }).join('');
 }
 
 function mp2EditPlan(p) {
-  // Open the detail view for this media plan
-  mp2ShowMediaPlanDetailFromDB(p);
-}
+  // Build API query: filter by plan_name (+ campaign_id if available)
+  var qs = 'plan_name=' + encodeURIComponent(p.media_plan_name || '');
+  if (p.campaign_id) qs += '&campaign_id=' + p.campaign_id;
 
-function mp2ShowMediaPlanDetailFromDB(p) {
-  // Fetch all moment rows for this plan name (same media_plan_name + campaign_id)
-  var params = '?plan_name=' + encodeURIComponent(p.media_plan_name || '')
-    + (p.campaign_id ? '&campaign_id=' + p.campaign_id : '');
+  var planFetch = fetch('/api/media-plans?' + qs).then(function(r) { return r.json(); });
+  var campFetch = p.campaign_id
+    ? fetch('/api/campaigns?campaign_id=' + p.campaign_id).then(function(r) { return r.json(); })
+    : Promise.resolve({ campaigns: [] });
+  var crFetch = p.campaign_id
+    ? fetch('/api/creatives?campaign_id=' + p.campaign_id).then(function(r) { return r.json(); })
+    : Promise.resolve({ creatives: [] });
 
-  // Navigate to the plan detail (fetch /api/media-plans and show a detail overlay)
-  fetch('/api/media-plans' + (p.campaign_id ? '?campaign_id=' + p.campaign_id : ''))
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var allRows = (data.media_plans || []).filter(function(r) {
-        return r.media_plan_name === p.media_plan_name;
+  Promise.all([planFetch, campFetch, crFetch])
+    .then(function(results) {
+      var dbRows    = results[0].media_plans || [];
+      var campData  = (results[1].campaigns || [])[0] || null;
+      var creatives = results[2].creatives  || [];
+
+      // Convert DB rows into the moments format expected by mp2ShowMediaPlanDetail
+      var moments = dbRows.map(function(r) {
+        var mom = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+        var impNum = r.est_impressions ? r.est_impressions / 1000000 : 0;
+        return {
+          name:             mom.name || r.moment_id || '—',
+          channels:         [],
+          inventory:        0,
+          impressionsLabel: (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(r.est_impressions) : '—',
+          impressionsNum:   impNum,
+          cpm:              r.est_cpm ? parseFloat(r.est_cpm) : 0,
+          type:             'ads',
+          _dbId:            r.media_plan_id,
+          _category:        mom.category || '',
+        };
       });
-      _mp2OpenPlanDetailOverlay(p, allRows);
+
+      // Build a synthetic savedMediaPlansV2-compatible plan object
+      var syntheticPlan = {
+        id:          'db-' + (p.media_plan_name || 'plan').replace(/\s+/g, '-').toLowerCase(),
+        name:        p.media_plan_name || '—',
+        campaign:    campData ? campData.name       : (p.campaign_name   || ''),
+        advertiser:  campData ? campData.advertiser  : (p.advertiser_name || ''),
+        client:      campData ? campData.client      : (p.client_name     || ''),
+        flightStart: campData ? campData.start       : '',
+        flightEnd:   campData ? campData.end         : '',
+        impressions: p.total_impressions  || '—',
+        avgCpm:      p.avg_cpm            || '—',
+        dollars:     p.total_dollar_value || '—',
+        author:      p.created_by         || '—',
+        date:        p.last_updated       || '—',
+        moments:     moments,
+        programs:    [],
+        episodes:    [],
+        _fromDB:     true,
+        _campaignData: campData,
+        _creativesData: creatives,
+      };
+
+      // Reuse existing DB slot if already there
+      var existingIdx = savedMediaPlansV2.findIndex(function(x) { return x.id === syntheticPlan.id; });
+      if (existingIdx >= 0) {
+        savedMediaPlansV2[existingIdx] = syntheticPlan;
+        mp2ShowMediaPlanDetail(existingIdx);
+      } else {
+        savedMediaPlansV2.push(syntheticPlan);
+        mp2ShowMediaPlanDetail(savedMediaPlansV2.length - 1);
+      }
     })
     .catch(function(e) { alert('Error loading plan: ' + e.message); });
 }
 
-function _mp2OpenPlanDetailOverlay(p, rows) {
-  var existing = document.getElementById('mp2-plan-detail-overlay');
-  if (existing) existing.remove();
-
-  var PLAN_NAME = p.media_plan_name || '—';
-  var CAMP_NAME = p.campaign_name   || 'No campaign';
-
-  var TH = 'padding:8px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);background:var(--bg)';
-  var TD = 'padding:10px 14px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap';
-  var TDm = 'padding:10px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
-  var TDn = 'padding:10px 14px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right;white-space:nowrap';
-
-  var thead = '<thead><tr>'
-    + '<th style="' + TH + '">#</th>'
-    + '<th style="' + TH + '">Moment</th>'
-    + '<th style="' + TH + '">Category</th>'
-    + '<th style="' + TH + ';text-align:right">Est. Impressions</th>'
-    + '<th style="' + TH + ';text-align:right">Est. CPM</th>'
-    + '<th style="' + TH + ';text-align:right">Est. Value</th>'
-    + '<th style="' + TH + '">Created By</th>'
-    + '</tr></thead>';
-
-  var tbody = '<tbody>' + (rows.length ? rows.map(function(r, i) {
-    var mom  = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
-    var name = mom.name || r.moment_id || '—';
-    var cat  = mom.category || '—';
-    var impr = (typeof fmtMomentImpr   === 'function') ? fmtMomentImpr(r.est_impressions)   : (r.est_impressions || '—');
-    var dv   = (typeof fmtMomentDollar === 'function') ? fmtMomentDollar(r.est_dollar_value) : (r.est_dollar_value != null ? '$' + r.est_dollar_value : '—');
-    var cpm  = r.est_cpm != null ? '$' + parseFloat(r.est_cpm).toFixed(2) : '—';
-    var last = i === rows.length - 1 ? ';border-bottom:none' : '';
-    var badge = '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:500">'
-      + '<svg width="7" height="7" viewBox="0 0 24 24" fill="var(--accent)" stroke="none"><circle cx="12" cy="12" r="7"/></svg>' + name + '</span>';
-    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TDm + last + '">' + (i + 1) + '</td>'
-      + '<td style="' + TD  + last + '">' + badge + '</td>'
-      + '<td style="' + TDm + last + '">' + cat  + '</td>'
-      + '<td style="' + TDn + last + '">' + impr + '</td>'
-      + '<td style="' + TDm + last + ';text-align:right">' + cpm + '</td>'
-      + '<td style="' + TDn + last + ';color:#16a34a">' + dv   + '</td>'
-      + '<td style="' + TDm + last + '">' + (r.created_by || '—') + '</td>'
-      + '</tr>';
-  }).join('') : '<tr><td colspan="7" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No moments found for this plan.</td></tr>') + '</tbody>';
-
-  var ov = document.createElement('div');
-  ov.id = 'mp2-plan-detail-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px';
-  ov.innerHTML =
-    '<div style="background:var(--surface);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.22);width:100%;max-width:820px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">'
-    // Header
-    + '<div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:16px">'
-    +   '<div>'
-    +     '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">' + PLAN_NAME + '</div>'
-    +     '<div style="font-size:12px;color:var(--muted)">'
-    +       (p.campaign_name ? '<span style="color:var(--text);font-weight:500">' + CAMP_NAME + '</span>' : '<span style="font-style:italic">No campaign assigned</span>')
-    +       (p.advertiser_name ? ' &nbsp;·&nbsp; ' + p.advertiser_name : '')
-    +       ' &nbsp;·&nbsp; <span style="color:var(--accent);font-weight:600">' + rows.length + ' moment' + (rows.length !== 1 ? 's' : '') + '</span>'
-    +     '</div>'
-    +   '</div>'
-    +   '<button onclick="document.getElementById(\'mp2-plan-detail-overlay\').remove()" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;color:var(--muted);font-size:16px;flex-shrink:0">&times;</button>'
-    + '</div>'
-    // Table
-    + '<div style="overflow-y:auto;flex:1">'
-    +   '<table style="width:100%;border-collapse:collapse">' + thead + tbody + '</table>'
-    + '</div>'
-    // Footer
-    + '<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'
-    +   '<div style="font-size:11px;color:var(--muted)">Est. Total Value: <strong style="color:#16a34a">' + p.total_dollar_value + '</strong> &nbsp;·&nbsp; Avg CPM: <strong>' + p.avg_cpm + '</strong></div>'
-    +   '<button onclick="document.getElementById(\'mp2-plan-detail-overlay\').remove()" style="height:32px;padding:0 18px;border:1px solid var(--border-md);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Close</button>'
-    + '</div>'
-    + '</div>';
-
-  ov.addEventListener('mousedown', function(e) { if (e.target === ov) ov.remove(); });
-  document.body.appendChild(ov);
-}
 
 function mp2SwitchHomeTab(tab, noPush) {
   mp2HomeTab = tab;
@@ -1713,8 +2033,9 @@ function mp2SwitchHomeTab(tab, noPush) {
   if (analyses) analyses.style.display = tab === 'analyses'  ? 'flex' : 'none';
   var outerCard = document.getElementById('mp2-outer-card');
   if (outerCard) outerCard.style.padding = tab === 'new-plan' ? '32px' : '0';
-  // Lazy-load the plans table from DB every time the tab becomes visible
-  if (tab === 'plans') mp2LoadPlansTable();
+  // Lazy-load tables from DB every time the tab becomes visible
+  if (tab === 'plans')    mp2LoadPlansTable();
+  if (tab === 'analyses') mp2LoadAnalysesTable();
   // Update URL
   if (!noPush) {
     var urlMap = { 'new-plan': '/media-planner-v2', 'plans': '/media-planner-v2/media-plans', 'analyses': '/media-planner-v2/previous-analysis' };
@@ -2071,6 +2392,57 @@ function mp2Analyze() {
   if (!ca) return;
   mp2TaxStep = 'progress';
 
+  // ── Save ONE analysis record to DB (all creatives in a single row) ────────
+  (function() {
+    var campaignId     = (mp2SelectedCampaign && mp2SelectedCampaign.dbId) ? parseInt(mp2SelectedCampaign.dbId) : null;
+    var clientOrgId    = mp2SelectedClientId ? parseInt(mp2SelectedClientId) : null;
+    var advertiserDbId = (mp2SelectedCampaign && mp2SelectedCampaign.advertiser_id) ? parseInt(mp2SelectedCampaign.advertiser_id) : null;
+
+    // Collect all selected creative IDs as an array
+    var creativeIdsArr = (mp2LibrarySelectedItems && mp2LibrarySelectedItems.length)
+      ? mp2LibrarySelectedItems.map(function(c) {
+          return c.dbId ? parseInt(c.dbId) : (c.id ? parseInt(String(c.id).replace('dbcr', '')) : null);
+        }).filter(function(id) { return id && !isNaN(id); })
+      : [];
+
+    var _assetType = (mp2TaxInputType === 'library' || mp2TaxInputType === 'video') ? 'creative'
+                   : mp2TaxInputType === 'text' ? 'brief'
+                   : mp2TaxInputType === 'doc'  ? 'doc'
+                   : null;
+    var _briefText = (mp2TaxInputType === 'text')
+      ? (function() { var ta = document.getElementById('tx2-text-input'); return ta ? ta.value.trim() : ''; })()
+      : null;
+    var _docName = (mp2TaxInputType === 'doc')
+      ? (function() { var fi = document.getElementById('tx2-file-input-doc'); return (fi && fi.files && fi.files[0]) ? fi.files[0].name : null; })()
+      : null;
+
+    // Capture to module-level vars so mp2ShowResults() can read them after DOM replacement
+    _mp2BriefContent = _briefText || '';
+    _mp2DocName      = _docName   || '';
+
+    _mp2LastAnalysisId = null;
+    fetch('/api/creatives-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaign_id:     campaignId,
+        client_org_id:   clientOrgId,
+        advertiser_id:   advertiserDbId,
+        creative_ids:    creativeIdsArr.length ? creativeIdsArr : null,
+        created_by:      'Bruna M.',
+        mediaplan_id:    null,
+        lookback_window: Math.round(mp2LookbackSecs / 60),
+        asset_type:      _assetType,
+        brief:           _briefText,
+        doc:             _docName
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { if (data.analysis_id) _mp2LastAnalysisId = data.analysis_id; })
+    .catch(function(err) { console.warn('creatives-analysis save error:', err); });
+  })();
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (mp2TaxInputType === 'text') {
     var ta = document.getElementById('tx2-text-input');
     var raw = ta ? ta.value.trim() : '';
@@ -2163,7 +2535,8 @@ function mp2ShowResults() {
   var pills = document.getElementById('mp2-pills');
   if (pills) pills.style.display = 'none';
 
-  history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' }, '', '/media-planner-v2/analysis');
+  var analysisUrl = '/media-planner-v2/analysis' + (_mp2LastAnalysisId ? '/' + _mp2LastAnalysisId : '');
+  history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' }, '', analysisUrl);
 
   var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border)';
   var fileIcon = mp2TaxInputType === 'video'
@@ -2182,19 +2555,29 @@ function mp2ShowResults() {
   var outerCard = document.getElementById('mp2-outer-card');
   if (outerCard) outerCard.style.padding = '0';
 
-  var advName   = (APP_ADVERTISERS.find(function(a){ return a.id === selectedAdvId; }) || {}).name || 'Walmart';
-  var campName  = 'Walmart Summer Launch';
+  var campName  = (mp2SelectedCampaign && mp2SelectedCampaign.name)
+    ? mp2SelectedCampaign.name
+    : mp2TaxFileName || '—';
+  var advName   = (mp2SelectedCampaign && mp2SelectedCampaign.advertiser)
+    ? mp2SelectedCampaign.advertiser
+    : '—';
 
-  var filmIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/></svg>';
+  var assetTypeIcon = mp2TaxInputType === 'text'
+    ? '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    : mp2TaxInputType === 'doc'
+    ? '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
 
   var cardHeader =
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border)">'
     + '<div style="display:flex;align-items:center;gap:10px">'
-    +   '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0">' + filmIcon + '</div>'
+    +   '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0">' + assetTypeIcon + '</div>'
     +   '<div style="display:flex;align-items:center;gap:8px">'
     +     '<span style="font-size:13px;font-weight:600;color:var(--text)">' + campName + '</span>'
-    +     '<span style="width:3px;height:3px;border-radius:50%;background:var(--border-md);flex-shrink:0"></span>'
-    +     '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
+    +     (mp2SelectedCampaign
+          ? '<span style="width:3px;height:3px;border-radius:50%;background:var(--border-md);flex-shrink:0"></span>'
+            + '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
+          : '')
     +   '</div>'
     + '</div>'
     + '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" title="Show asset details" '
@@ -2233,10 +2616,28 @@ function mp2ShowResults() {
     '<div id="mp2-asset-strip" style="display:none;border-bottom:1px solid var(--border)">'
     + '<div style="display:flex;align-items:stretch">'
 
-    // Asset (creatives) — first
+    // Asset — content depends on input type
     + '<div style="flex:1;padding:12px 20px">'
     + sectionLabel('Asset')
-    + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml() + '</div>'
+    + (function() {
+        if (mp2TaxInputType === 'text') {
+          var briefText = _mp2BriefContent || mp2TaxFileName || '';
+          return briefText
+            ? '<div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic;max-height:80px;overflow:hidden">"' + briefText.slice(0, 300) + (briefText.length > 300 ? '…' : '') + '"</div>'
+            : '<span style="font-size:12px;color:var(--faint)">—</span>';
+        }
+        if (mp2TaxInputType === 'doc') {
+          var docName = _mp2DocName || mp2TaxFileName || '—';
+          return '<div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text)">'
+            + '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+            + '<span>' + docName + '</span></div>';
+        }
+        // Creative / video / library — only show tiles if we actually have items
+        if (mp2LibrarySelectedItems && mp2LibrarySelectedItems.length) {
+          return '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml(mp2LibrarySelectedItems) + '</div>';
+        }
+        return '<span style="font-size:12px;color:var(--faint)">—</span>';
+      })()
     + '</div>'
 
     // Divider — full height
@@ -2246,26 +2647,29 @@ function mp2ShowResults() {
     + '<div style="flex:1;padding:12px 20px">'
     + sectionLabel('Campaign')
     + '<div style="display:flex;flex-direction:column;gap:8px">'
-    +   infoField('Campaign', campName)
-    +   infoField('Advertiser', advName)
-    +   infoField('Geography', geoLabel)
-    +   infoField('Flight Dates', fdLabel)
+    +   (mp2SelectedCampaign
+          ? infoField('Campaign',    campName)
+            + infoField('Advertiser',  advName)
+            + infoField('Geography',   geoLabel)
+            + infoField('Flight Dates',fdLabel)
+          : '<div style="display:flex;justify-content:center;padding:4px 0">'
+            + '<button onclick="mp2SwitchHomeTab(\'new-plan\')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);font-family:inherit;padding:0;transition:opacity .15s" onmouseover="this.style.opacity=\'.7\'" onmouseout="this.style.opacity=\'1\'">'
+            + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>'
+            + 'Add Campaign</button>'
+            + '</div>')
     + '</div>'
     + '</div>'
 
     // Divider — full height
     + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
 
-    // Additional details
+    // Additional details — only real data, no hardcoded values
     + '<div style="flex:1;padding:12px 20px">'
     + sectionLabel('Additional Details')
     + '<div style="display:flex;flex-direction:column;gap:8px">'
-    +   infoField('Budget', '$420K')
-    +   infoField('Impr. / Day', '680K')
-    +   '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">Channels</span><div style="display:flex;flex-wrap:wrap;gap:4px">' + chipList(['CTV','Web']) + '</div></div>'
-    +   '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">Type</span><div style="display:flex;flex-wrap:wrap;gap:4px">' + chipList(['VoD','Organic Pause']) + '</div></div>'
-    +   '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">Brand Safety</span><div style="display:flex;flex-wrap:wrap;gap:4px">' + chipList(['Standard']) + '</div></div>'
-    +   infoField('Match Score', 'High')
+    +   infoField('Budget',     (mp2SelectedCampaign && mp2SelectedCampaign.budget)           ? '$' + mp2SelectedCampaign.budget : '—')
+    +   infoField('Impr. Goal', (mp2SelectedCampaign && mp2SelectedCampaign.impression_goal)  ? mp2SelectedCampaign.impression_goal : '—')
+    +   infoField('Lookback',   mp2LookbackSecs ? Math.round(mp2LookbackSecs / 60) + ' min' : '—')
     + '</div>'
     + '</div>'
 
@@ -2343,6 +2747,15 @@ function mp2SubTab(tab) {
     if (btn) btn.className = 'cs-dv-tab' + (t === 'ai-media-plan' ? ' cs-dv-tab--ai' : '') + (t === tab ? ' cs-dv-tab--act' : '');
     if (pnl) pnl.style.display = t === tab ? 'flex' : 'none';
   });
+  // Asset strip + toggle only visible in Moments Match
+  var strip  = document.getElementById('mp2-asset-strip');
+  var toggle = document.getElementById('mp2-asset-toggle');
+  var isMoments = tab === 'moments';
+  if (toggle) toggle.style.display = isMoments ? '' : 'none';
+  if (strip && !isMoments) {
+    strip.style.display = 'none';
+    if (toggle) toggle.textContent = '+';
+  }
   if (tab === 'ad-analysis')   { txRenderAdAnalysis(); }
   if (tab === 'moments')       { txCustomSelections = []; mp2RenderMoments(); }
   if (tab === 'ai-media-plan') {
@@ -6067,6 +6480,7 @@ function mp2RenderMomentsMediaPlan() {
     +   '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)">Est. Impressions</span>'
     +   '<span style="font-size:12px;font-weight:700;color:var(--text)">' + totalImpM.toFixed(1) + 'M</span>'
     + '</div>'
+    + '<input id="inv-mp-save-name" type="text" placeholder="Media plan name…" style="width:100%;box-sizing:border-box;height:32px;padding:0 10px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--bg);margin-bottom:8px;outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
     + '<button onclick="inv2SaveMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'">Save Media Plan</button>'
     + '</div>';
   // Fetch thumbnails for plan items async
