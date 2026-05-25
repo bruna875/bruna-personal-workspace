@@ -401,7 +401,9 @@ function dspOpenConnect(libraryId) {
     // ── Footer ──
     + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0">'
     +   '<button onclick="dspCloseConnect()" style="height:34px;padding:0 18px;border:1px solid var(--border-md);border-radius:8px;background:transparent;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit;transition:border-color .12s" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'">Cancel</button>'
-    +   '<button onclick="dspSubmitConnect()" id="dsp-connect-submit" style="height:34px;padding:0 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Connect</button>'
+    +   (existingConn
+      ? '<button onclick="dspDisconnect(' + existingConn.connection_id + ')" id="dsp-connect-submit" style="height:34px;padding:0 20px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Disconnect</button>'
+      : '<button onclick="dspSubmitConnect()" id="dsp-connect-submit" style="height:34px;padding:0 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Connect</button>')
     + '</div>';
 
   document.body.appendChild(backdrop);
