@@ -1027,14 +1027,14 @@ function mp2StepNav(dir) {
     // and auto-load its associated creatives
     if (mp2SelectedCampaign && mp2SelectedCampaign.dbId) {
       mp2SelectInput('library');
-      // Show campaign label between tabs and images
-      var campLbl = document.getElementById('mp2-step3-camp-label');
-      if (campLbl) {
-        var cn = mp2SelectedCampaign.name || '';
-        var an = mp2SelectedCampaign.advertiser || '';
-        campLbl.innerHTML = '<span style="font-size:11px;font-weight:600;color:var(--text)">' + cn + '</span>'
-          + (an ? '<span style="font-size:11px;color:var(--faint)"> (' + an + ')</span>' : '');
-        campLbl.style.display = '';
+      // Pre-fill analysis name with campaign name and lock it
+      var anInput = document.getElementById('mp2-analysis-name-input');
+      if (anInput) {
+        anInput.value = mp2SelectedCampaign.name || '';
+        anInput.disabled = true;
+        anInput.style.background = 'var(--subtle)';
+        anInput.style.color = 'var(--faint)';
+        anInput.style.cursor = 'not-allowed';
       }
       var area = document.getElementById('tx2-input-area');
       if (area) area.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">Loading creatives…</div>';
@@ -1424,7 +1424,10 @@ function mp2ShowUpload() {
     +             '<span>Brief</span>'
     +           '</div>'
     +         '</div>'
-    +         '<div id="mp2-step3-camp-label" style="display:none;margin-bottom:8px;padding:6px 10px;background:var(--subtle);border:1px solid var(--border);border-radius:8px"></div>'
+    +         '<div style="margin-bottom:10px">'
+    +           '<label style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:4px">Analysis Name</label>'
+    +           '<input id="mp2-analysis-name-input" type="text" placeholder="e.g. Summer Campaign Q3" style="width:100%;box-sizing:border-box;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text);background:var(--surface);font-family:inherit;outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'">'
+    +         '</div>'
     +         '<div id="tx2-input-area" style="margin-bottom:10px">' + inputArea('video') + '</div>'
     +         '<div style="margin-bottom:0">'
     +           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
@@ -2453,11 +2456,15 @@ function mp2Analyze() {
     _mp2BriefContent = _briefText || '';
     _mp2DocName      = _docName   || '';
 
+    var _analysisNameInput = document.getElementById('mp2-analysis-name-input');
+    var _analysisName = _analysisNameInput ? _analysisNameInput.value.trim() : '';
+
     _mp2LastAnalysisId = null;
     fetch('/api/moments-match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        analysis_name:   _analysisName || null,
         campaign_id:     campaignId,
         client_org_id:   clientOrgId,
         advertiser_id:   advertiserDbId,
