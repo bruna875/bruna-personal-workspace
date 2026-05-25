@@ -392,7 +392,7 @@ function renderLivestreamAnalysis() {
 
   return '<div style="margin-bottom:26px">'
     + '<h1 style="font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--text);line-height:1.2;margin:0">Livestream Analysis</h1>'
-    + '<div id="ls-page-sub" style="font-size:13px;color:var(--muted);margin-top:5px">Browse and analyse your live content inventory</div>'
+    + '<div id="ls-page-sub" style="font-size:13px;color:var(--muted);margin-top:5px">Browse and analyse your live content pods</div>'
     + '</div>'
     + '<div id="ls-scorecards">' + scorecards + '</div>'
     + '<div id="ls-panel">'
@@ -680,7 +680,7 @@ function lsCloseDetail() {
 
   // Restore page subtitle
   var psub = document.getElementById('ls-page-sub');
-  if (psub) psub.textContent = 'Browse and analyse your live content inventory';
+  if (psub) psub.textContent = 'Browse and analyse your live content pods';
 
   // Show scorecards
   var sc = document.getElementById('ls-scorecards');

@@ -3,13 +3,13 @@
 // ── Sub-tab switcher (owned by v1) ──────────────────────────────────────────
 
 function csTx2SubTab(tab) {
-  ['inventory', 'moments', 'ai-media-plan', 'taxonomies', 'episodes'].forEach(function(t) {
+  ['pods', 'moments', 'ai-media-plan', 'taxonomies', 'episodes'].forEach(function(t) {
     var btn = document.getElementById('tx2-sub-tab-' + t);
     var pnl = document.getElementById('tx2-sub-content-' + t);
     if (btn) btn.className = 'cs-dv-tab' + (t === 'ai-media-plan' ? ' cs-dv-tab--ai' : '') + (t === tab ? ' cs-dv-tab--act' : '');
     if (pnl) pnl.style.display = t === tab ? 'flex' : 'none';
   });
-  if (tab === 'inventory')    { invRenderFilters(); invRenderInventory(); }
+  if (tab === 'pods')    { invRenderFilters(); invRenderInventory(); }
   if (tab === 'moments')      { txCustomSelections = []; txRenderCategories(); }
   if (tab === 'taxonomies')   { txCustomActiveTab = 'emotion'; txCustomCurrentPage = 1; txCustomRenderTable(); txRenderChips(); }
   if (tab === 'episodes')     txRenderEpisodes();
@@ -68,7 +68,7 @@ function mp1ShowUpload() {
   }).join('');
 
   var mediaPlansPanel = savedMediaPlans.length === 0
-    ? '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet.<br>Build one from the inventory and hit Save.</div>'
+    ? '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet.<br>Build one from the pods and hit Save.</div>'
     : savedMediaPlans.map(function(mp, i) {
         var totalEp = (mp.programs || []).length + (mp.episodes || []).length;
         var dspBadge = '';
@@ -285,14 +285,14 @@ function mp1ShowResults() {
     + '<div style="flex:1;min-width:0;display:flex;gap:16px;height:100%;overflow:hidden">'
     +   '<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;overflow:hidden">'
     +   '<div class="cs-dv-tabnav" style="margin-bottom:16px;flex-shrink:0">'
-    +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-inventory"     onclick="csTx2SubTab(\'inventory\')">By Inventory</button>'
+    +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-pods"     onclick="csTx2SubTab(\'pods\')">By Inventory</button>'
     +     '<button class="cs-dv-tab"                 id="tx2-sub-tab-moments"       onclick="csTx2SubTab(\'moments\')">By Moments</button>'
     +     '<button class="cs-dv-tab cs-dv-tab--ai"   id="tx2-sub-tab-ai-media-plan" onclick="csTx2SubTab(\'ai-media-plan\')">'
     +       '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2L7.3 5.7 11 7 7.3 8.3 6 12 4.7 8.3 1 7 4.7 5.7Z"/><path d="M12.5 1L13.3 3.2 15.5 4 13.3 4.8 12.5 7 11.7 4.8 9.5 4 11.7 3.2Z" opacity=".65"/></svg>'
     +       'AI Media Plan'
     +     '</button>'
     +   '</div>'
-    +   '<div id="tx2-sub-content-inventory" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden">'
+    +   '<div id="tx2-sub-content-pods" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden">'
     +     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0" id="inv-filters-wrap"></div>'
     +     '<div id="inv-content-wrap" style="flex:1;overflow-y:auto;min-height:0"></div>'
     +   '</div>'
@@ -321,7 +321,7 @@ function mp1ShowResults() {
     })
     .catch(function() {});
   invRenderFilters();
-  csTx2SubTab('inventory');
+  csTx2SubTab('pods');
 }
 
 function mp1LibLoad(idx) {
@@ -822,8 +822,8 @@ function csTx2AddMoreToInventory(planIdx) {
     if (p.id) invSelected[p.id] = true;
   });
   invMediaPlanVisible = true;
-  // Switch to inventory tab — invRenderInventory + invRenderMediaPlan will pick up our state
-  csTx2SubTab('inventory');
+  // Switch to pods tab — invRenderInventory + invRenderMediaPlan will pick up our state
+  csTx2SubTab('pods');
 }
 
 function csTx2DeleteMediaPlan(idx) {

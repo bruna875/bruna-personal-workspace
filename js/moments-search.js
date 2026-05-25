@@ -18,7 +18,7 @@ function renderMomentsSearch() {
   sdtInjectStyles();
   setTimeout(msBindEnterKey, 0);
   var pillTabs = [{id:'new-search',label:'New Search'},{id:'previous',label:'Previous Searches',dividerBefore:true}];
-  return UI.pageHeader({ title: 'Inventory Explorer', subtitle: 'Discover and explore contextual moments across your entire content inventory'})
+  return UI.pageHeader({ title: 'Inventory Explorer', subtitle: 'Discover and explore contextual moments across your entire content pods'})
     + '<div id="ms-pills" style="margin-bottom:20px">' + UI.tabNav(pillTabs, msTab, 'msSwitchTab') + '</div>'
     + '<div id="ms-card">'
     +   msCardHtml()
@@ -92,7 +92,7 @@ function msNewSearchHtml() {
     +       '</div>'
     +     '</div>'
     +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">Inventory Explorer</div>'
-    +     '<div style="font-size:11px;color:var(--muted)">Discover the perfect moments across your inventory by keyword, topic or concept.</div>'
+    +     '<div style="font-size:11px;color:var(--muted)">Discover the perfect moments across your pods by keyword, topic or concept.</div>'
     +   '</div>'
 
     // Search bar
@@ -125,12 +125,12 @@ function msNewSearchHtml() {
 }
 
 var MS_MOCK_RESULTS = [
-  { name: 'Family Dinner — Yellowstone S05E08',    channel: 'Paramount AUS', type: 'vod',     score: 94, inventory: 312, cpm: '$28' },
-  { name: 'Grocery Store Scene — Parks & Rec',     channel: 'NBC',           type: 'organic', score: 88, inventory: 278, cpm: '$22' },
-  { name: 'Cooking Segment — MasterChef AU',       channel: 'Paramount AUS', type: 'vod',     score: 85, inventory: 241, cpm: '$19' },
-  { name: 'Meal Prep Tutorial — Food Network Live',channel: 'Food Network',  type: 'live',    score: 81, inventory: 198, cpm: '$24' },
-  { name: 'BBQ Weekend — Outdoor Living Ep.12',    channel: 'Discovery',     type: 'vod',     score: 76, inventory: 143, cpm: '$31' },
-  { name: 'Healthy Eating — CBS Morning Show',     channel: 'CBS',           type: 'live',    score: 72, inventory: 110, cpm: '$26' },
+  { name: 'Family Dinner — Yellowstone S05E08',    channel: 'Paramount AUS', type: 'vod',     score: 94, pods: 312, cpm: '$28' },
+  { name: 'Grocery Store Scene — Parks & Rec',     channel: 'NBC',           type: 'organic', score: 88, pods: 278, cpm: '$22' },
+  { name: 'Cooking Segment — MasterChef AU',       channel: 'Paramount AUS', type: 'vod',     score: 85, pods: 241, cpm: '$19' },
+  { name: 'Meal Prep Tutorial — Food Network Live',channel: 'Food Network',  type: 'live',    score: 81, pods: 198, cpm: '$24' },
+  { name: 'BBQ Weekend — Outdoor Living Ep.12',    channel: 'Discovery',     type: 'vod',     score: 76, pods: 143, cpm: '$31' },
+  { name: 'Healthy Eating — CBS Morning Show',     channel: 'CBS',           type: 'live',    score: 72, pods: 110, cpm: '$26' },
 ];
 
 // ── Insights mock data ───────────────────────────────────────────────────────
@@ -437,7 +437,7 @@ function msResetSearch() {
   if (searchCard) searchCard.style.display = '';
   var results = document.getElementById('ms-results');
   if (results) results.innerHTML = '';
-  history.pushState({ id: 'inventory-explorer', label: 'Inventory Explorer' }, '', '/inventory-explorer');
+  history.pushState({ id: 'pods-explorer', label: 'Inventory Explorer' }, '', '/pods-explorer');
 }
 
 function msRunSearch() {
@@ -453,7 +453,7 @@ function msRunSearch() {
   var searchCard = document.getElementById('ms-search-card');
   if (searchCard) searchCard.style.display = 'none';
 
-  history.pushState({ id: 'inventory-explorer', label: 'Inventory Explorer' }, '', '/inventory-explorer/new-search');
+  history.pushState({ id: 'pods-explorer', label: 'Inventory Explorer' }, '', '/pods-explorer/new-search');
 
   results.innerHTML = '<div style="padding:32px 0;text-align:center"><div style="width:28px;height:28px;border:2.5px solid var(--border-md);border-top-color:var(--accent);border-radius:50%;animation:ld-spin .8s linear infinite;margin:0 auto 10px"></div><div style="font-size:12px;color:var(--muted)">Searching moments…</div></div>';
 
@@ -672,7 +672,7 @@ function msSaveSearch(q) {
 
 function msPreviousHtml() {
   if (MS_PREVIOUS.length === 0) {
-    return UI.cardHeader({ title: 'Previous Searches', subtitle: 'Your recent inventory searches',
+    return UI.cardHeader({ title: 'Previous Searches', subtitle: 'Your recent pods searches',
       bodyHtml: '<div style="padding:32px 0;text-align:center;color:var(--faint);font-size:13px">No previous searches yet.</div>'
     });
   }
@@ -720,7 +720,7 @@ function msPreviousHtml() {
 
 function msReopenSearch(q) {
   msTab = 'new-search';
-  setPage('inventory-explorer', 'Inventory Explorer', true);
+  setPage('pods-explorer', 'Inventory Explorer', true);
   setTimeout(function() {
     var input = document.getElementById('ms-query');
     if (input) { input.value = q; msRunSearch(); }

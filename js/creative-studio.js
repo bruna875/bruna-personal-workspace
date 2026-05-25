@@ -1622,7 +1622,10 @@ function csLibOpenEditor(crId) {
 
 // ── Creative Library DB loader ────────────────────────────────────────────────
 function csLoadLibraryFromDB() {
-  fetch('/api/creatives')
+  var qs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
+    ? '?client_org_id=' + selectedClientOrgId
+    : '';
+  fetch('/api/creatives' + qs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.creatives) return;

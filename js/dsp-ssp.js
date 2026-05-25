@@ -86,6 +86,10 @@ function renderDspSsp() {
     var advData = results[1];
     _dspClients     = orgData.orgs || [];
     _dspAdvertisers = advData.advertisers || [];
+    // If not super org, lock to the selected client org
+    if (!_appIsSuperOrg() && selectedClientOrgId) {
+      _dspClientId = selectedClientOrgId;
+    }
     _dspRefreshFilters();
     _dspLoad();
   }).catch(function() { _dspLoad(); });
@@ -116,15 +120,25 @@ function _dspRefreshFilters() {
   var el = document.getElementById('dsp-header-filters');
   if (!el) return;
 
-  var clientOpts = [{val: '', label: 'Select client…'}].concat(
-    _dspClients.map(function(o) { return {val: String(o.dbId), label: o.name}; })
-  );
+  var isSuper = _appIsSuperOrg();
+  var html = '<span style="font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap">Client</span>';
 
-  var html =
-    '<span style="font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap">Client</span>'
-    + '<div style="width:180px">'
-    +   UI.customSelect('dsp-client-cs', clientOpts, _dspClientId ? String(_dspClientId) : '', 'dspSetClient')
-    + '</div>';
+  if (isSuper) {
+    // Super org: full select with all clients
+    var clientOpts = [{val: '', label: 'Select client…'}].concat(
+      _dspClients.map(function(o) { return {val: String(o.dbId), label: o.name}; })
+    );
+    html += '<div style="width:180px">'
+      + UI.customSelect('dsp-client-cs', clientOpts, _dspClientId ? String(_dspClientId) : '', 'dspSetClient')
+      + '</div>';
+  } else {
+    // Non-super: locked to their org
+    var lockedOrg = _appDbOrgs.find(function(o) { return o.dbId === selectedClientOrgId; });
+    html += '<div style="height:32px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);'
+      + 'display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;cursor:not-allowed;opacity:.8">'
+      + (lockedOrg ? lockedOrg.name : '—')
+      + '</div>';
+  }
 
   // Advertiser select — only visible when a client is selected
   if (_dspClientId) {

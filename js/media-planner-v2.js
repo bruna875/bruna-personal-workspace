@@ -68,6 +68,11 @@ var mp2TaxInputType = 'video';
 var mp2TaxFileName  = '';
 
 function renderMediaPlannerV2() {
+  // Reset client/campaign selection state so data re-fetches with current org filter
+  mp2Step1Clients   = null;
+  mp2SelectedClientId = null;
+  mp2Step1Campaigns  = null;
+  mp2SelectedCampaign = null;
   setTimeout(function() {
     mp2TaxStep = 'upload'; mp2TaxInputType = 'video'; mp2TaxFileName = '';
     sdtInjectStyles();
@@ -117,7 +122,7 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
     return {
       name:             m.name,
       channels:         Array.isArray(m.channels) ? m.channels : [],
-      inventory:        m.inventory || 0,
+      pods:        m.pods || 0,
       impressionsLabel: m.impressionsLabel || null,
       _cpm:             m.cpm || 0,
       _impNum:          m.impressionsNum || 0,
@@ -144,10 +149,10 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
   var tableRowsHtml = allItems.length === 0
     ? '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No moments in this plan.</td></tr>'
     : allItems.map(function(item) {
-        var rowType = item.type || 'ads';
+        var rowType = (item.type || '').toLowerCase();
         var typeBadge = rowType === 'live'
           ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
-          : rowType === 'organic'
+          : rowType === 'organic pause' || rowType === 'organic'
           ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
           : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>';
         var chCount = item.channels.length;
@@ -161,7 +166,7 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
         var estDollars = fmtDollars(item._dollarsNum);
         return '<tr style="border-bottom:1px solid var(--border)">'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + item.name + '</td>'
-          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + (item.inventory || '—') + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + (item.pods || '—') + '</td>'
           + '<td style="padding:10px 12px">' + typeBadge + '</td>'
           + '<td style="padding:10px 12px">' + chChip + '</td>'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + (item.impressionsLabel || '—') + '</td>'
@@ -772,7 +777,24 @@ function mp2RefreshStep1() {
 
 function mp2LoadStep1Clients() {
   if (mp2Step1Clients !== null) return; // already loading or loaded
-  mp2Step1Clients = 'loading';          // sentinel: distinct from [] (empty) and null (not started)
+  // Use global _appClientOrgs() if available (already loaded at login)
+  if (typeof _appClientOrgs === 'function') {
+    mp2Step1Clients = _appClientOrgs();
+    // For non-super orgs, auto-select their org and load campaigns
+    if (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId) {
+      if (!mp2SelectedClientId) {
+        mp2SelectedClientId = selectedClientOrgId;
+        fetch('/api/campaigns?client_org_id=' + selectedClientOrgId)
+          .then(function(r){return r.json();})
+          .then(function(d){ mp2Step1Campaigns = d.campaigns || []; mp2RefreshStep1(); })
+          .catch(function(){ mp2Step1Campaigns = []; mp2RefreshStep1(); });
+      }
+    }
+    mp2RefreshStep1();
+    return;
+  }
+  // Fallback: fetch from API
+  mp2Step1Clients = 'loading';
   fetch('/api/organizations')
     .then(function(r) { return r.json(); })
     .then(function(d) {
@@ -849,18 +871,30 @@ function _mp2Step1Html() {
           return { label: c.name, selected: c.dbId === mp2SelectedClientId, onclick: 'mp2SelectStep1Client(' + c.dbId + ')' };
         })
       : [];
-    var clientField = '<div style="margin-bottom:14px">'
-      + '<label style="' + LBL + '">Client</label>'
-      + _mp2SearchSelectHtml({
-          id: 'mp2-s1-client',
-          placeholder: '— select a client —',
-          selectedLabel: selClientLabel,
-          loading: mp2Step1Clients === 'loading' || mp2Step1Clients === null,
-          items: clientItems,
-          emptyMsg: 'No clients found.',
-          searchPlaceholder: 'Search clients…',
-        })
-      + '</div>';
+    var clientField;
+    if (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg()) {
+      // Non-super: show locked field pre-filled with their org
+      clientField = '<div style="margin-bottom:14px">'
+        + '<label style="' + LBL + '">Client</label>'
+        + '<div style="height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);'
+        + 'display:flex;align-items:center;font-size:13px;font-weight:500;color:var(--text);cursor:not-allowed;opacity:.8;box-sizing:border-box">'
+        + (selClientLabel || '—')
+        + '</div>'
+        + '</div>';
+    } else {
+      clientField = '<div style="margin-bottom:14px">'
+        + '<label style="' + LBL + '">Client</label>'
+        + _mp2SearchSelectHtml({
+            id: 'mp2-s1-client',
+            placeholder: '— select a client —',
+            selectedLabel: selClientLabel,
+            loading: mp2Step1Clients === 'loading' || mp2Step1Clients === null,
+            items: clientItems,
+            emptyMsg: 'No clients found.',
+            searchPlaceholder: 'Search clients…',
+          })
+        + '</div>';
+    }
 
     // ── Campaign search-select (appears after client chosen) ───────────────
     var campField2 = '';
@@ -1147,11 +1181,11 @@ function mp2GenerateNewPlanAI() {
     + '</div>';
   setTimeout(function() {
     _aiSuggestions = [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
     ];
     mp2RenderNewPlanAIResults();
   }, 1800);
@@ -1209,7 +1243,7 @@ function mp2RenderNewPlanAIResults() {
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + s.moment + '</td>'
           + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
           + '<td style="padding:10px 12px">' + typeBadge + '</td>'
-          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + (s.inventory || '—') + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + (s.pods || '—') + '</td>'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.cpm + '</td>'
           + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.impressions + '</td>'
           + '<td style="padding:6px 8px;text-align:center">'
@@ -1307,7 +1341,6 @@ function mp2ShowUpload() {
     { label: 'Campaign',       width: '160px'                   },
     { label: 'Advertiser',     width: '130px'                   },
     { label: 'Moments',        width: '90px',  align: 'right'   },
-    { label: 'Status',         width: '110px', align: 'center'  },
     { label: '',               width: '44px'                    },
   ];
   var TDl  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
@@ -1321,7 +1354,7 @@ function mp2ShowUpload() {
     title: 'Previous Analysis',
     subtitle: '<span id="mp2-analyses-subtitle">Loading…</span>',
     padding: '0',
-    bodyHtml: libSearchBar + UI.tableScroll(libCols, '<tr><td colspan="9" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-analyses-loading">Loading…</td></tr>', 'mp2-lib-tbody', 0, null, { inCard: true }),
+    bodyHtml: libSearchBar + UI.tableScroll(libCols, '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-analyses-loading">Loading…</td></tr>', 'mp2-lib-tbody', 0, null, { inCard: true }),
   });
 
   var planCols = [
@@ -1779,10 +1812,12 @@ function mp2LoadAnalysesTable() {
   var subtitle = document.getElementById('mp2-analyses-subtitle');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
   if (subtitle) subtitle.textContent = 'Loading…';
 
-  fetch('/api/creatives-analysis')
+  var _analysesQs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
+    ? '?client_org_id=' + selectedClientOrgId : '';
+  fetch('/api/creatives-analysis' + _analysesQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var analyses = data.analyses || [];
@@ -1800,7 +1835,7 @@ function _mp2RenderAnalysisRows(analyses) {
   if (!tbody) return;
 
   if (!analyses.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No analyses yet. Run your first analysis from New Plan.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No analyses yet. Run your first analysis from New Plan.</td></tr>';
     return;
   }
 
@@ -1851,8 +1886,8 @@ function _mp2RenderAnalysisRows(analyses) {
     // Status badge
     var statusBadge = a.status === 'completed'
       ? '<span style="font-size:10px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px">Completed</span>'
-      : a.status === 'failed'
-      ? '<span style="font-size:10px;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px">Failed</span>'
+      : a.status === 'error'
+      ? '<span style="font-size:10px;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px">Error</span>'
       : '<span style="font-size:10px;font-weight:600;color:var(--faint);background:var(--subtle);border:1px solid var(--border);border-radius:20px;padding:2px 8px">—</span>';
 
     var deleteBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysis(' + a.analysis_id + ',this)"'
@@ -1870,7 +1905,6 @@ function _mp2RenderAnalysisRows(analyses) {
       + '<td style="' + TDlm + fix + '">' + (a.campaign_name   || '—')      + '</td>'
       + '<td style="' + TDlm + fix + '">' + (a.advertiser_name || '—')      + '</td>'
       + '<td style="' + TDln + fix + '">' + momentsVal                      + '</td>'
-      + '<td style="' + TDlc + fix + '">' + statusBadge                     + '</td>'
       + '<td style="padding:8px 12px;border-bottom:1px solid var(--border)' + fix + ';text-align:center" onclick="event.stopPropagation()">' + deleteBtn + '</td>'
       + '</tr>';
   }).join('');
@@ -1888,7 +1922,9 @@ function mp2LoadPlansTable() {
   tbody.innerHTML = '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
   if (subtitle) subtitle.textContent = 'Loading…';
 
-  fetch('/api/media-plans-summary')
+  var _plansQs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
+    ? '?client_org_id=' + selectedClientOrgId : '';
+  fetch('/api/media-plans-summary' + _plansQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var plans = data.plans || [];
@@ -1965,18 +2001,20 @@ function mp2EditPlan(p) {
 
       // Convert DB rows into the moments format expected by mp2ShowMediaPlanDetail
       var moments = dbRows.map(function(r) {
-        var mom = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
-        var impNum = r.est_impressions ? r.est_impressions / 1000000 : 0;
+        var det = r.moment_details || {};
+        // fallback to momentById for any missing fields
+        var mock = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+        var impNum = r.est_impressions ? Number(r.est_impressions) / 1000000 : 0;
         return {
-          name:             mom.name || r.moment_id || '—',
-          channels:         [],
-          inventory:        0,
-          impressionsLabel: (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(r.est_impressions) : '—',
+          name:             det.moment_name  || mock.moment_name || r.moment_id || '—',
+          channels:         det.channels     || mock.channels    || [],
+          pods:        det.pods         || mock.pods        || 0,
+          impressionsLabel: (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(Number(r.est_impressions)) : '—',
           impressionsNum:   impNum,
           cpm:              r.est_cpm ? parseFloat(r.est_cpm) : 0,
-          type:             'ads',
+          type:             det.moment_type  || mock.moment_type || '—',
           _dbId:            r.media_plan_id,
-          _category:        mom.category || '',
+          _momentId:        r.moment_id,
         };
       });
 
@@ -2766,11 +2804,11 @@ function mp2SubTab(tab) {
       if (!aiPanel.firstChild) {
         if (!_aiSuggestions || _aiSuggestions.length === 0) {
           _aiSuggestions = [
-            { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
-            { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
-            { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
-            { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
-            { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
+            { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
+            { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
+            { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
+            { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
+            { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
           ];
         }
         aiRenderResultsPanel();
@@ -2856,11 +2894,11 @@ var savedMediaPlansV2     = [
     avgCpm:      '$24',
     dollars:     '$341K',
     moments: [
-      { name:'Family Dinner Time',   channels:['NBC','Fox','ABC','Food Network'],   inventory:312, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:28, type:'ads'     },
-      { name:'Grocery Shopping',     channels:['Food Network','NBC','CBS'],         inventory:278, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:22, type:'organic' },
-      { name:'Healthy Eating',       channels:['CBS','Fox','Discovery'],            inventory:241, impressionsNum:2.6, impressionsLabel:'2.6M', cpm:19, type:'live'    },
-      { name:'Meal Prep & Cooking',  channels:['Food Network','PBS','Bravo'],       inventory:198, impressionsNum:2.9, impressionsLabel:'2.9M', cpm:24, type:'ads'     },
-      { name:'Weekend BBQ',          channels:['Fox','ABC','NBC'],                  inventory:143, impressionsNum:1.8, impressionsLabel:'1.8M', cpm:31, type:'organic' }
+      { name:'Family Dinner Time',   channels:['NBC','Fox','ABC','Food Network'],   pods:312, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:28, type:'ads'     },
+      { name:'Grocery Shopping',     channels:['Food Network','NBC','CBS'],         pods:278, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:22, type:'organic' },
+      { name:'Healthy Eating',       channels:['CBS','Fox','Discovery'],            pods:241, impressionsNum:2.6, impressionsLabel:'2.6M', cpm:19, type:'live'    },
+      { name:'Meal Prep & Cooking',  channels:['Food Network','PBS','Bravo'],       pods:198, impressionsNum:2.9, impressionsLabel:'2.9M', cpm:24, type:'ads'     },
+      { name:'Weekend BBQ',          channels:['Fox','ABC','NBC'],                  pods:143, impressionsNum:1.8, impressionsLabel:'1.8M', cpm:31, type:'organic' }
     ]
   },
   {
@@ -2878,9 +2916,9 @@ var savedMediaPlansV2     = [
     avgCpm:      '$19',
     dollars:     '$142K',
     moments: [
-      { name:'Urban Lifestyle',      channels:['NBC','ABC','Fox','Peacock'],        inventory:156, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:18 },
-      { name:'Youth Culture',        channels:['Peacock','MTV','Bravo'],            inventory:97,  impressionsNum:2.1, impressionsLabel:'2.1M', cpm:17 },
-      { name:'Championship Moments', channels:['ESPN','NBC','CBS'],                 inventory:198, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:23 }
+      { name:'Urban Lifestyle',      channels:['NBC','ABC','Fox','Peacock'],        pods:156, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:18 },
+      { name:'Youth Culture',        channels:['Peacock','MTV','Bravo'],            pods:97,  impressionsNum:2.1, impressionsLabel:'2.1M', cpm:17 },
+      { name:'Championship Moments', channels:['ESPN','NBC','CBS'],                 pods:198, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:23 }
     ]
   },
   {
@@ -2898,9 +2936,9 @@ var savedMediaPlansV2     = [
     avgCpm:      '$21',
     dollars:     '$153K',
     moments: [
-      { name:'Sports Drama',         channels:['Paramount','NBC','Discovery'],      inventory:167, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:21 },
-      { name:'Endurance Sports',     channels:['ESPN','Discovery','Sports+'],       inventory:143, impressionsNum:2.2, impressionsLabel:'2.2M', cpm:20 },
-      { name:'Peak Performance',     channels:['ESPN','NBC','Fox'],                 inventory:156, impressionsNum:1.7, impressionsLabel:'1.7M', cpm:22 }
+      { name:'Sports Drama',         channels:['Paramount','NBC','Discovery'],      pods:167, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:21 },
+      { name:'Endurance Sports',     channels:['ESPN','Discovery','Sports+'],       pods:143, impressionsNum:2.2, impressionsLabel:'2.2M', cpm:20 },
+      { name:'Peak Performance',     channels:['ESPN','NBC','Fox'],                 pods:156, impressionsNum:1.7, impressionsLabel:'1.7M', cpm:22 }
     ]
   },
   {
@@ -2918,9 +2956,9 @@ var savedMediaPlansV2     = [
     avgCpm:      '$16',
     dollars:     '$104K',
     moments: [
-      { name:'Adventure Travel',     channels:['Discovery','NatGeo','NBC'],         inventory:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:16 },
-      { name:'Outdoor & Nature',     channels:['NatGeo','Discovery','PBS'],         inventory:211, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:15 },
-      { name:'Motivation & Mindset', channels:['NBC','ABC','Peacock','TNT'],        inventory:302, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:17 }
+      { name:'Adventure Travel',     channels:['Discovery','NatGeo','NBC'],         pods:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:16 },
+      { name:'Outdoor & Nature',     channels:['NatGeo','Discovery','PBS'],         pods:211, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:15 },
+      { name:'Motivation & Mindset', channels:['NBC','ABC','Peacock','TNT'],        pods:302, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:17 }
     ]
   },
   {
@@ -2938,9 +2976,9 @@ var savedMediaPlansV2     = [
     avgCpm:      '$18',
     dollars:     '$201K',
     moments: [
-      { name:'Summer Grilling',      channels:['Food Network','NBC','ABC'],         inventory:245, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:18 },
-      { name:'Outdoor Activities',   channels:['Discovery','ESPN','Fox'],           inventory:189, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:17 },
-      { name:'Family Weekends',      channels:['ABC','CBS','NBC','Peacock'],        inventory:312, impressionsNum:4.3, impressionsLabel:'4.3M', cpm:19 }
+      { name:'Summer Grilling',      channels:['Food Network','NBC','ABC'],         pods:245, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:18 },
+      { name:'Outdoor Activities',   channels:['Discovery','ESPN','Fox'],           pods:189, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:17 },
+      { name:'Family Weekends',      channels:['ABC','CBS','NBC','Peacock'],        pods:312, impressionsNum:4.3, impressionsLabel:'4.3M', cpm:19 }
     ]
   },
   {
@@ -2958,8 +2996,8 @@ var savedMediaPlansV2     = [
     avgCpm:      '$14',
     dollars:     '$57K',
     moments: [
-      { name:'In-Market Shoppers',   channels:['NBC','CBS','Fox'],                  inventory:143, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:15 },
-      { name:'Value Seekers',        channels:['ABC','Peacock','TBS'],              inventory:201, impressionsNum:2.1, impressionsLabel:'2.1M', cpm:13 }
+      { name:'In-Market Shoppers',   channels:['NBC','CBS','Fox'],                  pods:143, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:15 },
+      { name:'Value Seekers',        channels:['ABC','Peacock','TBS'],              pods:201, impressionsNum:2.1, impressionsLabel:'2.1M', cpm:13 }
     ]
   },
   {
@@ -2977,9 +3015,9 @@ var savedMediaPlansV2     = [
     avgCpm:      '$20',
     dollars:     '$168K',
     moments: [
-      { name:'Evening Routines',     channels:['CBS','NBC','Lifetime'],             inventory:267, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:21 },
-      { name:'Homecare Moments',     channels:['HGTV','Bravo','TLC'],              inventory:198, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:19 },
-      { name:'Personal Care',        channels:['Lifetime','E!','TLC'],             inventory:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:20 }
+      { name:'Evening Routines',     channels:['CBS','NBC','Lifetime'],             pods:267, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:21 },
+      { name:'Homecare Moments',     channels:['HGTV','Bravo','TLC'],              pods:198, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:19 },
+      { name:'Personal Care',        channels:['Lifetime','E!','TLC'],             pods:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:20 }
     ]
   },
   {
@@ -3013,9 +3051,9 @@ var savedMediaPlansV2     = [
     avgCpm:      '$26',
     dollars:     '$252K',
     moments: [
-      { name:'Morning Run',          channels:['ESPN','NBC Sports','Fox Sports'],   inventory:156, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:27 },
-      { name:'Race Day',             channels:['NBC','ESPN','CBS Sports'],          inventory:201, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:25 },
-      { name:'Recovery & Wellness',  channels:['Discovery','NBC','Peacock'],        inventory:143, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:26 }
+      { name:'Morning Run',          channels:['ESPN','NBC Sports','Fox Sports'],   pods:156, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:27 },
+      { name:'Race Day',             channels:['NBC','ESPN','CBS Sports'],          pods:201, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:25 },
+      { name:'Recovery & Wellness',  channels:['Discovery','NBC','Peacock'],        pods:143, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:26 }
     ]
   }
 ];
@@ -3795,51 +3833,51 @@ var _aiPlanVariants = [
   {
     name: 'Efficiency Plan', budget: 120, impressions: 8.2,
     suggestions: [
-      { moment:'Grocery Shopping',    channels:['Food Network'],        inventory:198, cpm:'$18', impressions:'1.8M', type:'organic' },
-      { moment:'Meal Prep & Cooking', channels:['PBS', 'Food Network'], inventory:143, cpm:'$16', impressions:'1.4M', type:'ads'     },
-      { moment:'Healthy Eating',      channels:['CBS'],                 inventory:112, cpm:'$19', impressions:'1.2M', type:'live'    },
+      { moment:'Grocery Shopping',    channels:['Food Network'],        pods:198, cpm:'$18', impressions:'1.8M', type:'organic' },
+      { moment:'Meal Prep & Cooking', channels:['PBS', 'Food Network'], pods:143, cpm:'$16', impressions:'1.4M', type:'ads'     },
+      { moment:'Healthy Eating',      channels:['CBS'],                 pods:112, cpm:'$19', impressions:'1.2M', type:'live'    },
     ]
   },
   {
     name: 'Value Plan', budget: 220, impressions: 15.0,
     suggestions: [
-      { moment:'Family Dinner Time',  channels:['NBC', 'ABC'],          inventory:245, cpm:'$22', impressions:'2.8M', type:'ads'     },
-      { moment:'Grocery Shopping',    channels:['Food Network', 'NBC'], inventory:198, cpm:'$20', impressions:'2.1M', type:'organic' },
-      { moment:'Meal Prep & Cooking', channels:['Food Network', 'PBS'], inventory:143, cpm:'$18', impressions:'1.6M', type:'ads'     },
-      { moment:'Healthy Eating',      channels:['CBS', 'Discovery'],    inventory:167, cpm:'$21', impressions:'1.9M', type:'live'    },
+      { moment:'Family Dinner Time',  channels:['NBC', 'ABC'],          pods:245, cpm:'$22', impressions:'2.8M', type:'ads'     },
+      { moment:'Grocery Shopping',    channels:['Food Network', 'NBC'], pods:198, cpm:'$20', impressions:'2.1M', type:'organic' },
+      { moment:'Meal Prep & Cooking', channels:['Food Network', 'PBS'], pods:143, cpm:'$18', impressions:'1.6M', type:'ads'     },
+      { moment:'Healthy Eating',      channels:['CBS', 'Discovery'],    pods:167, cpm:'$21', impressions:'1.9M', type:'live'    },
     ]
   },
   {
     name: 'Optimized Media Plan', budget: 380, impressions: 22.0,
     suggestions: [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28', impressions:'3.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22', impressions:'2.8M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19', impressions:'2.1M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24', impressions:'1.9M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31', impressions:'2.8M', type:'organic' },
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28', impressions:'3.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22', impressions:'2.8M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19', impressions:'2.1M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24', impressions:'1.9M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31', impressions:'2.8M', type:'organic' },
     ]
   },
   {
     name: 'Scale Plan', budget: 560, impressions: 32.0,
     suggestions: [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    inventory:420, cpm:'$30', impressions:'4.8M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  inventory:380, cpm:'$24', impressions:'4.1M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     inventory:310, cpm:'$22', impressions:'3.2M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  inventory:285, cpm:'$26', impressions:'3.1M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           inventory:230, cpm:'$33', impressions:'3.8M', type:'organic' },
-      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   inventory:190, cpm:'$35', impressions:'3.2M', type:'live'    },
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    pods:420, cpm:'$30', impressions:'4.8M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  pods:380, cpm:'$24', impressions:'4.1M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     pods:310, cpm:'$22', impressions:'3.2M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  pods:285, cpm:'$26', impressions:'3.1M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           pods:230, cpm:'$33', impressions:'3.8M', type:'organic' },
+      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   pods:190, cpm:'$35', impressions:'3.2M', type:'live'    },
     ]
   },
   {
     name: 'Premium Plan', budget: 750, impressions: 45.0,
     suggestions: [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    inventory:520, cpm:'$34', impressions:'6.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  inventory:480, cpm:'$28', impressions:'5.5M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     inventory:410, cpm:'$25', impressions:'4.8M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  inventory:360, cpm:'$29', impressions:'4.2M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           inventory:290, cpm:'$36', impressions:'4.8M', type:'organic' },
-      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   inventory:250, cpm:'$38', impressions:'4.5M', type:'live'    },
-      { moment:'Morning News',         channels:['NBC', 'ABC', 'CBS'],           inventory:380, cpm:'$22', impressions:'3.8M', type:'ads'     },
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    pods:520, cpm:'$34', impressions:'6.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  pods:480, cpm:'$28', impressions:'5.5M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     pods:410, cpm:'$25', impressions:'4.8M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  pods:360, cpm:'$29', impressions:'4.2M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           pods:290, cpm:'$36', impressions:'4.8M', type:'organic' },
+      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   pods:250, cpm:'$38', impressions:'4.5M', type:'live'    },
+      { moment:'Morning News',         channels:['NBC', 'ABC', 'CBS'],           pods:380, cpm:'$22', impressions:'3.8M', type:'ads'     },
     ]
   }
 ];
@@ -4020,7 +4058,7 @@ function aiRenderResultsPanel() {
             + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + s.moment + '</td>'
             + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
             + '<td style="padding:10px 12px">' + typeBadge + '</td>'
-            + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + (s.inventory || '—') + '</td>'
+            + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + (s.pods || '—') + '</td>'
             + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.cpm + '</td>'
             + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.impressions + '</td>'
             + '<td style="padding:6px 8px;text-align:center">'
@@ -4185,11 +4223,11 @@ function csTx2GenerateAIMediaPlan() {
     + '</div>';
   setTimeout(function() {
     _aiSuggestions = [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       inventory:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     inventory:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], inventory:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     inventory:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       inventory:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
+      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
+      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
+      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
+      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
+      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
     ];
     aiRenderResultsPanel();
   }, 1800);
@@ -4221,7 +4259,7 @@ function inv2GetFiltered() {
 
 // Returns the correct filter panel element depending on context.
 // In drill-down mode the panel has id="inv-drill-filter-panel" to avoid
-// colliding with the inventory sub-tab's "inv-filter-panel" which lives in
+// colliding with the pods sub-tab's "inv-filter-panel" which lives in
 // the same DOM tree and would otherwise be returned first by getElementById.
 function inv2GetFilterPanel() {
   if (document.getElementById('tx-drill-table-wrap')) {
@@ -4883,7 +4921,7 @@ function mp2RenderMoments() {
     var attrs    = mp2MomentCardAttrs(c);
     var seed     = attrs.seed;
     var refined  = mp2RefinedStats[c.name];
-    var dispInv  = refined ? refined.inventory : c.assets;
+    var dispInv  = refined ? refined.pods : c.assets;
     // Type-specific CPM & impression multipliers
     var cpmMult  = mp2MomentType === 'live' ? 1.55 : mp2MomentType === 'organic' ? 0.68 : 1.0;
     var impMult  = mp2MomentType === 'live' ? 0.55 : mp2MomentType === 'organic' ? 1.45 : 1.0;
@@ -5079,7 +5117,7 @@ function mp2ShowExamples(momentName, score, assets, btn) {
     + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'
     +   '<button onclick="this.closest(\'.mp2-examples-tt\').remove();txShowAssetsView(\'' + momentName.replace(/'/g, "\\'") + '\',' + score + ',' + assets + ')" style="width:100%;padding:7px 10px;font-size:11px;font-weight:500;font-family:inherit;border:1px solid var(--border-md);border-radius:7px;background:var(--bg);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .12s" onmouseenter="this.style.background=\'var(--surface)\'" onmouseleave="this.style.background=\'var(--bg)\'">'
     +     '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 12.5v1M10.5 12.5v1M3.5 13.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M4.5 7.5h7M4.5 5.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>'
-    +     'See full inventory'
+    +     'See full pods'
     +   '</button>'
     +   '<div style="margin-top:8px;font-size:9px;color:var(--faint);text-align:center;line-height:1.4">Example shows, not guaranteed</div>'
     + '</div>';
@@ -5849,7 +5887,7 @@ function mp2GetMomentTaxonomy(momentName, tab) {
 }
 
 // ── Refined stats store ───────────────────────────────────────────────────────
-var mp2RefinedStats    = {}; // { momentName: { inventory, cpm, impM } }
+var mp2RefinedStats    = {}; // { momentName: { pods, cpm, impM } }
 var mp2SelectedMoments = {}; // { momentName: true }
 var mp2MomentType      = 'ads';  // 'ads' | 'organic'
 
@@ -6127,7 +6165,7 @@ function mp2SubmitRefinements(name, score, assets) {
   var impFactor = 1 + boosts * 0.09  - excludes * 0.11;
 
   mp2RefinedStats[name] = {
-    inventory: Math.round(assets * Math.max(invFactor, 0.1)),
+    pods: Math.round(assets * Math.max(invFactor, 0.1)),
     cpm:       Math.round(Math.max(baseCpm * cpmFactor, 5)),
     impM:      Math.max(baseImp * impFactor, 0.1).toFixed(1),
     boosts:    boosts,
@@ -6443,7 +6481,7 @@ function mp2RenderMomentsMediaPlan() {
     if (!cat) return;
     var refined = mp2RefinedStats[n];
     var seed = n.split('').reduce(function(a, ch) { return a + ch.charCodeAt(0); }, 0);
-    totalInv  += refined ? refined.inventory : cat.assets;
+    totalInv  += refined ? refined.pods : cat.assets;
     totalImpM += refined ? parseFloat(refined.impM) : (1.5 + ((seed * 3 + cat.score * 7) % 85) / 10);
   });
   panel.innerHTML =
@@ -6457,7 +6495,7 @@ function mp2RenderMomentsMediaPlan() {
         var cat = TX_CATEGORIES.filter(function(c) { return c.name === n; })[0] || {};
         var refined = mp2RefinedStats[n];
         var seed = n.split('').reduce(function(a, ch) { return a + ch.charCodeAt(0); }, 0);
-        var inv  = refined ? refined.inventory : (cat.assets || 0);
+        var inv  = refined ? refined.pods : (cat.assets || 0);
         var impM = refined ? refined.impM : (1.5 + ((seed * 3 + (cat.score || 0) * 7) % 85) / 10).toFixed(1);
         return '<div style="display:flex;gap:8px;align-items:center;padding:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">'
           + '<div id="' + planImgId + '" style="width:38px;height:22px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--border);display:flex;align-items:center;justify-content:center">'

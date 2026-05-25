@@ -29,8 +29,29 @@ export default async function handler(req, res) {
 
   try {
     const sql = neon(process.env.DATABASE_URL);
+    const { client_org_id } = req.query;
 
-    const rows = await sql`
+    const rows = client_org_id ? await sql`
+      SELECT
+        mp.media_plan_name,
+        mp.campaign_id,
+        c.campaign_name,
+        o.client_name,
+        a.advertiser_name,
+        COUNT(*)                                          AS moment_count,
+        SUM(mp.est_impressions)                           AS total_impressions,
+        ROUND(AVG(mp.est_cpm)::numeric, 2)               AS avg_cpm,
+        SUM(mp.est_dollar_value)                          AS total_dollar_value,
+        MAX(mp.created_by)                                AS created_by,
+        MAX(mp.created_at)                                AS last_updated
+      FROM media_plans mp
+      LEFT JOIN campaigns            c ON mp.campaign_id   = c.campaign_id
+      LEFT JOIN advertisers          a ON mp.advertiser_id  = a.advertiser_id
+      LEFT JOIN client_organizations o ON mp.client_org_id  = o.client_org_id
+      WHERE mp.client_org_id = ${parseInt(client_org_id)}
+      GROUP BY mp.media_plan_name, mp.campaign_id, c.campaign_name, o.client_name, a.advertiser_name
+      ORDER BY MAX(mp.created_at) DESC
+    ` : await sql`
       SELECT
         mp.media_plan_name,
         mp.campaign_id,

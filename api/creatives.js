@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 
   try {
     const sql = neon(process.env.DATABASE_URL);
-    const { campaign_id } = req.query;
+    const { campaign_id, client_org_id } = req.query;
 
     const rows = campaign_id ? await sql`
       SELECT
@@ -62,6 +62,28 @@ export default async function handler(req, res) {
       LEFT JOIN advertisers          a ON cr.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON cr.client_org_id  = o.client_org_id
       WHERE cr.campaign_id = ${parseInt(campaign_id)}
+      ORDER BY cr.creative_id
+    ` : client_org_id ? await sql`
+      SELECT
+        cr.creative_id,
+        cr.client_org_id,
+        cr.campaign_id,
+        cr.advertiser_id,
+        cr.creative_preview,
+        cr.creative_asset_s3,
+        cr.creative_asset_link,
+        cr.creative_asset_type,
+        cr.creative_name,
+        cr.template_ids,
+        cr.created_at,
+        o.client_name,
+        a.advertiser_name,
+        c.campaign_name
+      FROM creatives cr
+      LEFT JOIN campaigns            c ON cr.campaign_id    = c.campaign_id
+      LEFT JOIN advertisers          a ON cr.advertiser_id  = a.advertiser_id
+      LEFT JOIN client_organizations o ON cr.client_org_id  = o.client_org_id
+      WHERE cr.client_org_id = ${parseInt(client_org_id)}
       ORDER BY cr.creative_id
     ` : await sql`
       SELECT
@@ -86,6 +108,18 @@ export default async function handler(req, res) {
       ORDER BY cr.creative_id
     `;
 
+    // Resolve template names from creative_template_library
+    const allTplIds = [...new Set(rows.flatMap(r => r.template_ids || []))];
+    let tplMap = {}; // template_id → template_name
+    if (allTplIds.length) {
+      const tplRows = await sql`
+        SELECT template_id, template_name
+        FROM creative_template_library
+        WHERE template_id = ANY(${allTplIds})
+      `;
+      tplRows.forEach(t => { tplMap[t.template_id] = t.template_name; });
+    }
+
     const creatives = rows.map(r => ({
       id:          'dbcr' + r.creative_id,
       dbId:        r.creative_id,
@@ -97,10 +131,10 @@ export default async function handler(req, res) {
       campaign:    r.campaign_name   || null,
       campaignId:  r.campaign_id    || null,
       fileType:    r.creative_asset_type === 'youtube' ? 'MP4'
-                 : r.creative_asset_type === 'image'   ? r.creative_asset_link && r.creative_asset_link.split('.').pop().toUpperCase()
+                 : r.creative_asset_type === 'image'   ? (r.creative_asset_link && r.creative_asset_link.split('?')[0].split('.').pop().toUpperCase()) || 'IMG'
                  : '—',
-      mediaType:   null,
-      templates:   [],
+      mediaType:   r.media_type || null,
+      templates:   (r.template_ids || []).map(id => ({ id, name: tplMap[id] || String(id) })),
       date:        fmtDate(r.created_at),
       thumb:       r.creative_preview
                      || thumbFromLink(r.creative_asset_link, r.creative_asset_type)

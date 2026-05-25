@@ -22,10 +22,13 @@ var CM_PACING = {
 var _cmDBLoaded = false;
 
 function cmLoadFromDB() {
-  fetch('/api/campaigns')
+  var qs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
+    ? '?client_org_id=' + selectedClientOrgId
+    : '';
+  fetch('/api/campaigns' + qs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (!data.campaigns || !data.campaigns.length) return;
+      if (!data.campaigns || !data.campaigns.length) { CM_CAMPAIGNS = []; _cmDBLoaded = true; _cmRefreshTable(); return; }
       CM_CAMPAIGNS = data.campaigns;
       _cmDBLoaded = true;
       // Refresh table, count and tab nav if already rendered
@@ -69,7 +72,7 @@ var CM_CAMPAIGNS = [
   { id:'cm3',  name:'Summer Fresh Campaign',     advertiser:'Walmart',        geography:['EU'],         status:'underpacing', pacing:31,  impressions:'3.1M',  goal:'10M',  budget:'$150K', spent:'$47K',  start:'1 Jun 2026',  end:'31 Jul 2026',  creatives:2, moments:2,  partners:['DV360','Amazon DSP'],             createdBy:'Sara L.',   createdOn:'18 Apr 2026' },
   { id:'cm4',  name:'Home Renovation Q3',        advertiser:'The Home Depot', geography:['US'],         status:'draft',       pacing:0,   impressions:'—',     goal:'25M',  budget:'$600K', spent:'$0',    start:'1 Jul 2026',  end:'30 Sep 2026',  creatives:0, moments:0,  partners:[],                                createdBy:'Bruna M.',  createdOn:'5 May 2026'  },
   { id:'cm5',  name:'Target Back to School',     advertiser:'Target',         geography:['US'],         status:'pacing',      pacing:84,  impressions:'7.4M',  goal:'9M',   budget:'$210K', spent:'$175K', start:'1 May 2026',  end:'20 Jun 2026',  creatives:5, moments:7,  partners:['The Trade Desk'],                createdBy:'Luca R.',   createdOn:'10 Apr 2026' },
-  { id:'cm6',  name:'Pets & More Spring',        advertiser:'Walmart',        geography:['US'],         status:'failed',      pacing:18,  impressions:'1.2M',  goal:'8M',   budget:'$190K', spent:'$34K',  start:'1 Apr 2026',  end:'30 May 2026',  creatives:2, moments:1,  partners:['Xandr','Yahoo DSP'],             createdBy:'Marco F.',  createdOn:'15 Mar 2026' },
+  { id:'cm6',  name:'Pets & More Spring',        advertiser:'Walmart',        geography:['US'],         status:'error',       pacing:18,  impressions:'1.2M',  goal:'8M',   budget:'$190K', spent:'$34K',  start:'1 Apr 2026',  end:'30 May 2026',  creatives:2, moments:1,  partners:['Xandr','Yahoo DSP'],             createdBy:'Marco F.',  createdOn:'15 Mar 2026' },
   { id:'cm7',  name:'Electronics Week',          advertiser:'Samsung',        geography:['US','CA'],    status:'completed',   pacing:100, impressions:'22.5M', goal:'22M',  budget:'$510K', spent:'$508K', start:'1 Mar 2026',  end:'31 Mar 2026',  creatives:6, moments:12, partners:['DV360','The Trade Desk','Xandr'],createdBy:'Sara L.',   createdOn:'1 Feb 2026'  },
   { id:'cm8',  name:'Health & Wellness Q2',      advertiser:'Unilever',       geography:['EU'],         status:'pacing',      pacing:61,  impressions:'5.9M',  goal:'10M',  budget:'$230K', spent:'$142K', start:'1 Apr 2026',  end:'30 Jun 2026',  creatives:3, moments:4,  partners:['Amazon DSP'],                    createdBy:'Bruna M.',  createdOn:'20 Mar 2026' },
   { id:'cm9',  name:'Clean Home Summer',         advertiser:'P&G',            geography:['US'],         status:'draft',       pacing:0,   impressions:'—',     goal:'12M',  budget:'$280K', spent:'$0',    start:'15 Jun 2026', end:'15 Sep 2026',  creatives:0, moments:0,  partners:[],                                createdBy:'Luca R.',   createdOn:'8 May 2026'  },
@@ -83,7 +86,7 @@ var cmSearch = '';
 var _cmActiveTab = 'live'; // 'live' | 'draft' | 'completed'
 
 var _cmTabGroups = {
-  live:      ['pacing', 'underpacing', 'failed'],
+  live:      ['pacing', 'underpacing', 'error'],
   draft:     ['draft', 'planned'],
   completed: ['completed'],
 };
@@ -1679,7 +1682,7 @@ function cmStatusChip(status) {
     'pacing':      { label:'Pacing',      color:'#16a34a',       bg:'#f0fdf4',        icon:'' },
     'underpacing': { label:'Underpacing', color:'#b45309',       bg:'#fffbeb',        icon: alertIcon },
     'completed':   { label:'Completed',   color:'#2563eb',       bg:'#eff6ff',        icon:'' },
-    'failed':      { label:'Failed',      color:'#dc2626',       bg:'#fef2f2',        icon: errorIcon },
+    'error':       { label:'Error',       color:'#dc2626',       bg:'#fef2f2',        icon: errorIcon },
   };
   var s = map[status] || { label: status, color:'var(--muted)', bg:'var(--subtle)', icon:'' };
   return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;color:' + s.color + ';background:' + s.bg + '">'
@@ -1710,7 +1713,7 @@ function cmPartnerBadges(partners) {
 // ── Pacing bar ────────────────────────────────────────────────────────────────
 function cmPacingBar(pct, status) {
   var isPreLive = status === 'draft' || status === 'planned';
-  var color = status === 'failed'      ? '#ef4444'
+  var color = status === 'error'        ? '#ef4444'
             : status === 'underpacing' ? '#f59e0b'
             : isPreLive                ? 'var(--border-md)'
             : '#16a34a';
@@ -1847,9 +1850,7 @@ function _cmRowsHtml() {
       dates,
       cmStatusChip(c.status),
       pacingCell,
-      c.status === 'draft'
-        ? '<button onclick="" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap">+ Add Partner</button>'
-        : cmPartnerBadges(c.partners),
+      cmPartnerBadges(c.partners),
       imp,
       budget,
       creativesCell,
@@ -1865,6 +1866,9 @@ function _cmRowsHtml() {
 
 // ── Main render ───────────────────────────────────────────────────────────────
 function renderCampaignManagement() {
+  // Reset so fetch always re-runs with current org filter
+  _cmDBLoaded = false;
+  CM_CAMPAIGNS = [];
   // Kick off DB fetch — will refresh table when data arrives
   setTimeout(cmLoadFromDB, 0);
 
@@ -1945,7 +1949,15 @@ function cmCreateNewCampaign() {
   // Reset draft state
   _cmDraftCreatives = [];
   _cmLibSearch = '';
-  _cmDraftClient = '';
+  // For non-super orgs, pre-fill with selected org
+  if (!_appIsSuperOrg()) {
+    var _selOrg = _appDbOrgs.find(function(o){ return o.dbId === selectedClientOrgId; });
+    _cmDraftClient = _selOrg ? _selOrg.name : '';
+    _cmCurrentClientOrgId = selectedClientOrgId;
+  } else {
+    _cmDraftClient = '';
+    _cmCurrentClientOrgId = null;
+  }
   _cmDraftAdv = '';
   _cmDraftCampaignName = '';
   _cmDraftMPs = [];
@@ -1983,7 +1995,7 @@ function cmOpenDetail(id, noPush) {
 
 // ── Pacing detail ─────────────────────────────────────────────────────────────
 function _cmPacingDetail(c) {
-  var pacingColor = c.status === 'underpacing' ? '#f59e0b' : c.status === 'failed' ? '#ef4444' : '#16a34a';
+  var pacingColor = c.status === 'underpacing' ? '#f59e0b' : c.status === 'error' ? '#ef4444' : '#16a34a';
 
   // Pull live pacing data from mock API (keyed by DB campaign ID)
   var pdata = c.dbId ? CM_PACING[c.dbId] : null;
@@ -2018,9 +2030,11 @@ function _cmPacingDetail(c) {
   var perfCard =
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">'
     // ── Header ──
-    + '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">'
-    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">Performance</span>'
-    +   cmStatusChip(c.status)
+    + '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">' + (c.name || '—') + '</span>'
+    +   '<span style="font-size:13px;color:var(--muted)">(' + (c.advertiser || '—') + ')</span>'
+    +   (c.partners && c.partners.length ? cmPartnerBadges(c.partners) : '')
+    +   '<div style="margin-left:auto">' + cmStatusChip(c.status) + '</div>'
     + '</div>'
     // ── KPI row ──
     + '<div style="display:flex;border-bottom:1px solid var(--border)">'
@@ -2050,6 +2064,52 @@ function _cmPacingDetail(c) {
     + '</div>'
     + '</div>';
 
+  // ── Campaign Details card ─────────────────────────────────────────────────
+  function detailRow(label, val) {
+    return '<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)">'
+      + '<span style="font-size:11px;color:var(--faint);width:76px;flex-shrink:0">' + label + '</span>'
+      + '<span style="font-size:11px;color:var(--text)">' + (val || '—') + '</span>'
+      + '</div>';
+  }
+
+  var detailCard =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;display:flex">'
+    // ── Campaign Details sub-column ──
+    + '<div style="flex:2;padding:20px;border-right:1px solid var(--border);min-width:0">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">Campaign Details</div>'
+    +   detailRow('Geography', (c.geography || []).join(', '))
+    +   detailRow('Start', c.start)
+    +   detailRow('End', c.end)
+    +   detailRow('Budget', c.budget)
+    +   detailRow('Goal', c.goal)
+    +   detailRow('Created by', c.createdBy)
+    + '</div>'
+    // ── Creatives sub-column ──
+    + '<div style="flex:2;padding:20px;border-right:1px solid var(--border);min-width:0">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">Creatives</div>'
+    +   '<div id="cm-detail-creatives" style="min-height:40px"><span style="font-size:12px;color:var(--faint)">Loading…</span></div>'
+    + '</div>'
+    // ── Right column: Media Plan (wider) ──
+    + '<div style="flex:3;padding:20px;min-width:0">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">Media Plan</div>'
+    +   '<div id="cm-detail-plan" style="min-height:40px"><span style="font-size:12px;color:var(--faint)">Loading…</span></div>'
+    + '</div>'
+    + '</div>';
+
+  if (c.dbId) {
+    setTimeout(function() {
+      _cmLoadPacingCreatives(c.dbId);
+      _cmLoadPacingPlan(c.dbId);
+    }, 0);
+  } else {
+    setTimeout(function() {
+      var ec = document.getElementById('cm-detail-creatives');
+      var ep = document.getElementById('cm-detail-plan');
+      if (ec) ec.innerHTML = '<span style="font-size:12px;color:var(--faint)">Not available for mock campaigns.</span>';
+      if (ep) ep.innerHTML = '<span style="font-size:12px;color:var(--faint)">Not available for mock campaigns.</span>';
+    }, 0);
+  }
+
   return UI.pageHeader({
       breadcrumb: [
         { label: 'Campaign Management', onclick: 'setPage(\'campaign-management\',\'Campaign Management\')' },
@@ -2057,9 +2117,93 @@ function _cmPacingDetail(c) {
       ],
       title: c.name,
       subtitle: (c.client ? c.client + ' · ' : '') + c.advertiser + ' · ' + c.geography.join(', '),
-      titleRight: cmStatusChip(c.status),
     })
-    + perfCard;
+    + perfCard
+    + detailCard;
+}
+
+// ── Pacing detail: load creatives ─────────────────────────────────────────────
+function _cmLoadPacingCreatives(dbId) {
+  fetch('/api/creatives?campaign_id=' + dbId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('cm-detail-creatives');
+      if (!el) return;
+      var list = data.creatives || [];
+      if (!list.length) {
+        el.innerHTML = '<span style="font-size:12px;color:var(--faint)">No creatives linked.</span>';
+        return;
+      }
+      el.innerHTML = list.map(function(cr) {
+        var thumb = cr.thumb
+          ? '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
+          : '';
+        var typeLabel = cr.fileType || (cr.assetType === 'youtube' ? 'MP4' : 'IMG');
+        var tplBadges = (cr.templates && cr.templates.length)
+          ? cr.templates.map(function(t) {
+              return '<span style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border)">' + t.name + '</span>';
+            }).join(' ')
+          : '';
+        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+          + '<div style="flex-shrink:0;text-align:center">'
+          +   '<div style="width:56px;height:34px;border-radius:4px;overflow:hidden;background:var(--border)">' + thumb + '</div>'
+          +   '<div style="font-size:9px;color:var(--faint);margin-top:3px;text-align:center">' + typeLabel + '</div>'
+          + '</div>'
+          + '<div style="flex:1;min-width:0">'
+          +   '<div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (cr.name || '—') + '</div>'
+          +   (tplBadges ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">' + tplBadges + '</div>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('');
+    })
+    .catch(function() {
+      var el = document.getElementById('cm-detail-creatives');
+      if (el) el.innerHTML = '<span style="font-size:12px;color:var(--faint)">Could not load creatives.</span>';
+    });
+}
+
+// ── Pacing detail: load media plan moments ────────────────────────────────────
+function _cmLoadPacingPlan(dbId) {
+  fetch('/api/media-plans?campaign_id=' + dbId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('cm-detail-plan');
+      if (!el) return;
+      var rows = data.media_plans || [];
+      if (!rows.length) {
+        el.innerHTML = '<span style="font-size:12px;color:var(--faint)">No media plan linked.</span>';
+        return;
+      }
+      // Plan name header + deduplicated moments
+      var planName = rows[0].media_plan_name || '—';
+      var seen = {};
+      var unique = rows.filter(function(r) {
+        if (seen[r.moment_id]) return false;
+        seen[r.moment_id] = true;
+        return true;
+      });
+      el.innerHTML =
+        '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">' + planName + '</div>'
+        + unique.map(function(r) {
+            var mom = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+            var name = mom.name || r.moment_id;
+            var cat  = mom.category || '';
+            var impr = (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(Number(r.est_impressions)) : (r.est_impressions || '—');
+            var cpm  = r.est_cpm ? '$' + parseFloat(r.est_cpm).toFixed(2) : '—';
+            return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
+              + '<div style="flex:1;min-width:0">'
+              +   '<div style="font-size:12px;font-weight:500;color:var(--text)">' + name + '</div>'
+              +   (cat ? '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + cat + '</div>' : '')
+              + '</div>'
+              + '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + impr + '</span>'
+              + '<span style="font-size:10px;color:var(--faint);flex-shrink:0">' + cpm + ' CPM</span>'
+              + '</div>';
+          }).join('');
+    })
+    .catch(function() {
+      var el = document.getElementById('cm-detail-plan');
+      if (el) el.innerHTML = '<span style="font-size:12px;color:var(--faint)">Could not load media plan.</span>';
+    });
 }
 
 // ── Draft detail — form helpers ───────────────────────────────────────────────
@@ -2123,7 +2267,7 @@ function _cmBuildClientList(q) {
   var list = document.getElementById('cm-draft-client-list');
   if (!list) return;
   q = (q||'').toLowerCase();
-  var orgs = (typeof APP_ORGS !== 'undefined' ? APP_ORGS : []);
+  var orgs = (typeof _appClientOrgs === 'function' ? _appClientOrgs() : (typeof APP_ORGS !== 'undefined' ? APP_ORGS : []));
   var notSelRow = !q
     ? '<div onclick="cmDraftClientPick(\'\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (!_cmDraftClient?'600':'400') + ';border-bottom:1px solid var(--border);margin-bottom:2px" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<span style="color:var(--faint);font-style:italic">Not selected</span>'
@@ -2924,7 +3068,14 @@ function _cmSetupChecklist(c, opts) {
   _cmCurrentCampaignDbId = c.dbId         || null;
   _cmCurrentClientOrgId  = c.clientOrgId  || null;
   _cmCurrentAdvertiserId = c.advertiserId || null;
-  _cmDraftClient         = c.client      || '';
+  // For non-super orgs, force client to their org regardless of what the campaign has
+  if (!_appIsSuperOrg()) {
+    var _lockedOrg = _appDbOrgs.find(function(o){ return o.dbId === selectedClientOrgId; });
+    _cmDraftClient = _lockedOrg ? _lockedOrg.name : (c.client || '');
+    if (!_cmCurrentClientOrgId) _cmCurrentClientOrgId = selectedClientOrgId;
+  } else {
+    _cmDraftClient = c.client || '';
+  }
   _cmDraftGeo            = (c.geography  || []).slice();
   _cmDraftAdv            = c.advertiser  || '';
   _cmDraftFlight.start   = c.start       || '';
@@ -2966,16 +3117,26 @@ function _cmSetupChecklist(c, opts) {
     + '<span id="cm-draft-flight-lbl">' + flightLabel + '</span>'
     + '</button>';
 
-  var clientTrigger =
-    '<div style="position:relative">'
-    + '<button type="button" id="cm-draft-client-btn" onclick="cmDraftClientToggle(event)" style="' + _CS_TRIG + '">'
-    +   '<span id="cm-draft-client-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (!_cmDraftClient ? ';color:var(--faint);font-style:italic' : '') + '">' + (_cmDraftClient || 'Not selected') + '</span>'
-    +   _CS_ARW
-    + '</button>'
-    + '<div id="cm-draft-client-panel" style="display:none">'
-    +   _cmSearchablePanel('cm-draft-client-search','cm-draft-client-list','_cmBuildClientList')
-    + '</div>'
-    + '</div>';
+  var clientTrigger;
+  if (!_appIsSuperOrg()) {
+    // Non-super: locked to their org, no dropdown
+    clientTrigger =
+      '<div style="height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);'
+      + 'display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--text);cursor:not-allowed;opacity:.8;box-sizing:border-box">'
+      + (_cmDraftClient || '—')
+      + '</div>';
+  } else {
+    clientTrigger =
+      '<div style="position:relative">'
+      + '<button type="button" id="cm-draft-client-btn" onclick="cmDraftClientToggle(event)" style="' + _CS_TRIG + '">'
+      +   '<span id="cm-draft-client-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (!_cmDraftClient ? ';color:var(--faint);font-style:italic' : '') + '">' + (_cmDraftClient || 'Not selected') + '</span>'
+      +   _CS_ARW
+      + '</button>'
+      + '<div id="cm-draft-client-panel" style="display:none">'
+      +   _cmSearchablePanel('cm-draft-client-search','cm-draft-client-list','_cmBuildClientList')
+      + '</div>'
+      + '</div>';
+  }
 
   var LB = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
   var detailsForm =

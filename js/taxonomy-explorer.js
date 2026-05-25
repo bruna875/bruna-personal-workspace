@@ -2,7 +2,7 @@
 
 function renderTaxonomyExplorer() {
   setTimeout(txInit, 0);
-  return UI.pageHeader({ title: 'Taxonomy Explorer', subtitle: 'Analyze an ad to find the best-matching content in your inventory'})
+  return UI.pageHeader({ title: 'Taxonomy Explorer', subtitle: 'Analyze an ad to find the best-matching content in your pods'})
     + `<div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start">
 
   <!-- ── LEFT: Input panel ── -->
@@ -205,7 +205,7 @@ var TX_STEPS = [
   'Extracting visual scenes…',
   'Detecting objects & actions…',
   'Building semantic map…',
-  'Matching content inventory…',
+  'Matching content pods…',
   'Scoring alignment…',
 ];
 

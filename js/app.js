@@ -57,6 +57,22 @@ var selectedClientOrgId = null;   // numeric DB id of selected client org
 var _appDbOrgs          = [];     // [{dbId, name, type}] loaded from /api/organizations
 var selectedAdvId       = 'walmart-adv';
 
+// ── Client org helpers (used by all pages with a Client select) ───────────────
+
+// True when the selected org is a Super Organization (sees all clients)
+function _appIsSuperOrg() {
+  if (!selectedClientOrgId || !_appDbOrgs.length) return true; // default open while loading
+  var org = _appDbOrgs.find(function(o) { return o.dbId === selectedClientOrgId; });
+  return !org || org.type === 'Super Organization';
+}
+
+// Orgs available in a Client select for the current user:
+// Super org → all orgs; any other type → only their own org
+function _appClientOrgs() {
+  if (_appIsSuperOrg()) return _appDbOrgs;
+  return _appDbOrgs.filter(function(o) { return o.dbId === selectedClientOrgId; });
+}
+
 // ── App state ──
 var activeId  = 'overview';
 var collapsed = false;
@@ -73,7 +89,7 @@ var NAV_CONFIG = [
     items: [
       { id: 'vod-analysis',          label: 'VoD Analysis',                 icon: ico.tv     },
       { id: 'livestream-analysis',   label: 'Livestream Analysis',          icon: ico.radio  },
-      { id: 'inventory-explorer',    label: 'Inventory Explorer',           icon: ico.search   }
+      { id: 'pods-explorer',    label: 'Inventory Explorer',           icon: ico.search   }
     ]
   },
   {
@@ -108,7 +124,7 @@ var PAGES = {
   'overview':              renderOverview,
   'vod-analysis':          renderMetadataAnalysis,
   'livestream-analysis':   renderLivestreamAnalysis,
-  'inventory-explorer':    renderMomentsSearch,
+  'pods-explorer':    renderMomentsSearch,
   'media-planner-v2':      renderMediaPlannerV2,
   'moments-builder':       renderMomentsBuilder,
   'campaign-management':   renderCampaignManagement,
@@ -136,9 +152,29 @@ function toggleNavSection(section) {
   buildNav();
 }
 
+function _appCurrentOrgType() {
+  if (!selectedClientOrgId || !_appDbOrgs.length) return null;
+  var org = _appDbOrgs.find(function(o) { return o.dbId === selectedClientOrgId; });
+  return org ? org.type : null;
+}
+
 function buildNav() {
+  var orgType = _appCurrentOrgType();
+  var isRestricted = (orgType === 'Agency' || orgType === 'Brand');
+  var hiddenSections = isRestricted ? ['Explore Inventory'] : [];
+  var hiddenItems    = isRestricted ? ['vod-livestream-feeds'] : [];
+
   document.getElementById('nav').innerHTML = NAV_CONFIG.map(function(sec) {
-    var items = sec.items.map(function(item) {
+    // Hide entire section for restricted orgs
+    if (sec.section && hiddenSections.indexOf(sec.section) >= 0) return '';
+
+    // Filter individual items
+    var allowedItems = sec.items.filter(function(item) {
+      return hiddenItems.indexOf(item.id) < 0;
+    });
+    if (!allowedItems.length && sec.section) return '';
+
+    var items = allowedItems.map(function(item) {
       var act = item.id === activeId;
       var div = item.dividerBefore ? '<div style="height:1px;background:var(--border);margin:4px 12px"></div>' : '';
       return div + '<div class="nitem' + (act ? ' act' : '') + '" data-page="' + item.id + '" data-label="' + item.label + '">'
@@ -177,7 +213,10 @@ function setPage(id, label, noPush) {
   buildNav();
   if (!noPush) {
     var urlSlug = id === 'organization'
-      ? '/organization/' + selectedOrgId + '/users'
+      ? (function() {
+          var _o = APP_ORGS.find(function(o) { return o.dbId === selectedClientOrgId; }) || APP_ORGS[0];
+          return '/organization/' + (typeof _orgSlug === 'function' ? _orgSlug(_o.name) : (_o.id || 'org'));
+        })()
       : id === 'org-management'
         ? '/organization'
         : id === 'build-media-plan'
@@ -206,12 +245,15 @@ function pageFromPath() {
   if (path === 'media-planner-v2/previous-analysis') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'analyses' };
   if (path === 'media-planner-v2/analysis') return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' };
   // /organization            → org list (org-management)
-  // /organization/{org-id}   → single org detail
-  // /organization/{org-id}/{tab}
+  // /organization/{org-slug} → single org detail  (no tab in URL)
   var parts = path.split('/');
   if (parts[0] === 'organization') {
     if (!parts[1]) return { id: 'org-management', label: 'Organization' };
-    var orgFromUrl = APP_ORGS.find(function(o){ return o.id === parts[1]; });
+    // Try to resolve by name slug, numeric dbId, or legacy id string
+    var orgFromUrl = APP_ORGS.find(function(o) {
+      var slug = (o.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return slug === parts[1] || String(o.dbId) === parts[1] || o.id === parts[1];
+    });
     if (orgFromUrl) selectedOrgId = orgFromUrl.id;
     return { id: 'organization', label: 'Organization' };
   }
@@ -222,7 +264,7 @@ function pageFromPath() {
     'org-management':        'Organization',
     'overview':              'Overview',
     'livestream-analysis':   'Livestream Analysis',
-    'inventory-explorer':    'Inventory Explorer',
+    'pods-explorer':    'Inventory Explorer',
     'campaign-management':   'Campaign Management',
     'build-media-plan':      'Build Media Plan',
     'moments-builder':       'Custom Moments Builder',
@@ -377,8 +419,8 @@ var AI_RESPONSES = [
   { k: ['campaign', 'perform'], r: 'Across all active campaigns, your overall CTR is sitting at 2.4% — up 0.3pp week-over-week. The Walmart Summer Launch is your top performer at 3.1% CTR with 12.4M impressions delivered so far.' },
   { k: ['moment', 'engag', 'top'], r: 'Your highest-engagement moments this week are from the Paramount AUS library: cooking segments (+38% avg attention vs benchmark), sports highlights (+27%), and live event recaps (+22%). Want me to surface these in the Media Planner?' },
   { k: ['media plan', 'walmart', 'build'], r: 'To build a plan for Walmart, I\'d recommend targeting cooking, home improvement, and family entertainment moments across Paramount AUS and Disney. Estimated reach: 4.2M uniques. Shall I draft a full plan in the Media Planner?' },
-  { k: ['q3', 'invent', 'avail'], r: 'Q3 inventory looks strong. Paramount AUS has ~18M available impressions, Disney ~11M. Premium slots (live events, sports) are filling fast — roughly 62% already committed. I\'d recommend locking in now for key programming windows.' },
-  { k: ['hello', 'hi', 'hey'], r: 'Hi there! Ready to help. You can ask me about campaign performance, inventory insights, audience moments, or anything else on the platform.' }
+  { k: ['q3', 'invent', 'avail'], r: 'Q3 pods looks strong. Paramount AUS has ~18M available impressions, Disney ~11M. Premium slots (live events, sports) are filling fast — roughly 62% already committed. I\'d recommend locking in now for key programming windows.' },
+  { k: ['hello', 'hi', 'hey'], r: 'Hi there! Ready to help. You can ask me about campaign performance, pods insights, audience moments, or anything else on the platform.' }
 ];
 
 function aiGetResponse(msg) {
@@ -387,7 +429,7 @@ function aiGetResponse(msg) {
     var match = AI_RESPONSES[i].k.some(function(k){ return lower.indexOf(k) !== -1; });
     if (match) return AI_RESPONSES[i].r;
   }
-  return 'Great question. Based on current data across your inventory and active campaigns, I\'d recommend reviewing the Moments Search Tool for deeper context — or let me know if you\'d like me to dig into a specific area like reach, frequency, or spend pacing.';
+  return 'Great question. Based on current data across your pods and active campaigns, I\'d recommend reviewing the Moments Search Tool for deeper context — or let me know if you\'d like me to dig into a specific area like reach, frequency, or spend pacing.';
 }
 
 function toggleAiPanel(e) {
@@ -674,7 +716,7 @@ function closeSelectDds() {
 
 function updateOrgMgmtVisibility() {
   var el = document.getElementById('org-mgmt-item');
-  if (el) el.style.display = selectedOrgId === 'kerv' ? '' : 'none';
+  if (el) el.style.display = _appIsSuperOrg() ? '' : 'none';
 }
 
 function selectOrg(id) {
@@ -696,12 +738,33 @@ function selectOrg(id) {
     if (typeEl) typeEl.textContent = org.type;
   }
   closeSelectDds();
+  buildNav();
   updateOrgMgmtVisibility();
+  // Re-render the current page so all selects and data refresh
   if (activeId === 'organization') {
-    var tab = location.pathname.split('/')[3] || 'users';
-    if (tab !== 'users' && tab !== 'advertisers') tab = 'users';
     setPage('organization', 'Organization', true);
-    history.replaceState({ id: 'organization', label: 'Organization' }, '', '/organization/' + selectedOrgId + '/' + tab);
+    var _selOrg = APP_ORGS.find(function(o) { return o.dbId === selectedClientOrgId; }) || APP_ORGS[0];
+    var _slug = (typeof _orgSlug === 'function') ? _orgSlug(_selOrg.name) : (_selOrg.id || 'org');
+    history.replaceState({ id: 'organization', label: 'Organization' }, '', '/organization/' + _slug);
+  } else {
+    var _pageLabels = {
+      'overview':              'Overview',
+      'vod-analysis':          'VoD Analysis',
+      'livestream-analysis':   'Livestream Analysis',
+      'pods-explorer':    'Inventory Explorer',
+      'campaign-management':   'Campaign Management',
+      'build-media-plan':      'Build Media Plan',
+      'creative-studio':       'Creative Studio',
+      'moments-builder':       'Custom Moments Builder',
+      'media-planner-v2':      'Media Planner',
+      'measurement':           'Measurement',
+      'dsp-ssp':               'DSP / SSP Connections',
+      'vod-livestream-feeds':  'VoD / Livestream Feeds',
+      'api-docs':              'API Documentation',
+      'org-management':        'Organization',
+    };
+    var _currentLabel = _pageLabels[activeId] || activeId;
+    setPage(activeId, _currentLabel, true);
   }
 }
 
