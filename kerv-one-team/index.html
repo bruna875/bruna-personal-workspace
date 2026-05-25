@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kerv One Team</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --accent:  #ED005E;
+  --text:    #0a0a0a;
+  --muted:   #6b7280;
+  --faint:   #9ca3af;
+  --border:  #e5e7eb;
+  --bmd:     #d1d5db;
+  --surface: #ffffff;
+  --bg:      #f6f6f6;
+  --rp: #ED005E; --rt: #2563eb; --rd: #7c3aed;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Header ── */
+.hdr { height: 52px; background: #0a0a0a; display: flex; align-items: center; padding: 0 24px; gap: 14px; position: sticky; top: 0; z-index: 200; }
+.hdr-logo { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -.3px; }
+.hdr-logo span { color: var(--accent); }
+.hdr-sep  { width: 1px; height: 14px; background: #333; }
+.hdr-sub  { font-size: 12px; color: #888; font-weight: 500; }
+.hdr-back { margin-left: auto; font-size: 12px; color: #999; text-decoration: none; display: flex; align-items: center; gap: 5px; transition: color .15s; }
+.hdr-back:hover { color: #fff; }
+
+/* ── Toolbar ── */
+.bar { padding: 14px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.bar-title { font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
+.bar-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* ── Buttons ── */
+.btn { height: 32px; padding: 0 14px; border: 1px solid var(--bmd); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; white-space: nowrap; }
+.btn:hover { background: var(--bg); border-color: var(--text); }
+.btn-acc { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-acc:hover { background: #c4004e; border-color: #c4004e; }
+.btn-del { color: #dc2626; border-color: #fca5a5; }
+.btn-del:hover { background: #fef2f2; border-color: #dc2626; }
+
+/* ── Org chart wrap ── */
+.org-wrap { position: relative; padding: 56px 48px 100px; overflow: auto; min-height: calc(100vh - 105px); }
+#org-svg  { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+
+.org-layout { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+.head-row   { display: flex; justify-content: center; }
+.teams-row  { display: flex; gap: 28px; align-items: flex-start; margin-top: 60px; }
+
+/* Domain group */
+.domain-group { display: flex; flex-direction: column; gap: 0; }
+.domain-bar {
+  height: 30px;
+  background: var(--surface);
+  border: 1px solid var(--bmd);
+  border-radius: 8px 8px 0 0;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  position: relative;
+  cursor: default;
+}
+.domain-bar:hover .dom-act { opacity: 1; }
+.domain-bar-name { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); flex: 1; }
+.dom-act { display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.dom-ab  { width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); transition: all .15s; }
+.dom-ab:hover     { background: var(--bg); color: var(--text); border-color: var(--bmd); }
+.dom-ab.del:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+.domain-teams { display: flex; gap: 28px; align-items: flex-start; }
+
+.team-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+/* ── Node cards ── */
+.node { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; position: relative; transition: box-shadow .2s, border-color .2s; }
+.node:hover { box-shadow: 0 4px 20px rgba(0,0,0,.09); border-color: var(--bmd); }
+.node:hover .nact { opacity: 1; }
+
+.nact { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.nab  { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--muted); transition: all .15s; }
+.nab:hover     { background: var(--bg); color: var(--text); border-color: var(--bmd); }
+.nab.del:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+
+/* Head node */
+.node-head { width: 230px; border-color: var(--accent); border-width: 1.5px; }
+.head-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--accent); margin-bottom: 7px; }
+.head-name  { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.head-title { font-size: 12px; color: var(--muted); }
+.head-desc  { font-size: 11px; color: var(--faint); margin-top: 6px; line-height: 1.5; }
+
+/* Team node — Direct (solid black) */
+.node-team { width: 210px; background: #0f0f0f; border: 1px solid #0f0f0f; border-radius: 12px; }
+/* Team node when it sits directly below a domain bar: flush top corners */
+.domain-teams .team-col:first-child .node-team,
+.domain-teams .team-col .node-team { border-top-left-radius: 0; border-top-right-radius: 0; }
+.team-name  { font-size: 12px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+.team-desc  { font-size: 11px; color: #777; margin-top: 3px; line-height: 1.4; }
+.node-team .nab { border-color: #333; background: transparent; color: #777; }
+.node-team .nab:hover { background: #222; color: #fff; border-color: #555; }
+.node-team .nab.del:hover { background: #3b0000; color: #f87171; border-color: #7f1d1d; }
+
+/* Team node — Dotted */
+.node-team.dotted { background: var(--surface); border: 2px dashed #0f0f0f; }
+.node-team.dotted .team-name { color: var(--text); }
+.node-team.dotted .team-desc { color: var(--muted); }
+.node-team.dotted .nab { border-color: var(--bmd); background: transparent; color: var(--muted); }
+.node-team.dotted .nab:hover { background: var(--bg); color: var(--text); border-color: var(--bmd); }
+.node-team.dotted .nab.del:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+
+/* Member node */
+.node-member { width: 210px; border-left-width: 3px; }
+.node-member.rp { border-left-color: var(--rp); }
+.node-member.rt { border-left-color: var(--rt); }
+.node-member.rd { border-left-color: var(--rd); }
+.node-member.rn { border-left-color: var(--bmd); }
+.mem-name  { font-size: 13px; font-weight: 600; padding-right: 52px; margin-bottom: 2px; }
+.mem-title { font-size: 11px; color: var(--muted); }
+
+/* Empty & loading */
+.empty { text-align: center; padding: 80px 24px; }
+.empty h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.empty p  { font-size: 13px; color: var(--muted); }
+.loading  { text-align: center; padding: 80px; color: var(--muted); font-size: 13px; }
+
+/* ── Modal ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+.modal   { background: var(--surface); border-radius: 16px; padding: 28px; width: 480px; max-width: calc(100vw - 48px); max-height: calc(100vh - 80px); overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,.22); }
+.modal-title  { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+/* ── Form ── */
+.fg { margin-bottom: 16px; }
+.flbl { display: block; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.finp, .fsel, .ftxt { width: 100%; height: 36px; border: 1px solid var(--bmd); border-radius: 8px; padding: 0 12px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--surface); outline: none; transition: border .15s, box-shadow .15s; }
+.finp:focus, .fsel:focus, .ftxt:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(237,0,94,.08); }
+.ftxt { height: 72px; padding: 8px 12px; resize: vertical; }
+
+/* Toggle — Direct / Dotted */
+.ftoggle { display: flex; border: 1px solid var(--bmd); border-radius: 8px; overflow: hidden; }
+.ftoggle-opt { flex: 1; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; user-select: none; }
+.ftoggle-opt input { display: none; }
+.ftoggle-opt.sel { background: #0f0f0f; color: #fff; }
+.ftoggle-opt:not(.sel) { color: var(--muted); }
+.ftoggle-opt:not(.sel):hover { background: var(--bg); }
+
+.fmembers { border: 1px solid var(--bmd); border-radius: 8px; overflow: hidden; max-height: 200px; overflow-y: auto; }
+.fmem-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; font-size: 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+.fmem-item:last-child { border-bottom: none; }
+.fmem-item:hover { background: var(--bg); }
+.fmem-item input[type=checkbox] { accent-color: var(--accent); flex-shrink: 0; }
+.fmem-empty { padding: 14px 12px; font-size: 12px; color: var(--faint); text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-logo">Kerv <span>One</span> Vision</div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-sub">Team</div>
+  <a class="hdr-back" href="/">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7 2L3 6l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Back to app
+  </a>
+</header>
+
+<div class="bar">
+  <div class="bar-title">What Bruna needs to make it happen</div>
+  <div class="bar-actions">
+    <button class="btn" onclick="openMemberModal()">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Member
+    </button>
+    <button class="btn" onclick="openTeamModal()">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Team
+    </button>
+    <button class="btn btn-acc" onclick="openDomainModal()">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Domain
+    </button>
+  </div>
+</div>
+
+<div class="org-wrap" id="org-wrap">
+  <svg id="org-svg"></svg>
+  <div class="org-layout" id="org-layout">
+    <div class="loading">Loading…</div>
+  </div>
+</div>
+
+<!-- Team modal -->
+<div class="overlay" id="team-modal" style="display:none" onclick="if(event.target===this)closeTeamModal()">
+  <div class="modal">
+    <div class="modal-title" id="tm-title">New Team</div>
+    <input type="hidden" id="tm-id">
+    <div class="fg">
+      <label class="flbl">Team Name *</label>
+      <input type="text" class="finp" id="tm-name" placeholder="e.g. Product Team">
+    </div>
+    <div class="fg">
+      <label class="flbl">Description</label>
+      <textarea class="ftxt" id="tm-desc" placeholder="What does this team own?"></textarea>
+    </div>
+    <div class="fg">
+      <label class="flbl">Reporting Type</label>
+      <div class="ftoggle" id="tm-dotted-toggle">
+        <label class="ftoggle-opt sel" id="tm-opt-direct" onclick="setTeamDotted(false)">
+          <input type="radio" name="tm-dotted" value="direct" checked>Direct
+        </label>
+        <label class="ftoggle-opt" id="tm-opt-dotted" onclick="setTeamDotted(true)">
+          <input type="radio" name="tm-dotted" value="dotted">Dotted
+        </label>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="flbl">Members</label>
+      <div class="fmembers" id="tm-members"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeTeamModal()">Cancel</button>
+      <button class="btn btn-acc" onclick="saveTeam()">Save Team</button>
+    </div>
+  </div>
+</div>
+
+<!-- Member modal -->
+<div class="overlay" id="mem-modal" style="display:none" onclick="if(event.target===this)closeMemModal()">
+  <div class="modal">
+    <div class="modal-title" id="mm-title">New Member</div>
+    <input type="hidden" id="mm-id">
+    <div id="mm-no-teams-banner" style="display:none;background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:10px 14px;font-size:12px;color:#854d0e;margin-bottom:16px">
+      No teams exist yet. Create a team first before adding members.
+    </div>
+    <div class="fg">
+      <label class="flbl">Full Name *</label>
+      <input type="text" class="finp" id="mm-name" placeholder="e.g. Alex Johnson">
+    </div>
+    <div class="fg">
+      <label class="flbl">Team</label>
+      <select class="fsel" id="mm-team">
+        <option value="">— no team (head node) —</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="flbl">Role</label>
+      <select class="fsel" id="mm-role">
+        <option value="">— select role —</option>
+        <option value="product">Product</option>
+        <option value="tech">Tech</option>
+        <option value="design">Design</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="flbl">Title</label>
+      <input type="text" class="finp" id="mm-title-inp" placeholder="e.g. Senior Product Manager">
+    </div>
+    <div class="fg">
+      <label class="flbl">Description</label>
+      <textarea class="ftxt" id="mm-desc" placeholder="Short bio or responsibilities"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeMemModal()">Cancel</button>
+      <button class="btn btn-acc" id="mm-save-btn" onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- Domain modal -->
+<div class="overlay" id="domain-modal" style="display:none" onclick="if(event.target===this)closeDomainModal()">
+  <div class="modal">
+    <div class="modal-title" id="dm-title">New Domain</div>
+    <input type="hidden" id="dm-id">
+    <div class="fg">
+      <label class="flbl">Domain Name *</label>
+      <input type="text" class="finp" id="dm-name" placeholder="e.g. Growth">
+    </div>
+    <div class="fg">
+      <label class="flbl">Teams</label>
+      <div class="fmembers" id="dm-teams-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeDomainModal()">Cancel</button>
+      <button class="btn btn-acc" onclick="saveDomain()">Save Domain</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _teams   = [];
+var _members = [];
+var _domains = [];
+var _teamDotted = false; // current toggle state in team modal
+
+// ── Load ─────────────────────────────────────────────────────────────────────
+function loadData() {
+  fetch('/api/kervone-team')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      _teams   = d.teams   || [];
+      _members = d.members || [];
+      _domains = d.domains || [];
+      renderChart();
+    })
+    .catch(function(e) {
+      document.getElementById('org-layout').innerHTML =
+        '<div class="empty"><h3>Error loading data</h3><p>' + esc(e.message) + '</p></div>';
+    });
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderChart() {
+  var layout = document.getElementById('org-layout');
+
+  var assignedIds = new Set();
+  _teams.forEach(function(t) {
+    (t.team_member_ids || []).forEach(function(id) { assignedIds.add(Number(id)); });
+  });
+
+  var head = _members.find(function(m) { return !assignedIds.has(m.team_member_id); }) || null;
+
+  if (!head && !_teams.length) {
+    layout.innerHTML = '<div class="empty"><h3>No team data yet</h3><p>Start by adding a member — the first unassigned member becomes the head node.</p></div>';
+    document.getElementById('org-svg').innerHTML = '';
+    return;
+  }
+
+  var html = '';
+
+  if (head) {
+    html += '<div class="head-row">' + headCard(head) + '</div>';
+  }
+
+  if (_teams.length) {
+    html += '<div class="teams-row" id="teams-row">';
+
+    // Build domain → teams map, preserving domain order
+    var domainTeamMap = {}; // domain_id -> [team]
+    var teamDomainMap = {}; // team_id -> domain_id
+    _domains.forEach(function(d) {
+      domainTeamMap[d.domain_id] = [];
+      (d.team_ids || []).forEach(function(tid) {
+        var t = _teams.find(function(x) { return x.team_id === Number(tid); });
+        if (t) {
+          domainTeamMap[d.domain_id].push(t);
+          teamDomainMap[t.team_id] = d.domain_id;
+        }
+      });
+    });
+
+    // Render domain groups first (in domain order)
+    _domains.forEach(function(d) {
+      var dTeams = domainTeamMap[d.domain_id] || [];
+      if (!dTeams.length) return;
+      html += '<div class="domain-group">';
+      html += '<div class="domain-bar">'
+        + '<span class="domain-bar-name">' + esc(d.domain_name) + '</span>'
+        + '<div class="dom-act">'
+        +   '<button class="dom-ab" onclick="editDomain(' + d.domain_id + ')" title="Edit">' + icoEdit + '</button>'
+        +   '<button class="dom-ab del" onclick="deleteDomain(' + d.domain_id + ')" title="Delete">' + icoDel + '</button>'
+        + '</div>'
+        + '</div>';
+      html += '<div class="domain-teams">';
+      dTeams.forEach(function(team) {
+        html += renderTeamCol(team);
+      });
+      html += '</div>';
+      html += '</div>';
+    });
+
+    // Render ungrouped teams
+    _teams.forEach(function(team) {
+      if (!teamDomainMap[team.team_id]) {
+        html += renderTeamCol(team);
+      }
+    });
+
+    html += '</div>';
+  }
+
+  layout.innerHTML = html;
+  setTimeout(drawLines, 60);
+}
+
+function renderTeamCol(team) {
+  var mems = (team.team_member_ids || [])
+    .map(function(id) { return _members.find(function(m) { return m.team_member_id === Number(id); }); })
+    .filter(Boolean)
+    .sort(function(a, b) {
+      var ap = a.team_member_role === 'product' ? 0 : 1;
+      var bp = b.team_member_role === 'product' ? 0 : 1;
+      return ap - bp;
+    });
+  var col = '<div class="team-col" data-tid="' + team.team_id + '">';
+  col += teamCard(team);
+  mems.forEach(function(m) { col += memberCard(m); });
+  col += '</div>';
+  return col;
+}
+
+function headCard(m) {
+  return '<div class="node node-head" id="head-node">'
+    + '<div class="head-badge">Head of Product</div>'
+    + '<div class="head-name">' + esc(m.team_member_name) + '</div>'
+    + (m.team_member_title ? '<div class="head-title">' + esc(m.team_member_title) + '</div>' : '')
+    + (m.team_member_description ? '<div class="head-desc">' + esc(m.team_member_description) + '</div>' : '')
+    + '<div class="nact"><button class="nab" onclick="editMember(' + m.team_member_id + ')" title="Edit">' + icoEdit + '</button></div>'
+    + '</div>';
+}
+
+function teamCard(t) {
+  var dottedClass = t.dotted ? ' dotted' : '';
+  return '<div class="node node-team' + dottedClass + '" data-ntype="team" data-id="' + t.team_id + '">'
+    + '<div class="team-name">' + esc(t.team_name) + '</div>'
+    + (t.team_description ? '<div class="team-desc">' + esc(t.team_description) + '</div>' : '')
+    + '<div class="nact">'
+    +   '<button class="nab" onclick="editTeam(' + t.team_id + ')" title="Edit">' + icoEdit + '</button>'
+    +   '<button class="nab del" onclick="deleteTeam(' + t.team_id + ')" title="Delete">' + icoDel + '</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function memberCard(m) {
+  var rc = m.team_member_role ? 'r' + m.team_member_role[0] : 'rn';
+  return '<div class="node node-member ' + rc + '" data-mid="' + m.team_member_id + '">'
+    + '<div class="mem-name">' + esc(m.team_member_name) + '</div>'
+    + (m.team_member_title ? '<div class="mem-title">' + esc(m.team_member_title) + '</div>' : '')
+    + '<div class="nact">'
+    +   '<button class="nab" onclick="editMember(' + m.team_member_id + ')" title="Edit">' + icoEdit + '</button>'
+    +   '<button class="nab del" onclick="deleteMember(' + m.team_member_id + ')" title="Delete">' + icoDel + '</button>'
+    + '</div>'
+    + '</div>';
+}
+
+// ── SVG connector lines ───────────────────────────────────────────────────────
+function drawLines() {
+  var wrap   = document.getElementById('org-wrap');
+  var svg    = document.getElementById('org-svg');
+  if (!svg || !wrap) return;
+
+  svg.setAttribute('width',  wrap.scrollWidth);
+  svg.setAttribute('height', wrap.scrollHeight);
+  svg.innerHTML = '';
+
+  function pos(el) {
+    var r  = el.getBoundingClientRect();
+    var wr = wrap.getBoundingClientRect();
+    var sl = wrap.scrollLeft, st = wrap.scrollTop;
+    return {
+      cx:     r.left - wr.left + sl + r.width  / 2,
+      cy:     r.top  - wr.top  + st + r.height / 2,
+      top:    r.top  - wr.top  + st,
+      bottom: r.bottom - wr.top + st,
+      left:   r.left - wr.left + sl,
+      right:  r.right - wr.left + sl,
+    };
+  }
+
+  function path(d) {
+    var el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    el.setAttribute('d', d);
+    el.setAttribute('stroke', '#d1d5db');
+    el.setAttribute('stroke-width', '1.5');
+    el.setAttribute('fill', 'none');
+    el.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(el);
+  }
+
+  function vline(x, y1, y2) { path('M' + x + ',' + y1 + ' L' + x + ',' + y2); }
+  function elbow(x1, y1, x2, y2) {
+    if (Math.abs(x1 - x2) < 2) { vline(x1, y1, y2); return; }
+    var my = y1 + (y2 - y1) * 0.5;
+    path('M' + x1 + ',' + y1 + ' L' + x1 + ',' + my + ' L' + x2 + ',' + my + ' L' + x2 + ',' + y2);
+  }
+
+  var headEl   = document.getElementById('head-node');
+  var teamCols = document.querySelectorAll('.team-col');
+  if (!teamCols.length) return;
+
+  if (headEl) {
+    var h = pos(headEl);
+    teamCols.forEach(function(col) {
+      var tEl = col.querySelector('.node-team');
+      if (!tEl) return;
+      var t = pos(tEl);
+      elbow(h.cx, h.bottom, t.cx, t.top);
+    });
+  }
+
+  teamCols.forEach(function(col) {
+    var tEl  = col.querySelector('.node-team');
+    var mEls = col.querySelectorAll('.node-member');
+    if (!tEl || !mEls.length) return;
+    var prev = pos(tEl);
+    mEls.forEach(function(mEl) {
+      var mp = pos(mEl);
+      vline(mp.cx, prev.bottom, mp.top);
+      prev = mp;
+    });
+  });
+}
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
+var icoEdit = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+var icoDel  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Team modal ────────────────────────────────────────────────────────────────
+function setTeamDotted(val) {
+  _teamDotted = val;
+  document.getElementById('tm-opt-direct').classList.toggle('sel', !val);
+  document.getElementById('tm-opt-dotted').classList.toggle('sel', val);
+}
+
+function openTeamModal(teamId) {
+  var team = teamId ? _teams.find(function(t) { return t.team_id === teamId; }) : null;
+  document.getElementById('tm-title').textContent = team ? 'Edit Team' : 'New Team';
+  document.getElementById('tm-id').value   = team ? team.team_id : '';
+  document.getElementById('tm-name').value = team ? team.team_name : '';
+  document.getElementById('tm-desc').value = team ? (team.team_description || '') : '';
+  setTeamDotted(team ? !!team.dotted : false);
+
+  var globalAssigned = new Set();
+  _teams.forEach(function(t) {
+    (t.team_member_ids || []).forEach(function(id) { globalAssigned.add(Number(id)); });
+  });
+  var globalHead = _members.find(function(m) { return !globalAssigned.has(m.team_member_id); });
+  var headId = globalHead ? globalHead.team_member_id : null;
+  var assigned = team ? (team.team_member_ids || []).map(Number) : [];
+  var eligible = _members.filter(function(m) { return m.team_member_id !== headId; });
+
+  var html = eligible.length
+    ? eligible.map(function(m) {
+        var chk = assigned.indexOf(m.team_member_id) >= 0;
+        return '<label class="fmem-item">'
+          + '<input type="checkbox" value="' + m.team_member_id + '"' + (chk ? ' checked' : '') + '>'
+          + '<span>' + esc(m.team_member_name)
+          + (m.team_member_title ? ' <span style="color:var(--faint);font-size:10px">— ' + esc(m.team_member_title) + '</span>' : '')
+          + '</span></label>';
+      }).join('')
+    : '<div class="fmem-empty">No members yet. Add members first.</div>';
+
+  document.getElementById('tm-members').innerHTML = html;
+  document.getElementById('team-modal').style.display = 'flex';
+  setTimeout(function() { document.getElementById('tm-name').focus(); }, 50);
+}
+
+function editTeam(id)  { openTeamModal(id); }
+function closeTeamModal() { document.getElementById('team-modal').style.display = 'none'; }
+
+function saveTeam() {
+  var name = document.getElementById('tm-name').value.trim();
+  if (!name) { alert('Team name is required'); return; }
+  var id   = document.getElementById('tm-id').value;
+  var desc = document.getElementById('tm-desc').value.trim();
+  var memberIds = Array.from(document.querySelectorAll('#tm-members input[type=checkbox]:checked'))
+    .map(function(cb) { return parseInt(cb.value); });
+
+  var body   = { team_name: name, team_description: desc || null, team_member_ids: memberIds, dotted: _teamDotted };
+  var method = id ? 'PUT' : 'POST';
+  if (id) body.team_id = parseInt(id);
+
+  fetch('/api/kervone-team', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (d.error) { alert('Error: ' + d.error); return; } closeTeamModal(); loadData(); })
+    .catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function deleteTeam(id) {
+  if (!confirm('Delete this team? Members will not be deleted.')) return;
+  fetch('/api/kervone-team?team_id=' + id, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function() { loadData(); })
+    .catch(function(e) { alert('Error: ' + e.message); });
+}
+
+// ── Member modal ──────────────────────────────────────────────────────────────
+function openMemberModal(memberId) {
+  var m = memberId ? _members.find(function(x) { return x.team_member_id === memberId; }) : null;
+  document.getElementById('mm-title').textContent = m ? 'Edit Member' : 'New Member';
+  document.getElementById('mm-id').value         = m ? m.team_member_id : '';
+  document.getElementById('mm-name').value       = m ? m.team_member_name : '';
+  document.getElementById('mm-role').value       = m ? (m.team_member_role || '') : '';
+  document.getElementById('mm-title-inp').value  = m ? (m.team_member_title || '') : '';
+  document.getElementById('mm-desc').value       = m ? (m.team_member_description || '') : '';
+
+  var currentTeamId = m ? (m.team_id || null) : null;
+  var teamSel = document.getElementById('mm-team');
+  teamSel.innerHTML = '<option value="">— no team (head node) —</option>'
+    + _teams.map(function(t) {
+        var sel = currentTeamId && Number(currentTeamId) === t.team_id ? ' selected' : '';
+        return '<option value="' + t.team_id + '"' + sel + '>' + esc(t.team_name) + '</option>';
+      }).join('');
+
+  var noTeams = _teams.length === 0 && !m;
+  var banner  = document.getElementById('mm-no-teams-banner');
+  var saveBtn = document.getElementById('mm-save-btn');
+  if (banner)  banner.style.display  = noTeams ? '' : 'none';
+  if (saveBtn) { saveBtn.disabled = noTeams; saveBtn.style.opacity = noTeams ? '.4' : ''; saveBtn.style.cursor = noTeams ? 'not-allowed' : ''; }
+
+  document.getElementById('mem-modal').style.display = 'flex';
+  setTimeout(function() { document.getElementById('mm-name').focus(); }, 50);
+}
+
+function editMember(id) { openMemberModal(id); }
+function closeMemModal() { document.getElementById('mem-modal').style.display = 'none'; }
+
+function saveMember() {
+  var name = document.getElementById('mm-name').value.trim();
+  if (!name) { alert('Name is required'); return; }
+  var id   = document.getElementById('mm-id').value;
+  var teamVal = document.getElementById('mm-team').value;
+  var body = {
+    team_member_name:        name,
+    team_member_role:        document.getElementById('mm-role').value      || null,
+    team_member_title:       document.getElementById('mm-title-inp').value.trim() || null,
+    team_member_description: document.getElementById('mm-desc').value.trim()      || null,
+    team_id:                 teamVal ? parseInt(teamVal) : null,
+  };
+  var method = id ? 'PUT' : 'POST';
+  if (id) body.team_member_id = parseInt(id);
+
+  fetch('/api/kervone-team-member', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (d.error) { alert('Error: ' + d.error); return; } closeMemModal(); loadData(); })
+    .catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function deleteMember(id) {
+  if (!confirm('Delete this member?')) return;
+  fetch('/api/kervone-team-member?team_member_id=' + id, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function() { loadData(); })
+    .catch(function(e) { alert('Error: ' + e.message); });
+}
+
+// ── Domain modal ──────────────────────────────────────────────────────────────
+function openDomainModal(domainId) {
+  var d = domainId ? _domains.find(function(x) { return x.domain_id === domainId; }) : null;
+  document.getElementById('dm-title').textContent = d ? 'Edit Domain' : 'New Domain';
+  document.getElementById('dm-id').value   = d ? d.domain_id : '';
+  document.getElementById('dm-name').value = d ? d.domain_name : '';
+
+  // Teams not already in another domain (or in this domain)
+  var assignedElsewhere = new Set();
+  _domains.forEach(function(dom) {
+    if (d && dom.domain_id === d.domain_id) return;
+    (dom.team_ids || []).forEach(function(tid) { assignedElsewhere.add(Number(tid)); });
+  });
+
+  var currentTeamIds = d ? (d.team_ids || []).map(Number) : [];
+  // Show all teams: current domain's teams checked, others available if not assigned elsewhere
+  var html = _teams.length
+    ? _teams.map(function(t) {
+        var inThisDomain = currentTeamIds.indexOf(t.team_id) >= 0;
+        var blocked = !inThisDomain && assignedElsewhere.has(t.team_id);
+        return '<label class="fmem-item" style="' + (blocked ? 'opacity:.4;pointer-events:none' : '') + '">'
+          + '<input type="checkbox" value="' + t.team_id + '"' + (inThisDomain ? ' checked' : '') + (blocked ? ' disabled' : '') + '>'
+          + '<span>' + esc(t.team_name)
+          + (t.dotted ? ' <span style="color:var(--faint);font-size:10px">— dotted</span>' : '')
+          + (blocked ? ' <span style="color:var(--faint);font-size:10px">— in another domain</span>' : '')
+          + '</span></label>';
+      }).join('')
+    : '<div class="fmem-empty">No teams yet. Create teams first.</div>';
+
+  document.getElementById('dm-teams-list').innerHTML = html;
+  document.getElementById('domain-modal').style.display = 'flex';
+  setTimeout(function() { document.getElementById('dm-name').focus(); }, 50);
+}
+
+function editDomain(id)  { openDomainModal(id); }
+function closeDomainModal() { document.getElementById('domain-modal').style.display = 'none'; }
+
+function saveDomain() {
+  var name = document.getElementById('dm-name').value.trim();
+  if (!name) { alert('Domain name is required'); return; }
+  var id = document.getElementById('dm-id').value;
+  var teamIds = Array.from(document.querySelectorAll('#dm-teams-list input[type=checkbox]:checked'))
+    .map(function(cb) { return parseInt(cb.value); });
+
+  var body   = { domain_name: name, team_ids: teamIds };
+  var method = id ? 'PUT' : 'POST';
+  if (id) body.domain_id = parseInt(id);
+
+  fetch('/api/kervone-domain', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (d.error) { alert('Error: ' + d.error); return; } closeDomainModal(); loadData(); })
+    .catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function deleteDomain(id) {
+  if (!confirm('Remove this domain? Teams will not be deleted.')) return;
+  fetch('/api/kervone-domain?domain_id=' + id, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function() { loadData(); })
+    .catch(function(e) { alert('Error: ' + e.message); });
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', function() {
+  clearTimeout(window._rt);
+  window._rt = setTimeout(drawLines, 120);
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeTeamModal(); closeMemModal(); closeDomainModal(); }
+});
+
+loadData();
+</script>
+</body>
+</html>

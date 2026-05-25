@@ -1,0 +1,24 @@
+{
+  "name": "bruna-personal-claude-workspace",
+  "version": "1.0.0",
+  "description": "Place where I test ideas before promoting to other repos",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bruna875/bruna-personal-workspace.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/bruna875/bruna-personal-workspace/issues"
+  },
+  "homepage": "https://github.com/bruna875/bruna-personal-workspace#readme",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0"
+  }
+}
