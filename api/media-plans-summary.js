@@ -31,60 +31,70 @@ export default async function handler(req, res) {
     const sql = neon(process.env.DATABASE_URL);
     const { client_org_id } = req.query;
 
-    const rows = client_org_id ? await sql`
-      SELECT
-        mp.media_plan_name,
-        mp.campaign_id,
-        c.campaign_name,
-        o.client_name,
-        a.advertiser_name,
-        COUNT(*)                                          AS moment_count,
-        SUM(mp.est_impressions)                           AS total_impressions,
-        ROUND(AVG(mp.est_cpm)::numeric, 2)               AS avg_cpm,
-        SUM(mp.est_dollar_value)                          AS total_dollar_value,
-        MAX(mp.created_by)                                AS created_by,
-        MAX(mp.created_at)                                AS last_updated
-      FROM media_plans mp
-      LEFT JOIN campaigns            c ON mp.campaign_id   = c.campaign_id
-      LEFT JOIN advertisers          a ON mp.advertiser_id  = a.advertiser_id
-      LEFT JOIN client_organizations o ON mp.client_org_id  = o.client_org_id
-      WHERE mp.client_org_id = ${parseInt(client_org_id)}
-      GROUP BY mp.media_plan_name, mp.campaign_id, c.campaign_name, o.client_name, a.advertiser_name
-      ORDER BY MAX(mp.created_at) DESC
-    ` : await sql`
-      SELECT
-        mp.media_plan_name,
-        mp.campaign_id,
-        c.campaign_name,
-        o.client_name,
-        a.advertiser_name,
-        COUNT(*)                                          AS moment_count,
-        SUM(mp.est_impressions)                           AS total_impressions,
-        ROUND(AVG(mp.est_cpm)::numeric, 2)               AS avg_cpm,
-        SUM(mp.est_dollar_value)                          AS total_dollar_value,
-        MAX(mp.created_by)                                AS created_by,
-        MAX(mp.created_at)                                AS last_updated
-      FROM media_plans mp
-      LEFT JOIN campaigns            c ON mp.campaign_id  = c.campaign_id
-      LEFT JOIN advertisers          a ON mp.advertiser_id = a.advertiser_id
-      LEFT JOIN client_organizations o ON mp.client_org_id = o.client_org_id
-      GROUP BY mp.media_plan_name, mp.campaign_id, c.campaign_name, o.client_name, a.advertiser_name
-      ORDER BY MAX(mp.created_at) DESC
-    `;
+    const rows = client_org_id
+      ? await sql`
+          SELECT mm.analysis_id, mm.campaign_id, mm.client_org_id, mm.advertiser_id,
+                 mm.media_plans, mm.created_by, mm.created_at,
+                 c.campaign_name, o.client_name, a.advertiser_name
+          FROM moments_match mm
+          LEFT JOIN campaigns            c ON mm.campaign_id   = c.campaign_id
+          LEFT JOIN advertisers          a ON mm.advertiser_id = a.advertiser_id
+          LEFT JOIN client_organizations o ON mm.client_org_id = o.client_org_id
+          WHERE mm.client_org_id = ${parseInt(client_org_id)}
+            AND mm.media_plans IS NOT NULL
+          ORDER BY mm.created_at DESC
+        `
+      : await sql`
+          SELECT mm.analysis_id, mm.campaign_id, mm.client_org_id, mm.advertiser_id,
+                 mm.media_plans, mm.created_by, mm.created_at,
+                 c.campaign_name, o.client_name, a.advertiser_name
+          FROM moments_match mm
+          LEFT JOIN campaigns            c ON mm.campaign_id   = c.campaign_id
+          LEFT JOIN advertisers          a ON mm.advertiser_id = a.advertiser_id
+          LEFT JOIN client_organizations o ON mm.client_org_id = o.client_org_id
+          WHERE mm.media_plans IS NOT NULL
+          ORDER BY mm.created_at DESC
+        `;
 
-    const plans = rows.map(r => ({
-      media_plan_name:   r.media_plan_name  || null,
-      campaign_id:       r.campaign_id      || null,
-      campaign_name:     r.campaign_name    || null,
-      client_name:       r.client_name      || null,
-      advertiser_name:   r.advertiser_name  || null,
-      moment_count:      Number(r.moment_count),
-      total_impressions: fmtImpr(Number(r.total_impressions)),
-      avg_cpm:           r.avg_cpm != null ? '$' + parseFloat(r.avg_cpm).toFixed(2) : '—',
-      total_dollar_value: fmtDollar(Number(r.total_dollar_value)),
-      created_by:        r.created_by || '—',
-      last_updated:      fmtDate(r.last_updated),
-    }));
+    // Expand: one summary row per media_plan (not per moment)
+    const plans = [];
+    for (const row of rows) {
+      const mediaPlans = row.media_plans || [];
+      for (const plan of mediaPlans) {
+        const moments = plan.moments || [];
+        let totalImpr  = 0;
+        let totalCpm   = 0;
+        let cpmCount   = 0;
+        let totalDollar = 0;
+
+        for (const m of moments) {
+          const impr  = Number(m.moment_est_impr)  || 0;
+          const cpm   = Number(m.moment_est_cpm)   || 0;
+          const dollar = Number(m.moment_est_dollar_value) || 0;
+          totalImpr   += impr;
+          totalDollar += dollar;
+          if (cpm > 0) { totalCpm += cpm; cpmCount++; }
+        }
+
+        const avgCpm = cpmCount > 0 ? totalCpm / cpmCount : 0;
+
+        plans.push({
+          media_plan_id:     plan.media_plan_id   || null,
+          media_plan_name:   plan.media_plan_name  || null,
+          analysis_id:       row.analysis_id,
+          campaign_id:       row.campaign_id       || null,
+          campaign_name:     row.campaign_name     || null,
+          client_name:       row.client_name       || null,
+          advertiser_name:   row.advertiser_name   || null,
+          moment_count:      moments.length,
+          total_impressions: fmtImpr(totalImpr),
+          avg_cpm:           avgCpm > 0 ? '$' + avgCpm.toFixed(2) : '—',
+          total_dollar_value: fmtDollar(totalDollar),
+          created_by:        row.created_by        || '—',
+          last_updated:      fmtDate(row.created_at),
+        });
+      }
+    }
 
     return res.status(200).json({ plans });
   } catch (err) {

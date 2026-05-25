@@ -1,5 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 
+// Links/unlinks media plans (by name) to a campaign_id inside moments_match.
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
@@ -17,22 +19,30 @@ export default async function handler(req, res) {
     const cid = parseInt(campaign_id);
 
     if (plan_names.length > 0) {
-      // Unlink plans previously on this campaign that are no longer selected
-      await sql`
-        UPDATE media_plans
-        SET campaign_id = NULL
-        WHERE campaign_id = ${cid}
-          AND (media_plan_name IS NULL OR media_plan_name != ALL(${plan_names}))
+      // Unlink analyses previously on this campaign whose plans are no longer selected
+      // (set campaign_id = NULL where none of their plan names match)
+      const rows = await sql`
+        SELECT analysis_id, media_plans FROM moments_match WHERE campaign_id = ${cid}
       `;
-      // Link selected plans to this campaign
-      await sql`
-        UPDATE media_plans
-        SET campaign_id = ${cid}
-        WHERE media_plan_name = ANY(${plan_names})
-      `;
+      for (const row of rows) {
+        const plans = row.media_plans || [];
+        const hasMatch = plans.some(p => plan_names.includes(p.media_plan_name));
+        if (!hasMatch) {
+          await sql`UPDATE moments_match SET campaign_id = NULL WHERE analysis_id = ${row.analysis_id}`;
+        }
+      }
+      // Link analyses whose plan names match
+      const allRows = await sql`SELECT analysis_id, media_plans FROM moments_match WHERE campaign_id IS NULL OR campaign_id = ${cid}`;
+      for (const row of allRows) {
+        const plans = row.media_plans || [];
+        const hasMatch = plans.some(p => plan_names.includes(p.media_plan_name));
+        if (hasMatch) {
+          await sql`UPDATE moments_match SET campaign_id = ${cid} WHERE analysis_id = ${row.analysis_id}`;
+        }
+      }
     } else {
-      // No plans selected — unlink all from this campaign
-      await sql`UPDATE media_plans SET campaign_id = NULL WHERE campaign_id = ${cid}`;
+      // Unlink all from this campaign
+      await sql`UPDATE moments_match SET campaign_id = NULL WHERE campaign_id = ${cid}`;
     }
 
     return res.status(200).json({ ok: true });

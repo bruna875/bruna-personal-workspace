@@ -1770,7 +1770,7 @@ function mp2PlansSearch(q) {
 function mp2DeleteAnalysis(analysisId, btn) {
   if (!confirm('Delete this analysis?')) return;
   if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
-  fetch('/api/creatives-analysis?analysis_id=' + analysisId, { method: 'DELETE' })
+  fetch('/api/moments-match?analysis_id=' + analysisId, { method: 'DELETE' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
@@ -1817,7 +1817,7 @@ function mp2LoadAnalysesTable() {
 
   var _analysesQs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
     ? '?client_org_id=' + selectedClientOrgId : '';
-  fetch('/api/creatives-analysis' + _analysesQs)
+  fetch('/api/moments-match' + _analysesQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var analyses = data.analyses || [];
@@ -2459,7 +2459,7 @@ function mp2Analyze() {
     _mp2DocName      = _docName   || '';
 
     _mp2LastAnalysisId = null;
-    fetch('/api/creatives-analysis', {
+    fetch('/api/moments-match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
