@@ -2720,15 +2720,15 @@ function mp2ShowResults() {
     // ── Tab nav + content (free-flowing) ──
     + '<div>'
     +   '<div style="display:flex;align-items:center;gap:4px;padding:8px 20px;margin-left:-20px;margin-right:-20px;border-bottom:1px solid var(--border);margin-bottom:16px">'
-    +     '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--subtle);color:var(--muted);transition:background .13s,color .13s">'
+    +     '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
     +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
     +       'Ad Analysis'
     +     '</button>'
-    +     '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--accent);color:#fff;transition:background .13s,color .13s">'
+    +     '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--bg);color:var(--text);transition:background .13s,color .13s" data-act="1">'
     +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
     +       'Moments Match'
     +     '</button>'
-    +     '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--subtle);color:var(--muted);transition:background .13s,color .13s">'
+    +     '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
     +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
     +       'AI Media Plan'
     +     '</button>'
@@ -2789,8 +2789,9 @@ function mp2SubTab(tab) {
     var pnl = document.getElementById('tx2-sub-content-' + t);
     if (btn) {
       var isAct = t === tab;
-      btn.style.background = isAct ? 'var(--accent)' : 'var(--subtle)';
-      btn.style.color      = isAct ? '#fff'          : 'var(--muted)';
+      btn.dataset.act      = isAct ? '1' : '';
+      btn.style.background = isAct ? 'var(--bg)'   : 'transparent';
+      btn.style.color      = isAct ? 'var(--text)'  : 'var(--muted)';
     }
     if (pnl) pnl.style.display = t === tab ? 'flex' : 'none';
   });
