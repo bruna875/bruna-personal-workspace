@@ -2478,7 +2478,16 @@ function mp2Analyze() {
       })
     })
     .then(function(r) { return r.json(); })
-    .then(function(data) { if (data.analysis_id) _mp2LastAnalysisId = data.analysis_id; })
+    .then(function(data) {
+      if (data.analysis_id) {
+        _mp2LastAnalysisId = data.analysis_id;
+        history.replaceState(
+          { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: data.analysis_id },
+          '',
+          '/media-planner-v2/analysis/' + data.analysis_id
+        );
+      }
+    })
     .catch(function(err) { console.warn('creatives-analysis save error:', err); });
   })();
   // ─────────────────────────────────────────────────────────────────────────
