@@ -83,7 +83,7 @@ function renderDspSsp() {
   ]).then(function(results) {
     var orgData = results[0];
     var advData = results[1];
-    _dspClients     = (orgData.orgs || []).filter(function(o) { return o.dbId !== 1; });
+    _dspClients     = orgData.orgs || [];
     _dspAdvertisers = advData.advertisers || [];
     _dspRefreshFilters();
     _dspLoad();
