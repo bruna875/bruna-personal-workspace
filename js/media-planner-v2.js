@@ -2618,12 +2618,6 @@ function mp2ShowResults() {
           : '')
     +   '</div>'
     + '</div>'
-    + '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" title="Show asset details" '
-    +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s" '
-    +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
-    +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
-    +   '+'
-    + '</button>'
     + '</div>';
 
   var fdLabel = (mp2FlightDates && mp2FlightDates.start && mp2FlightDates.end)
@@ -2651,105 +2645,95 @@ function mp2ShowResults() {
     : 'All regions';
 
   var assetStrip =
-    '<div id="mp2-asset-strip" style="display:none;border-bottom:1px solid var(--border)">'
-    + '<div style="display:flex;align-items:stretch">'
+    '<div id="mp2-asset-strip" style="width:220px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px">'
 
-    // Asset — content depends on input type
-    + '<div style="flex:1;padding:12px 20px">'
+    // Asset
+    + '<div>'
     + sectionLabel('Asset')
     + (function() {
         if (mp2TaxInputType === 'text') {
           var briefText = _mp2BriefContent || mp2TaxFileName || '';
           return briefText
-            ? '<div style="font-size:12px;color:var(--text);line-height:1.6;font-style:italic;max-height:80px;overflow:hidden">"' + briefText.slice(0, 300) + (briefText.length > 300 ? '…' : '') + '"</div>'
-            : '<span style="font-size:12px;color:var(--faint)">—</span>';
+            ? '<div style="font-size:11px;color:var(--text);line-height:1.6;font-style:italic;max-height:100px;overflow:hidden">"' + briefText.slice(0, 200) + (briefText.length > 200 ? '…' : '') + '"</div>'
+            : '<span style="font-size:11px;color:var(--faint)">—</span>';
         }
         if (mp2TaxInputType === 'doc') {
           var docName = _mp2DocName || mp2TaxFileName || '—';
-          return '<div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text)">'
-            + '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+          return '<div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text)">'
+            + '<svg width="12" height="12" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
             + '<span>' + docName + '</span></div>';
         }
-        // Creative / video / library — only show tiles if we actually have items
         if (mp2LibrarySelectedItems && mp2LibrarySelectedItems.length) {
-          return '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _mp2CreativeTilesHtml(mp2LibrarySelectedItems) + '</div>';
+          return '<div style="display:flex;gap:8px;flex-wrap:wrap">' + _mp2CreativeTilesHtml(mp2LibrarySelectedItems) + '</div>';
         }
-        return '<span style="font-size:12px;color:var(--faint)">—</span>';
+        return '<span style="font-size:11px;color:var(--faint)">—</span>';
       })()
     + '</div>'
 
-    // Divider — full height
-    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
-
-    // Campaign info
-    + '<div style="flex:1;padding:12px 20px">'
+    // Campaign
+    + '<div style="border-top:1px solid var(--border);padding-top:14px">'
     + sectionLabel('Campaign')
-    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    + '<div style="display:flex;flex-direction:column;gap:6px">'
     +   (mp2SelectedCampaign
-          ? infoField('Campaign',    campName)
-            + infoField('Advertiser',  advName)
-            + infoField('Geography',   geoLabel)
-            + infoField('Flight Dates',fdLabel)
-          : '<div style="display:flex;justify-content:center;padding:4px 0">'
-            + '<button onclick="mp2SwitchHomeTab(\'new-plan\')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);font-family:inherit;padding:0;transition:opacity .15s" onmouseover="this.style.opacity=\'.7\'" onmouseout="this.style.opacity=\'1\'">'
-            + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>'
-            + 'Add Campaign</button>'
-            + '</div>')
+          ? infoField('Campaign',     campName)
+            + infoField('Advertiser',   advName)
+            + infoField('Geography',    geoLabel)
+            + infoField('Flight Dates', fdLabel)
+          : '<button onclick="mp2SwitchHomeTab(\'new-plan\')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;color:var(--accent);font-family:inherit;padding:0;transition:opacity .15s" onmouseover="this.style.opacity=\'.7\'" onmouseout="this.style.opacity=\'1\'">'
+            + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>'
+            + 'Add Campaign</button>')
     + '</div>'
     + '</div>'
 
-    // Divider — full height
-    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
-
-    // Additional details — only real data, no hardcoded values
-    + '<div style="flex:1;padding:12px 20px">'
+    // Additional details
+    + '<div style="border-top:1px solid var(--border);padding-top:14px">'
     + sectionLabel('Additional Details')
-    + '<div style="display:flex;flex-direction:column;gap:8px">'
-    +   infoField('Budget',     (mp2SelectedCampaign && mp2SelectedCampaign.budget)           ? '$' + mp2SelectedCampaign.budget : '—')
-    +   infoField('Impr. Goal', (mp2SelectedCampaign && mp2SelectedCampaign.impression_goal)  ? mp2SelectedCampaign.impression_goal : '—')
+    + '<div style="display:flex;flex-direction:column;gap:6px">'
+    +   infoField('Budget',     (mp2SelectedCampaign && mp2SelectedCampaign.budget)          ? '$' + mp2SelectedCampaign.budget : '—')
+    +   infoField('Impr. Goal', (mp2SelectedCampaign && mp2SelectedCampaign.impression_goal) ? mp2SelectedCampaign.impression_goal : '—')
     +   infoField('Lookback',   mp2LookbackSecs ? Math.round(mp2LookbackSecs / 60) + ' min' : '—')
     + '</div>'
     + '</div>'
 
-    + '</div>'
     + '</div>';  // closes mp2-asset-strip
 
-  ca.innerHTML = cardHeader + assetStrip +
-    '<div style="padding:20px;display:flex;flex-direction:column;gap:20px">'
+  ca.innerHTML = cardHeader
 
-    // ── Tab nav + content (free-flowing) ──
-    + '<div>'
-    +   '<div style="display:flex;align-items:center;gap:4px;padding:5px 20px;margin-top:-20px;margin-left:-20px;margin-right:-20px;border-bottom:1px solid var(--border);margin-bottom:16px">'
-    +     '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
-    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
-    +       'Ad Analysis'
-    +     '</button>'
-    +     '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 4px;flex-shrink:0"></span>'
-    +     '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--bg);color:var(--text);transition:background .13s,color .13s" data-act="1">'
-    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
-    +       'Moments Match'
-    +     '</button>'
-    +     '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
-    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
-    +       'AI Media Plan'
-    +     '</button>'
-    +   '</div>'
-    +   '<div style="display:flex;gap:16px">'
-    +     '<div style="flex:1;min-width:0">'
-    +       '<div id="tx2-sub-content-ad-analysis" style="display:none">'
-    +         '<table style="width:100%;border-collapse:collapse"><thead><tr>'
-    +           '<th style="text-align:left;'  + TH + '">Moment</th>'
-    +           '<th style="text-align:right;' + TH + '">Score</th>'
-    +           '<th style="text-align:right;' + TH + '">PODs</th>'
-    +         '</tr></thead><tbody id="tx-cat-body"></tbody></table>'
-    +       '</div>'
-    +       '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
-    +       '<div id="tx2-sub-content-ai-media-plan" style="display:none;border-radius:10px;margin-top:4px"></div>'
-    +     '</div>'
-    +     '<div id="inv-media-plan" style="display:none;width:220px;flex-shrink:0;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px"></div>'
-    +   '</div>'
+    // ── Nav strip ──
+    + '<div style="display:flex;align-items:center;gap:4px;padding:5px 20px;border-bottom:1px solid var(--border)">'
+    +   '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
+    +     'Ad Analysis'
+    +   '</button>'
+    +   '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 4px;flex-shrink:0"></span>'
+    +   '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--bg);color:var(--text);transition:background .13s,color .13s" data-act="1">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
+    +     'Moments Match'
+    +   '</button>'
+    +   '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
+    +     'AI Media Plan'
+    +   '</button>'
+    +   '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;margin-left:auto;width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;background:var(--bg);color:var(--text);transition:background .13s,color .13s" data-act="1">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>'
+    +   '</button>'
     + '</div>'
 
+    // ── Main split: content + sidebar ──
+    + '<div style="display:flex;min-height:0;flex:1">'
+    +   '<div style="flex:1;min-width:0;padding:20px;display:flex;flex-direction:column;gap:16px">'
+    +     '<div id="tx2-sub-content-ad-analysis" style="display:none">'
+    +       '<table style="width:100%;border-collapse:collapse"><thead><tr>'
+    +         '<th style="text-align:left;'  + TH + '">Moment</th>'
+    +         '<th style="text-align:right;' + TH + '">Score</th>'
+    +         '<th style="text-align:right;' + TH + '">PODs</th>'
+    +       '</tr></thead><tbody id="tx-cat-body"></tbody></table>'
+    +     '</div>'
+    +     '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
+    +     '<div id="tx2-sub-content-ai-media-plan" style="display:none;border-radius:10px"></div>'
+    +     '<div id="inv-media-plan" style="display:none;width:220px;flex-shrink:0;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px"></div>'
+    +   '</div>'
+    + assetStrip
     + '</div>';
 
   if (typeof txInjectStyles === 'function') txInjectStyles();
@@ -2776,12 +2760,16 @@ function mp2TogglePlanCampStrip() {
 }
 
 function mp2ToggleAssetStrip() {
-  var strip  = document.getElementById('mp2-asset-strip');
-  var btn    = document.getElementById('mp2-asset-toggle');
+  var strip = document.getElementById('mp2-asset-strip');
+  var btn   = document.getElementById('mp2-asset-toggle');
   if (!strip) return;
   var open = strip.style.display !== 'none';
-  strip.style.display = open ? 'none' : '';
-  if (btn) btn.textContent = open ? '+' : '−';
+  strip.style.display = open ? 'none' : 'flex';
+  if (btn) {
+    btn.dataset.act      = open ? '' : '1';
+    btn.style.background = open ? 'transparent' : 'var(--bg)';
+    btn.style.color      = open ? 'var(--muted)' : 'var(--text)';
+  }
 }
 
 function mp2SubTab(tab) {
@@ -2796,15 +2784,6 @@ function mp2SubTab(tab) {
     }
     if (pnl) pnl.style.display = t === tab ? 'flex' : 'none';
   });
-  // Asset strip + toggle only visible in Moments Match
-  var strip  = document.getElementById('mp2-asset-strip');
-  var toggle = document.getElementById('mp2-asset-toggle');
-  var isMoments = tab === 'moments';
-  if (toggle) toggle.style.display = isMoments ? '' : 'none';
-  if (strip && !isMoments) {
-    strip.style.display = 'none';
-    if (toggle) toggle.textContent = '+';
-  }
   // Cart (media plan sidebar) only visible in Moments Match
   var cartPanel = document.getElementById('inv-media-plan');
   if (cartPanel) {
