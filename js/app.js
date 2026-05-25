@@ -52,8 +52,10 @@ var APP_USERS = [
   { id:'u10',name:'Jordan Kim',      email:'j.kim@walmart.com',               role:'Viewer',      org:'walmart',       status:'Active',   last:'1w ago'   }
 ];
 
-var selectedOrgId = 'kerv';
-var selectedAdvId = 'walmart-adv';
+var selectedOrgId       = 'kerv';
+var selectedClientOrgId = null;   // numeric DB id of selected client org
+var _appDbOrgs          = [];     // [{dbId, name, type}] loaded from /api/organizations
+var selectedAdvId       = 'walmart-adv';
 
 // ── App state ──
 var activeId  = 'overview';
@@ -489,9 +491,15 @@ function orgTypeBadge(type) {
 }
 
 function buildOrgDd() {
-  document.getElementById('orgDd').innerHTML = APP_ORGS.map(function(o) {
-    return '<div class="tb-select-item' + (o.id === selectedOrgId ? ' sel' : '') + '" onclick="selectOrg(\'' + o.id + '\')">'
-      + '<span class="tb-select-item-name">' + o.name + ' <span style="color:var(--faint);font-weight:400">(' + o.type + ')</span></span>'
+  var orgs = _appDbOrgs.length ? _appDbOrgs : APP_ORGS.map(function(o) {
+    return { dbId: o.id, name: o.name, type: o.type };
+  });
+  document.getElementById('orgDd').innerHTML = orgs.map(function(o) {
+    var isSel = o.dbId === selectedClientOrgId || (!selectedClientOrgId && o.dbId === 'kerv');
+    return '<div class="tb-select-item' + (isSel ? ' sel' : '') + '" onclick="selectOrg(' + JSON.stringify(o.dbId) + ')">'
+      + '<span class="tb-select-item-name">' + o.name
+      + (o.type ? ' <span style="color:var(--faint);font-weight:400">(' + o.type + ')</span>' : '')
+      + '</span>'
       + '</div>';
   }).join('');
 }
@@ -670,18 +678,30 @@ function updateOrgMgmtVisibility() {
 }
 
 function selectOrg(id) {
-  selectedOrgId = id;
-  var org = APP_ORGS.find(function(o){ return o.id === id; });
-  document.getElementById('orgVal').textContent = org.name;
-  var typeEl = document.getElementById('orgTypeVal');
-  if (typeEl) typeEl.textContent = org.type;
+  // Try DB orgs first (numeric id)
+  var dbOrg = _appDbOrgs.find(function(o) { return o.dbId === id; });
+  if (dbOrg) {
+    selectedClientOrgId = dbOrg.dbId;
+    selectedOrgId       = String(dbOrg.dbId); // keep compat
+    document.getElementById('orgVal').textContent = dbOrg.name;
+    var typeEl = document.getElementById('orgTypeVal');
+    if (typeEl) typeEl.textContent = dbOrg.type || '';
+  } else {
+    // Fallback: legacy string slug
+    var org = APP_ORGS.find(function(o){ return o.id === id; });
+    if (!org) return;
+    selectedOrgId = id;
+    document.getElementById('orgVal').textContent = org.name;
+    var typeEl = document.getElementById('orgTypeVal');
+    if (typeEl) typeEl.textContent = org.type;
+  }
   closeSelectDds();
   updateOrgMgmtVisibility();
   if (activeId === 'organization') {
     var tab = location.pathname.split('/')[3] || 'users';
     if (tab !== 'users' && tab !== 'advertisers') tab = 'users';
     setPage('organization', 'Organization', true);
-    history.replaceState({ id: 'organization', label: 'Organization' }, '', '/organization/' + id + '/' + tab);
+    history.replaceState({ id: 'organization', label: 'Organization' }, '', '/organization/' + selectedOrgId + '/' + tab);
   }
 }
 
@@ -711,6 +731,21 @@ function login() {
     activeId = startItem.id;
     buildNav();
     setPage(startItem.id, startItem.label, true);
+    // Load client orgs from DB for topbar select
+    fetch('/api/organizations').then(function(r){ return r.json(); }).then(function(d) {
+      _appDbOrgs = (d.orgs || []).map(function(o) {
+        return { dbId: o.dbId, name: o.name, type: o.type };
+      });
+      // Default to Kerv (dbId=1)
+      var kerv = _appDbOrgs.find(function(o) { return o.dbId === 1; }) || _appDbOrgs[0];
+      if (kerv) {
+        selectedClientOrgId = kerv.dbId;
+        selectedOrgId       = String(kerv.dbId);
+        document.getElementById('orgVal').textContent = kerv.name;
+        var typeEl = document.getElementById('orgTypeVal');
+        if (typeEl) typeEl.textContent = kerv.type || '';
+      }
+    }).catch(function() { /* keep hardcoded fallback */ });
     if (startItem.openEditor)    { setTimeout(function() { csBuildTemplates(0, startItem.csAssetId); }, 80); }
     if (startItem.openLibrary)   { setTimeout(function() { csSwitchTab('library'); }, 80); }
     if (startItem.cmCampaignId)  { setTimeout(function() { cmOpenDetail(startItem.cmCampaignId, true); }, 80); }
