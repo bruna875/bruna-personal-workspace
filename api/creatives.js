@@ -44,6 +44,7 @@ export default async function handler(req, res) {
     const rows = campaign_id ? await sql`
       SELECT
         cr.creative_id,
+        cr.client_org_id,
         cr.campaign_id,
         cr.advertiser_id,
         cr.creative_preview,
@@ -53,19 +54,19 @@ export default async function handler(req, res) {
         cr.creative_name,
         cr.template_ids,
         cr.created_at,
-        a.client_org_id,
         o.client_name,
         a.advertiser_name,
         c.campaign_name
       FROM creatives cr
       LEFT JOIN campaigns            c ON cr.campaign_id    = c.campaign_id
       LEFT JOIN advertisers          a ON cr.advertiser_id  = a.advertiser_id
-      LEFT JOIN client_organizations o ON a.client_org_id   = o.client_org_id
+      LEFT JOIN client_organizations o ON cr.client_org_id  = o.client_org_id
       WHERE cr.campaign_id = ${parseInt(campaign_id)}
       ORDER BY cr.creative_id
     ` : await sql`
       SELECT
         cr.creative_id,
+        cr.client_org_id,
         cr.campaign_id,
         cr.advertiser_id,
         cr.creative_preview,
@@ -75,14 +76,13 @@ export default async function handler(req, res) {
         cr.creative_name,
         cr.template_ids,
         cr.created_at,
-        a.client_org_id,
         o.client_name,
         a.advertiser_name,
         c.campaign_name
       FROM creatives cr
       LEFT JOIN campaigns            c ON cr.campaign_id    = c.campaign_id
       LEFT JOIN advertisers          a ON cr.advertiser_id  = a.advertiser_id
-      LEFT JOIN client_organizations o ON a.client_org_id   = o.client_org_id
+      LEFT JOIN client_organizations o ON cr.client_org_id  = o.client_org_id
       ORDER BY cr.creative_id
     `;
 

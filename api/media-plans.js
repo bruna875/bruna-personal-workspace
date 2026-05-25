@@ -16,36 +16,36 @@ export default async function handler(req, res) {
     if (campaign_id && plan_name) {
       rows = await sql`
         SELECT mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
-               mp.advertiser_id, mp.moment_id, mp.est_impressions, mp.est_cpm,
+               mp.client_org_id, mp.advertiser_id, mp.moment_id, mp.est_impressions, mp.est_cpm,
                mp.est_dollar_value, mp.created_by, mp.created_at,
-               a.client_org_id, o.client_name, a.advertiser_name
+               o.client_name, a.advertiser_name
         FROM media_plans mp
         LEFT JOIN advertisers          a ON mp.advertiser_id  = a.advertiser_id
-        LEFT JOIN client_organizations o ON a.client_org_id   = o.client_org_id
+        LEFT JOIN client_organizations o ON mp.client_org_id  = o.client_org_id
         WHERE mp.campaign_id = ${parseInt(campaign_id)} AND mp.media_plan_name = ${plan_name}
         ORDER BY mp.created_at DESC
       `;
     } else if (campaign_id) {
       rows = await sql`
         SELECT mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
-               mp.advertiser_id, mp.moment_id, mp.est_impressions, mp.est_cpm,
+               mp.client_org_id, mp.advertiser_id, mp.moment_id, mp.est_impressions, mp.est_cpm,
                mp.est_dollar_value, mp.created_by, mp.created_at,
-               a.client_org_id, o.client_name, a.advertiser_name
+               o.client_name, a.advertiser_name
         FROM media_plans mp
         LEFT JOIN advertisers          a ON mp.advertiser_id  = a.advertiser_id
-        LEFT JOIN client_organizations o ON a.client_org_id   = o.client_org_id
+        LEFT JOIN client_organizations o ON mp.client_org_id  = o.client_org_id
         WHERE mp.campaign_id = ${parseInt(campaign_id)}
         ORDER BY mp.created_at DESC
       `;
     } else {
       rows = await sql`
         SELECT mp.media_plan_id, mp.media_plan_name, mp.campaign_id,
-               mp.advertiser_id, mp.moment_id, mp.est_impressions, mp.est_cpm,
+               mp.client_org_id, mp.advertiser_id, mp.moment_id, mp.est_impressions, mp.est_cpm,
                mp.est_dollar_value, mp.created_by, mp.created_at,
-               a.client_org_id, o.client_name, a.advertiser_name
+               o.client_name, a.advertiser_name
         FROM media_plans mp
         LEFT JOIN advertisers          a ON mp.advertiser_id  = a.advertiser_id
-        LEFT JOIN client_organizations o ON a.client_org_id   = o.client_org_id
+        LEFT JOIN client_organizations o ON mp.client_org_id  = o.client_org_id
         WHERE mp.media_plan_name = ${plan_name}
         ORDER BY mp.created_at DESC
       `;
