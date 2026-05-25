@@ -395,6 +395,7 @@ function dspOpenConnect(libraryId) {
         : '')
     // ── Form fields ──
     + '<div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Partner Preset</div>'
     + (fieldsHtml || '<div style="font-size:12px;color:var(--muted);text-align:center;padding:24px 0">No configuration required.</div>')
     + '</div>'
     // ── Footer ──
