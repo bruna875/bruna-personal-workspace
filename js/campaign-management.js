@@ -2013,7 +2013,7 @@ function _cmPacingDetail(c) {
     }
   } catch(e) {}
 
-  // KPI card helper — no individual border (they live inside the outer card)
+  // KPI card helper
   function kpi(label, value, sub, accent) {
     return '<div style="flex:1;padding:20px;border-right:1px solid var(--border)">'
       + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:8px">' + label + '</div>'
@@ -2022,21 +2022,18 @@ function _cmPacingDetail(c) {
       + '</div>';
   }
 
-  // Expected pacing % = how far through the flight we are (mock: 65%)
   var expectedPct = 65;
   var pacingLabel = (pacingPct != null) ? pacingPct + '%' : '—';
 
-  // Single card wrapping scorecards + delivery progress
+  // ── Performance card (KPIs + pacing bar) ────────────────────────────────────
   var perfCard =
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">'
-    // ── Header ──
     + '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +   '<span style="font-size:13px;font-weight:600;color:var(--text)">' + (c.name || '—') + '</span>'
     +   '<span style="font-size:13px;color:var(--muted)">(' + (c.advertiser || '—') + ')</span>'
     +   (c.partners && c.partners.length ? cmPartnerBadges(c.partners) : '')
     +   '<div style="margin-left:auto">' + cmStatusChip(c.status) + '</div>'
     + '</div>'
-    // ── KPI row ──
     + '<div style="display:flex;border-bottom:1px solid var(--border)">'
     +   kpi('Impressions Delivered', delivered, 'Goal: ' + (c.goal || '—'))
     +   kpi('Budget Spent', spent, 'of ' + (c.budget || '—'))
@@ -2047,7 +2044,6 @@ function _cmPacingDetail(c) {
     +     '<div style="font-size:11px;color:var(--faint);margin-top:5px">' + (c.start || '—') + ' → ' + (c.end || '—') + '</div>'
     +   '</div>'
     + '</div>'
-    // ── Delivery progress bar ──
     + '<div style="padding:20px">'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     +     '<span style="font-size:12px;font-weight:600;color:var(--text)">Delivery Progress</span>'
@@ -2064,36 +2060,68 @@ function _cmPacingDetail(c) {
     + '</div>'
     + '</div>';
 
-  // ── Campaign Details card ─────────────────────────────────────────────────
-  function detailRow(label, val) {
-    return '<div style="display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)">'
-      + '<span style="font-size:11px;color:var(--faint);width:76px;flex-shrink:0">' + label + '</span>'
-      + '<span style="font-size:11px;color:var(--text)">' + (val || '—') + '</span>'
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function infoField(label, value) {
+    return '<div style="display:flex;align-items:baseline;gap:8px;min-width:0">'
+      + '<span style="font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;flex-shrink:0">' + label + '</span>'
+      + '<span style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + value + '</span>'
       + '</div>';
   }
+  function sectionLabel(text) {
+    return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">' + text + '</div>';
+  }
 
-  var detailCard =
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;display:flex">'
-    // ── Campaign Details sub-column ──
-    + '<div style="flex:2;padding:20px;border-right:1px solid var(--border);min-width:0">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">Campaign Details</div>'
-    +   detailRow('Geography', (c.geography || []).join(', '))
-    +   detailRow('Start', c.start)
-    +   detailRow('End', c.end)
-    +   detailRow('Budget', c.budget)
-    +   detailRow('Goal', c.goal)
-    +   detailRow('Created by', c.createdBy)
+  var geo         = (c.geography || []).join(', ') || '—';
+  var flight      = (c.start && c.end) ? c.start + ' → ' + c.end : '—';
+  var partnersStr = (c.partners && c.partners.length) ? c.partners.join(', ') : '—';
+
+  // ── Row 1: 3-column info card (Asset | Campaign Details | Additional Details) ─
+  var infoCard =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;display:flex;align-items:stretch">'
+
+    // Asset column
+    + '<div style="flex:1;padding:16px 20px;min-width:0">'
+    +   sectionLabel('Asset')
+    +   '<div id="cm-detail-creatives" style="display:flex;gap:10px;flex-wrap:wrap"><span style="font-size:12px;color:var(--faint)">Loading…</span></div>'
     + '</div>'
-    // ── Creatives sub-column ──
-    + '<div style="flex:2;padding:20px;border-right:1px solid var(--border);min-width:0">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">Creatives</div>'
-    +   '<div id="cm-detail-creatives" style="min-height:40px"><span style="font-size:12px;color:var(--faint)">Loading…</span></div>'
+
+    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    // Campaign Details column
+    + '<div style="flex:1;padding:16px 20px;min-width:0">'
+    +   sectionLabel('Campaign Details')
+    +   '<div style="display:flex;flex-direction:column;gap:8px">'
+    +     infoField('Campaign', c.name || '—')
+    +     infoField('Advertiser', c.advertiser || '—')
+    +     infoField('Geography', geo)
+    +     infoField('Flight Dates', flight)
+    +     infoField('Status', cmStatusChip(c.status))
+    +   '</div>'
     + '</div>'
-    // ── Right column: Media Plan (wider) ──
-    + '<div style="flex:3;padding:20px;min-width:0">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">Media Plan</div>'
-    +   '<div id="cm-detail-plan" style="min-height:40px"><span style="font-size:12px;color:var(--faint)">Loading…</span></div>'
+
+    + '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    // Additional Details column
+    + '<div style="flex:1;padding:16px 20px;min-width:0">'
+    +   sectionLabel('Additional Details')
+    +   '<div style="display:flex;flex-direction:column;gap:8px">'
+    +     infoField('Goal', c.goal || '—')
+    +     infoField('Budget', c.budget || '—')
+    +     infoField('Delivered', delivered)
+    +     infoField('Spent', spent)
+    +     infoField('Partners', partnersStr)
+    +   '</div>'
     + '</div>'
+
+    + '</div>';
+
+  // ── Row 2: Moments table card ─────────────────────────────────────────────────
+  var momentsCard =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">'
+    + '<div style="padding:12px 20px;border-bottom:1px solid var(--border)">'
+    +   '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint)">Moments</span>'
+    + '</div>'
+    + '<div id="cm-detail-plan"><div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</div></div>'
     + '</div>';
 
   if (c.dbId) {
@@ -2106,7 +2134,7 @@ function _cmPacingDetail(c) {
       var ec = document.getElementById('cm-detail-creatives');
       var ep = document.getElementById('cm-detail-plan');
       if (ec) ec.innerHTML = '<span style="font-size:12px;color:var(--faint)">Not available for mock campaigns.</span>';
-      if (ep) ep.innerHTML = '<span style="font-size:12px;color:var(--faint)">Not available for mock campaigns.</span>';
+      if (ep) ep.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Not available for mock campaigns.</div>';
     }, 0);
   }
 
@@ -2119,7 +2147,8 @@ function _cmPacingDetail(c) {
       subtitle: (c.client ? c.client + ' · ' : '') + c.advertiser + ' · ' + c.geography.join(', '),
     })
     + perfCard
-    + detailCard;
+    + infoCard
+    + momentsCard;
 }
 
 // ── Pacing detail: load creatives ─────────────────────────────────────────────
@@ -2131,30 +2160,35 @@ function _cmLoadPacingCreatives(dbId) {
       if (!el) return;
       var list = data.creatives || [];
       if (!list.length) {
-        el.innerHTML = '<span style="font-size:12px;color:var(--faint)">No creatives linked.</span>';
+        el.innerHTML = '<span style="font-size:12px;color:var(--faint);font-style:italic">No assets linked to this campaign.</span>';
         return;
       }
-      el.innerHTML = list.map(function(cr) {
-        var thumb = cr.thumb
-          ? '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
-          : '';
-        var typeLabel = cr.fileType || (cr.assetType === 'youtube' ? 'MP4' : 'IMG');
-        var tplBadges = (cr.templates && cr.templates.length)
-          ? cr.templates.map(function(t) {
-              return '<span style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border)">' + t.name + '</span>';
-            }).join(' ')
-          : '';
-        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
-          + '<div style="flex-shrink:0;text-align:center">'
-          +   '<div style="width:56px;height:34px;border-radius:4px;overflow:hidden;background:var(--border)">' + thumb + '</div>'
-          +   '<div style="font-size:9px;color:var(--faint);margin-top:3px;text-align:center">' + typeLabel + '</div>'
-          + '</div>'
-          + '<div style="flex:1;min-width:0">'
-          +   '<div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (cr.name || '—') + '</div>'
-          +   (tplBadges ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">' + tplBadges + '</div>' : '')
-          + '</div>'
-          + '</div>';
-      }).join('');
+      // Map DB creative fields to the format expected by _mp2CreativeTilesHtml
+      var mapped = list.map(function(cr) {
+        return {
+          id:        cr.creative_id || cr.id || ('cr' + Math.random()),
+          name:      cr.creative_name || cr.name || cr.creative_id || '—',
+          thumb:     cr.thumb || cr.file_url || '',
+          type:      cr.fileType || cr.asset_type || 'VoD',
+          templates: cr.templates || []
+        };
+      });
+      if (typeof _mp2CreativeTilesHtml === 'function') {
+        el.innerHTML = _mp2CreativeTilesHtml(mapped);
+      } else {
+        // Fallback inline tile render
+        el.innerHTML = mapped.map(function(cr) {
+          var thumbHtml = cr.thumb
+            ? '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
+            : '<div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l5-5 4 4 3-3 6 6"/></svg></div>';
+          return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);width:140px;flex-shrink:0;display:flex;flex-direction:column">'
+            + '<div style="aspect-ratio:16/9;background:#e5e7eb;overflow:hidden;position:relative">' + thumbHtml
+            +   '<div style="position:absolute;top:4px;left:4px;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.5);color:#fff">' + cr.type + '</div>'
+            + '</div>'
+            + '<div style="padding:4px 6px"><div style="font-size:10px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + cr.name + '</div></div>'
+            + '</div>';
+        }).join('');
+      }
     })
     .catch(function() {
       var el = document.getElementById('cm-detail-creatives');
@@ -2162,8 +2196,11 @@ function _cmLoadPacingCreatives(dbId) {
     });
 }
 
-// ── Pacing detail: load media plan moments ────────────────────────────────────
+// ── Pacing detail: load media plan moments table ──────────────────────────────
 function _cmLoadPacingPlan(dbId) {
+  var TH  = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap';
+  var TOT = 'padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg)';
+
   fetch('/api/media-plans?campaign_id=' + dbId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -2171,45 +2208,112 @@ function _cmLoadPacingPlan(dbId) {
       if (!el) return;
       var rows = data.media_plans || [];
       if (!rows.length) {
-        el.innerHTML = '<span style="font-size:12px;color:var(--faint)">No media plan linked.</span>';
+        el.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No media plan linked.</div>';
         return;
       }
-      // Plan name header + deduplicated moments
-      var planName = rows[0].media_plan_name || '—';
+
+      // Deduplicate by moment_id
       var seen = {};
       var unique = rows.filter(function(r) {
         if (seen[r.moment_id]) return false;
         seen[r.moment_id] = true;
         return true;
       });
+
+      // Accumulate totals
+      var totalImpr = 0;
+      var totalCpm  = 0;
+      var cpmCount  = 0;
+
+      var rowsHtml = unique.map(function(r) {
+        var det      = r.moment_details || {};
+        var mock     = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
+        var name     = det.moment_name || mock.moment_name || r.moment_id;
+        var type     = det.moment_type || mock.moment_type || '';
+        var pods     = (det.pods !== undefined && det.pods !== null) ? det.pods : (mock.pods !== undefined ? mock.pods : '—');
+        var channels = det.channels || mock.channels || [];
+        var imprRaw  = Number(r.est_impressions) || 0;
+        var cpmRaw   = parseFloat(r.est_cpm) || 0;
+
+        totalImpr += imprRaw;
+        if (cpmRaw > 0) { totalCpm += cpmRaw; cpmCount++; }
+
+        var imprLabel = (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(imprRaw)
+          : (imprRaw ? (imprRaw / 1000000).toFixed(1) + 'M' : '—');
+        var cpmLabel  = cpmRaw > 0 ? '$' + cpmRaw.toFixed(2) : '—';
+        var dollar    = imprRaw > 0 && cpmRaw > 0 ? (imprRaw / 1000) * cpmRaw : 0;
+        var dolLabel  = dollar > 0
+          ? '$' + (dollar >= 1000000 ? (dollar / 1000000).toFixed(1) + 'M'
+                   : dollar >= 1000 ? (dollar / 1000).toFixed(0) + 'K'
+                   : dollar.toFixed(0))
+          : '—';
+
+        var rowType  = type.toLowerCase();
+        var typeBadge = rowType === 'live'
+          ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
+          : rowType === 'organic pause' || rowType === 'organic'
+          ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
+          : type
+          ? '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>'
+          : '';
+
+        var chCount = channels.length;
+        var chList  = channels.join(', ');
+        var chChip  = chCount > 0
+          ? '<div style="position:relative;display:inline-block" onmouseenter="this.querySelector(\'.cm-ch-tt\').style.display=\'block\'" onmouseleave="this.querySelector(\'.cm-ch-tt\').style.display=\'none\'">'
+          +   '<span style="font-size:10px;font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 8px;cursor:default;white-space:nowrap">' + chCount + ' channel' + (chCount > 1 ? 's' : '') + '</span>'
+          +   '<div class="cm-ch-tt" style="display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:200;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.6;padding:6px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:nowrap;pointer-events:none">' + chList + '</div>'
+          + '</div>'
+          : '<span style="color:var(--faint)">—</span>';
+
+        return '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + name + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + pods + '</td>'
+          + '<td style="padding:10px 12px">' + typeBadge + '</td>'
+          + '<td style="padding:10px 12px">' + chChip + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + imprLabel + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right;white-space:nowrap">' + cpmLabel + '</td>'
+          + '<td style="padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);text-align:right;white-space:nowrap">' + dolLabel + '</td>'
+          + '</tr>';
+      }).join('');
+
+      // Totals row
+      var avgCpm     = cpmCount > 0 ? totalCpm / cpmCount : 0;
+      var totImprLbl = totalImpr > 0 ? (totalImpr / 1000000).toFixed(1) + 'M' : '—';
+      var totCpmLbl  = avgCpm   > 0 ? '$' + avgCpm.toFixed(2) : '—';
+      var totDollar  = totalImpr > 0 && avgCpm > 0 ? (totalImpr / 1000) * avgCpm : 0;
+      var totDolLbl  = totDollar > 0
+        ? '$' + (totDollar >= 1000000 ? (totDollar / 1000000).toFixed(1) + 'M'
+                  : totDollar >= 1000 ? (totDollar / 1000).toFixed(0) + 'K'
+                  : totDollar.toFixed(0))
+        : '—';
+
       el.innerHTML =
-        '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">' + planName + '</div>'
-        + unique.map(function(r) {
-            var det  = r.moment_details || {};
-            var mock = (typeof momentById === 'function' && momentById(r.moment_id)) || {};
-            var name = det.moment_name || mock.moment_name || r.moment_id;
-            var type = det.moment_type || mock.moment_type || '';
-            var impr = (typeof fmtMomentImpr === 'function') ? fmtMomentImpr(Number(r.est_impressions)) : (r.est_impressions || '—');
-            var cpm  = r.est_cpm ? '$' + parseFloat(r.est_cpm).toFixed(2) : '—';
-            var typeBadge = type
-              ? '<span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:10px;'
-                + (type === 'Live' ? 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca'
-                  : type === 'Organic Pause' ? 'background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4'
-                  : 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe') + '">' + type + '</span>'
-              : '';
-            return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
-              + '<div style="flex:1;min-width:0">'
-              +   '<div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px">' + name + '</div>'
-              +   typeBadge
-              + '</div>'
-              + '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + impr + '</span>'
-              + '<span style="font-size:10px;color:var(--faint);flex-shrink:0">' + cpm + ' CPM</span>'
-              + '</div>';
-          }).join('');
+        '<table style="width:100%;border-collapse:collapse">'
+        + '<thead><tr style="background:var(--bg)">'
+        +   '<th style="text-align:left;'  + TH + '">Moment</th>'
+        +   '<th style="text-align:right;' + TH + '">PODs</th>'
+        +   '<th style="text-align:left;'  + TH + '">Type</th>'
+        +   '<th style="text-align:left;'  + TH + '">Channels</th>'
+        +   '<th style="text-align:right;' + TH + '">Est. Imp.</th>'
+        +   '<th style="text-align:right;' + TH + '">Est. CPM</th>'
+        +   '<th style="text-align:right;' + TH + '">Est. $ Value</th>'
+        + '</tr></thead>'
+        + '<tbody>' + rowsHtml + '</tbody>'
+        + '<tfoot><tr>'
+        +   '<td style="' + TOT + '">Total</td>'
+        +   '<td style="' + TOT + '"></td>'
+        +   '<td style="' + TOT + '"></td>'
+        +   '<td style="' + TOT + '"></td>'
+        +   '<td style="' + TOT + ';text-align:right">' + totImprLbl + '</td>'
+        +   '<td style="' + TOT + ';text-align:right">' + totCpmLbl + '</td>'
+        +   '<td style="' + TOT + ';text-align:right">' + totDolLbl + '</td>'
+        + '</tr></tfoot>'
+        + '</table>';
     })
     .catch(function() {
       var el = document.getElementById('cm-detail-plan');
-      if (el) el.innerHTML = '<span style="font-size:12px;color:var(--faint)">Could not load media plan.</span>';
+      if (el) el.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Could not load media plan.</div>';
     });
 }
 
