@@ -1030,7 +1030,7 @@ function mp2StepNav(dir) {
       // Pre-fill analysis name with campaign name and lock it
       var anInput = document.getElementById('mp2-analysis-name-input');
       if (anInput) {
-        anInput.value = mp2SelectedCampaign.name || '';
+        anInput.value = (mp2SelectedCampaign.name ? mp2SelectedCampaign.name + ' Moments Match' : '');
         anInput.disabled = true;
         anInput.style.background = 'var(--subtle)';
         anInput.style.color = 'var(--faint)';
