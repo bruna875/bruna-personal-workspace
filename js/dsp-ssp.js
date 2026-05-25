@@ -235,14 +235,20 @@ function _dspRender() {
 }
 
 // ── Single card ───────────────────────────────────────────────────────────────
+// Inject pulsing dot keyframe once
+(function() {
+  if (document.getElementById('dsp-pulse-style')) return;
+  var s = document.createElement('style');
+  s.id = 'dsp-pulse-style';
+  s.textContent = '@keyframes dspPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}';
+  document.head.appendChild(s);
+})();
+
 function _dspCardHtml(lib, conn) {
-  var color  = _dspColor(lib.name);
   var isConn = !!conn;
 
   var typeBadge = '<span style="display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.04em;'
-    + (lib.type === 'DSP'
-        ? 'background:#eff6ff;color:#2563eb'
-        : 'background:#f0fdf4;color:#16a34a')
+    + (lib.type === 'DSP' ? 'background:#eff6ff;color:#2563eb' : 'background:#f0fdf4;color:#16a34a')
     + '">' + lib.type + '</span>';
 
   var catBadge = lib.category
@@ -251,47 +257,34 @@ function _dspCardHtml(lib, conn) {
 
   var logoArea = _dspLogoHtml(lib.name, 40);
 
-  var statusDot = '';
-  var connDetails = '';
-  var cardAction = '';
+  // Active chip with pulsing dot
+  var activeBadge = isConn
+    ? '<span style="display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:99px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:10px;font-weight:600;color:#16a34a;white-space:nowrap">'
+      + '<span style="width:6px;height:6px;border-radius:99px;background:#16a34a;animation:dspPulse 2s ease-in-out infinite"></span>'
+      + 'Active</span>'
+    : '';
 
-  if (isConn) {
-    var statusColor = conn.status === 'active' ? '#16a34a' : conn.status === 'error' ? '#ef4444' : '#f59e0b';
-    var statusLabel = conn.status.charAt(0).toUpperCase() + conn.status.slice(1);
-    statusDot = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:' + statusColor + '">'
-      + '<span style="width:6px;height:6px;border-radius:99px;background:' + statusColor + '"></span>' + statusLabel + '</span>';
+  // Connect button — only for unconnected
+  var cardAction = isConn ? '' :
+    '<button onclick="event.stopPropagation();dspOpenConnect(' + lib.library_id + ')" '
+    + 'style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border:1px solid var(--accent);border-radius:6px;background:transparent;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;font-family:inherit;transition:background .12s,color .12s" '
+    + 'onmouseover="this.style.background=\'var(--accent)\';this.style.color=\'#fff\'" '
+    + 'onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--accent)\'">'
+    + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    + 'Connect</button>';
 
-    var seatLine = conn.seat_id
-      ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">Seat ID: <span style="color:var(--text);font-weight:500">' + conn.seat_id + '</span></div>'
-      : '';
+  // Footer — always same height regardless of seat_id presence
+  var connDetails = isConn
+    ? '<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--bg)">'
+      + '<div style="font-size:11px;color:var(--muted)">Seat ID: <span style="color:' + (conn.seat_id ? 'var(--text);font-weight:500' : 'var(--faint)') + '">' + (conn.seat_id || '—') + '</span></div>'
+      + '<div style="font-size:10px;color:var(--faint);margin-top:3px">'
+      + (conn.connected_at ? 'Connected ' + _dspFmtDate(conn.connected_at) + (conn.connected_by ? ' · ' + conn.connected_by : '') : '—')
+      + '</div>'
+      + '</div>'
+    : '';
 
-    var connDate = conn.connected_at
-      ? '<div style="font-size:10px;color:var(--faint);margin-top:3px">Connected ' + _dspFmtDate(conn.connected_at) + (conn.connected_by ? ' · ' + conn.connected_by : '') + '</div>'
-      : '';
-
-    connDetails = '<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--bg)">'
-      + seatLine + connDate
-      + '</div>';
-
-    cardAction = '<button onclick="event.stopPropagation();dspDisconnect(' + conn.connection_id + ')" '
-      + 'style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border:1px solid var(--border-md);border-radius:6px;background:transparent;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit;transition:border-color .12s,color .12s" '
-      + 'onmouseover="this.style.borderColor=\'#ef4444\';this.style.color=\'#ef4444\'" '
-      + 'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
-      + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-      + 'Disconnect</button>';
-  } else {
-    cardAction = '<button onclick="dspOpenConnect(' + lib.library_id + ')" '
-      + 'style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border:1px solid var(--accent);border-radius:6px;background:transparent;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;font-family:inherit;transition:background .12s,color .12s" '
-      + 'onmouseover="this.style.background=\'var(--accent)\';this.style.color=\'#fff\'" '
-      + 'onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--accent)\'">'
-      + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-      + 'Connect</button>';
-  }
-
-  var cardBorder = isConn ? 'border:1.5px solid ' + color + '22' : 'border:1px solid var(--border)';
-
-  return '<div style="border-radius:10px;overflow:hidden;' + cardBorder + ';background:var(--surface);transition:box-shadow .15s" '
-    + (isConn ? '' : 'onclick="dspOpenConnect(' + lib.library_id + ')" ')
+  return '<div onclick="dspOpenConnect(' + lib.library_id + ')" '
+    + 'style="border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:box-shadow .15s" '
     + 'onmouseover="this.style.boxShadow=\'0 2px 10px rgba(0,0,0,.08)\'" '
     + 'onmouseout="this.style.boxShadow=\'none\'">'
     + '<div style="padding:14px;display:flex;flex-direction:column;gap:10px">'
@@ -303,12 +296,12 @@ function _dspCardHtml(lib, conn) {
     +         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px">' + typeBadge + catBadge + '</div>'
     +       '</div>'
     +     '</div>'
-    +     (isConn ? statusDot : '')
+    +     activeBadge
     +   '</div>'
     +   (lib.description && !isConn
        ? '<div style="font-size:11px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + lib.description + '</div>'
        : '')
-    +   '<div style="display:flex;justify-content:flex-end">' + cardAction + '</div>'
+    +   (cardAction ? '<div style="display:flex;justify-content:flex-end">' + cardAction + '</div>' : '')
     + '</div>'
     + connDetails
     + '</div>';
@@ -322,18 +315,24 @@ function dspOpenConnect(libraryId) {
   }
   _dspConnectItem = _dspLibrary.find(function(l) { return l.library_id === libraryId; });
   if (!_dspConnectItem) return;
-  _dspFormValues = {};
 
-  var fields = (_dspConnectItem.preset_fields || []);
+  // Pre-fill from existing connection if already connected
+  var existingConn = _dspConnections.find(function(c) { return c.library_id === libraryId; });
+  _dspFormValues = (existingConn && existingConn.preset_values) ? Object.assign({}, existingConn.preset_values) : {};
+  if (existingConn && existingConn.seat_id) _dspFormValues._seat_id = existingConn.seat_id;
+
+  // Only show connection-scope fields in the drawer
+  var fields = (_dspConnectItem.preset_fields || []).filter(function(f) { return f.scope !== 'campaign'; });
   var color  = _dspColor(_dspConnectItem.name);
 
   var fieldsHtml = fields.map(function(f) {
+    var preVal = _dspFormValues[f.key] || '';
     if (f.type === 'select') {
       return '<div>'
         + '<label style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px">'
         + f.label + (f.required ? ' <span style="color:var(--accent)">*</span>' : '') + '</label>'
         + '<select id="dsp-field-' + f.key + '" style="width:100%;height:36px;padding:0 10px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box">'
-        + (f.options || []).map(function(o) { return '<option value="' + o + '">' + o + '</option>'; }).join('')
+        + (f.options || []).map(function(o) { return '<option value="' + o + '"' + (o === preVal ? ' selected' : '') + '>' + o + '</option>'; }).join('')
         + '</select>'
         + '</div>';
     }
@@ -341,6 +340,7 @@ function dspOpenConnect(libraryId) {
       + '<label style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px">'
       + f.label + (f.required ? ' <span style="color:var(--accent)">*</span>' : '') + '</label>'
       + '<input id="dsp-field-' + f.key + '" type="' + (f.type === 'password' ? 'password' : 'text') + '" '
+      + 'value="' + (f.type === 'password' ? '' : preVal) + '" '
       + 'placeholder="' + (f.placeholder || '') + '" autocomplete="off" '
       + 'style="width:100%;height:36px;padding:0 12px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box;transition:border-color .15s" '
       + 'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'

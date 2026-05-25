@@ -2396,7 +2396,7 @@ function mp2Analyze() {
   (function() {
     var campaignId     = (mp2SelectedCampaign && mp2SelectedCampaign.dbId) ? parseInt(mp2SelectedCampaign.dbId) : null;
     var clientOrgId    = mp2SelectedClientId ? parseInt(mp2SelectedClientId) : null;
-    var advertiserDbId = (mp2SelectedCampaign && mp2SelectedCampaign.advertiser_id) ? parseInt(mp2SelectedCampaign.advertiser_id) : null;
+    var advertiserDbId = (mp2SelectedCampaign && mp2SelectedCampaign.advertiserId) ? parseInt(mp2SelectedCampaign.advertiserId) : null;
 
     // Collect all selected creative IDs as an array
     var creativeIdsArr = (mp2LibrarySelectedItems && mp2LibrarySelectedItems.length)

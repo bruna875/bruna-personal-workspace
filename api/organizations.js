@@ -17,7 +17,7 @@ export default async function handler(req, res) {
         COUNT(DISTINCT c.campaign_id)   AS campaign_count
       FROM client_organizations o
       LEFT JOIN advertisers a ON a.client_org_id  = o.client_org_id
-      LEFT JOIN campaigns   c ON c.advertiser_id  = a.advertiser_id
+      LEFT JOIN campaigns   c ON c.client_org_id  = o.client_org_id
       GROUP BY o.client_org_id, o.client_name, o.client_type, o.client_email
       ORDER BY o.client_org_id
     `;

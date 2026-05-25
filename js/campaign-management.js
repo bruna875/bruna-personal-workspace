@@ -1319,6 +1319,16 @@ function _cmPartnerFilteredConns() {
 }
 
 function _cmPartnerGridColHtml() {
+  // Guard: client and advertiser must be set in Step 1 first
+  if (!_cmDraftClient || !_cmDraftAdv) {
+    var missing = [];
+    if (!_cmDraftClient) missing.push('Client');
+    if (!_cmDraftAdv)    missing.push('Advertiser');
+    return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);padding:20px">'
+      + UI.alertBanner('warning', '', 'Select ' + missing.join(' and ') + ' in Step 1 — Campaign Details before choosing partners.')
+      + '</div>';
+  }
+
   var filtered = _cmPartnerFilteredConns();
   var search = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('cm-partner-search', 'Search platforms…', 'cmPartnerSearch(this.value)', _cmPartnerSearch || '')
@@ -1426,9 +1436,19 @@ function _cmPartnerInnerHtml() {
 }
 
 function cmLoadPartnerPanel() {
+  // Guard: client and advertiser must be selected first
+  if (!_cmDraftClient || !_cmDraftAdv) {
+    _cmDspConnections = null; // reset so it fetches fresh when they fill step 1
+    _cmDraftPartners  = [];
+    var g = document.getElementById('cm-partner-grid-col');
+    var s = document.getElementById('cm-partner-sel-col');
+    if (g) g.innerHTML = _cmPartnerGridColHtml(); // shows the warning banner
+    if (s) s.innerHTML = _cmPartnerSelColHtml();
+    return;
+  }
   if (!_cmCurrentClientOrgId) {
     var grid = document.getElementById('cm-partner-grid-col');
-    if (grid) grid.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">Save the campaign details first to load available partners.</div>';
+    if (grid) grid.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">Save Campaign Details first to load available partners.</div>';
     return;
   }
   if (_cmDspConnections !== null) {
