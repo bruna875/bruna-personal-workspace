@@ -69,13 +69,6 @@ export default async function handler(req, res) {
       WHERE analysis_id = ${aid}
     `;
 
-    // Also flip status to 'planned' if it was 'ready'
-    await sql`
-      UPDATE moments_match
-      SET status = 'planned'
-      WHERE analysis_id = ${aid} AND status = 'ready'
-    `;
-
     return res.status(200).json({ ok: true, media_plan_id, moments_count: enrichedMoments.length });
   } catch (err) {
     console.error('media-plans-add error:', err);

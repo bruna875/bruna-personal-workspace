@@ -71,14 +71,14 @@ export default async function handler(req, res) {
       const {
         analysis_name, campaign_id, client_org_id, advertiser_id,
         creative_id, creative_ids, created_by,
-        lookback_window, status, moments, asset_type, brief, doc,
+        lookback_window, moments, asset_type, brief, doc,
       } = req.body || {};
 
       const result = await sql`
         INSERT INTO moments_match
           (analysis_name, campaign_id, client_org_id, advertiser_id,
            creative_id, creative_ids, created_by,
-           lookback_window, status, moments, asset_type, brief, doc)
+           lookback_window, moments, asset_type, brief, doc)
         VALUES (
           ${analysis_name      ? String(analysis_name)              : null},
           ${campaign_id        ? parseInt(campaign_id)              : null},
@@ -88,7 +88,6 @@ export default async function handler(req, res) {
           ${creative_ids       !== undefined ? JSON.stringify(creative_ids) : null},
           ${created_by         ? String(created_by)                 : null},
           ${lookback_window    ? parseInt(lookback_window)          : null},
-          ${status             ? String(status)                     : 'pending'},
           ${moments            !== undefined ? JSON.stringify(moments) : null},
           ${asset_type         ? String(asset_type)                 : null},
           ${brief              ? String(brief)                      : null},
@@ -110,12 +109,9 @@ export default async function handler(req, res) {
       const { analysis_id } = req.query;
       if (!analysis_id) return res.status(400).json({ error: 'Missing analysis_id' });
 
-      const { status, moments, media_plans, analysis_name, brief, doc } = req.body || {};
+      const { moments, media_plans, analysis_name, brief, doc } = req.body || {};
       const aid = parseInt(analysis_id);
 
-      if (status !== undefined) {
-        await sql`UPDATE moments_match SET status = ${String(status)} WHERE analysis_id = ${aid}`;
-      }
       if (moments !== undefined) {
         await sql`UPDATE moments_match SET moments = ${JSON.stringify(moments)}::jsonb WHERE analysis_id = ${aid}`;
       }
