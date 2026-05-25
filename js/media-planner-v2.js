@@ -1390,11 +1390,6 @@ function mp2ShowUpload() {
     // ── New Plan tab — gradient bg, 2 columns: AI panel | upload form ──
     + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px;display:flex;flex-direction:column">'
     +   '<div style="text-align:center;margin-bottom:16px">'
-    +     '<div style="display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:6px">'
-    +       '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(225,29,143,.28)">'
-    +         '<svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
-    +       '</div>'
-    +     '</div>'
     +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">Get AI personalized Media Plans</div>'
     +     '<div style="font-size:11px;color:var(--muted)">Describe your campaigns, scan your creatives and let the AI find the best placements.</div>'
     +   '</div>'
@@ -2724,7 +2719,6 @@ function mp2ShowResults() {
     +     '<span style="width:1px;height:16px;background:var(--border);align-self:center;flex-shrink:0;margin:0 12px"></span>'
     +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')">Moments Match</button>'
     +     '<button class="cs-dv-tab cs-dv-tab--ai" id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')">'
-    +       '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2L7.3 5.7 11 7 7.3 8.3 6 12 4.7 8.3 1 7 4.7 5.7Z"/><path d="M12.5 1L13.3 3.2 15.5 4 13.3 4.8 12.5 7 11.7 4.8 9.5 4 11.7 3.2Z" opacity=".65"/></svg>'
     +       'AI Media Plan'
     +     '</button>'
     +   '</div>'
@@ -3814,14 +3808,9 @@ function csTx2BuildAIParamsPanel() {
     + '<div style="max-width:460px;width:100%;text-align:center">'
 
     // Visual header
-    + '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:32px">'
-    +   '<div style="width:32px;height:32px;flex-shrink:0;border-radius:9px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(225,29,143,.28)">'
-    +     '<svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'
-    +   '</div>'
-    +   '<div>'
-    +     '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px">AI Media Plan</div>'
-    +     '<div style="font-size:11px;color:var(--muted);line-height:1.4">Describe what you need and the AI will find the best placements.</div>'
-    +   '</div>'
+    + '<div style="margin-bottom:32px">'
+    +   '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px">AI Media Plan</div>'
+    +   '<div style="font-size:11px;color:var(--muted);line-height:1.4">Describe what you need and the AI will find the best placements.</div>'
     + '</div>'
 
     // Conversational sentence — free-flowing, centered, wraps naturally
