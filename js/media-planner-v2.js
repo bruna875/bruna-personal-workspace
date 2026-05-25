@@ -2645,55 +2645,9 @@ function mp2ShowResults() {
     : 'All regions';
 
   var assetStrip =
-    '<div id="mp2-asset-strip" style="display:none;width:220px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;overflow-y:auto;flex-direction:column;gap:14px">'
-    // Asset
-    + '<div>'
-    + sectionLabel('Asset')
-    + (function() {
-        if (mp2TaxInputType === 'text') {
-          var briefText = _mp2BriefContent || mp2TaxFileName || '';
-          return briefText
-            ? '<div style="font-size:11px;color:var(--text);line-height:1.6;font-style:italic;max-height:100px;overflow:hidden">"' + briefText.slice(0, 200) + (briefText.length > 200 ? '…' : '') + '"</div>'
-            : '<span style="font-size:11px;color:var(--faint)">—</span>';
-        }
-        if (mp2TaxInputType === 'doc') {
-          var docName = _mp2DocName || mp2TaxFileName || '—';
-          return '<div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text)">'
-            + '<svg width="12" height="12" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-            + '<span>' + docName + '</span></div>';
-        }
-        if (mp2LibrarySelectedItems && mp2LibrarySelectedItems.length) {
-          return '<div style="display:flex;gap:8px;flex-wrap:wrap">' + _mp2CreativeTilesHtml(mp2LibrarySelectedItems) + '</div>';
-        }
-        return '<span style="font-size:11px;color:var(--faint)">—</span>';
-      })()
-    + '</div>'
-
-    // Campaign
-    + '<div style="border-top:1px solid var(--border);padding-top:14px">'
-    + sectionLabel('Campaign')
-    + '<div style="display:flex;flex-direction:column;gap:6px">'
-    +   (mp2SelectedCampaign
-          ? infoField('Campaign',     campName)
-            + infoField('Advertiser',   advName)
-            + infoField('Geography',    geoLabel)
-            + infoField('Flight Dates', fdLabel)
-          : '<button onclick="mp2SwitchHomeTab(\'new-plan\')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;color:var(--accent);font-family:inherit;padding:0;transition:opacity .15s" onmouseover="this.style.opacity=\'.7\'" onmouseout="this.style.opacity=\'1\'">'
-            + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>'
-            + 'Add Campaign</button>')
-    + '</div>'
-    + '</div>'
-
-    // Additional details
-    + '<div style="border-top:1px solid var(--border);padding-top:14px">'
-    + sectionLabel('Additional Details')
-    + '<div style="display:flex;flex-direction:column;gap:6px">'
-    +   infoField('Budget',     (mp2SelectedCampaign && mp2SelectedCampaign.budget)          ? '$' + mp2SelectedCampaign.budget : '—')
-    +   infoField('Impr. Goal', (mp2SelectedCampaign && mp2SelectedCampaign.impression_goal) ? mp2SelectedCampaign.impression_goal : '—')
-    +   infoField('Lookback',   mp2LookbackSecs ? Math.round(mp2LookbackSecs / 60) + ' min' : '—')
-    + '</div>'
-    + '</div>'
-
+    '<div id="mp2-asset-strip" style="display:none;width:220px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;overflow-y:auto;flex-direction:column">'
+    + '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;flex-shrink:0">Media Plan</div>'
+    + '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px">Click a moment card to add it to your media plan</div>'
     + '</div>';  // closes mp2-asset-strip
 
   ca.innerHTML = cardHeader
@@ -2713,8 +2667,9 @@ function mp2ShowResults() {
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
     +     'AI Media Plan'
     +   '</button>'
-    +   '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;margin-left:auto;width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
+    +   '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;margin-left:auto;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>'
+    +     '<span id="mp2-mp-badge" style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;min-width:14px;text-align:center;display:none"></span>'
     +   '</button>'
     + '</div>'
 
@@ -2730,7 +2685,6 @@ function mp2ShowResults() {
     +     '</div>'
     +     '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
     +     '<div id="tx2-sub-content-ai-media-plan" style="display:none;border-radius:10px"></div>'
-    +     '<div id="inv-media-plan" style="display:none;width:220px;flex-shrink:0;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px"></div>'
     +   '</div>'
     + assetStrip
     + '</div>';
@@ -2783,15 +2737,6 @@ function mp2SubTab(tab) {
     }
     if (pnl) pnl.style.display = t === tab ? 'flex' : 'none';
   });
-  // Cart (media plan sidebar) only visible in Moments Match
-  var cartPanel = document.getElementById('inv-media-plan');
-  if (cartPanel) {
-    if (tab !== 'moments') {
-      cartPanel.style.display = 'none';
-    } else if (inv2MediaPlanVisible) {
-      cartPanel.style.display = 'flex';
-    }
-  }
   if (tab === 'ad-analysis')   {
     txRenderAdAnalysis();
     // Fix height so inner flex panels fill the viewport instead of overflowing freely
@@ -4893,10 +4838,6 @@ function mp2RenderMoments() {
     +   'Filters'
     +   (mfActive > 0 ? '<span style="background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;font-size:9px;font-weight:700;min-width:14px;text-align:center;line-height:16px;display:inline-block">' + mfActive + '</span>' : '')
     + '</button>'
-    + '<button id="mp2-moments-mp-btn" class="inv-view-btn' + (inv2MediaPlanVisible ? ' inv-view-btn--act' : '') + '" onclick="mp2ToggleMomentMediaPlan()" title="Media Plan" style="width:auto;padding:0 8px;gap:5px">'
-    +   '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><rect x="1.5" y="2" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M4 5.5h6M4 7.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
-    +   '<span id="mp2-mp-badge" style="font-size:11px;font-weight:600;display:' + (selCount > 0 ? 'inline' : 'none') + '">' + selCount + '</span>'
-    + '</button>'
     + '</div>';
 
   momPanel.innerHTML = headerHtml + '<div id="mp2-moments-scroll" style="overflow-y:auto;flex:1;min-height:0"></div>';
@@ -6442,7 +6383,9 @@ function mp2ToggleMomentCard(name) {
     delete mp2SelectedMoments[name];
   } else {
     mp2SelectedMoments[name] = true;
-    if (!inv2MediaPlanVisible) inv2MediaPlanVisible = true;
+    // Auto-open the sidebar cart if closed
+    var strip = document.getElementById('mp2-asset-strip');
+    if (strip && strip.style.display !== 'flex') mp2ToggleAssetStrip();
   }
   var safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
   var card = document.getElementById('mp2-mcard-' + safeId);
@@ -6457,22 +6400,16 @@ function mp2UpdateMomentMpBadge() {
   var badge = document.getElementById('mp2-mp-badge');
   var count = Object.keys(mp2SelectedMoments).length;
   if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline' : 'none'; }
-  var btn = document.getElementById('mp2-moments-mp-btn');
-  if (btn) btn.className = 'inv-view-btn' + (inv2MediaPlanVisible ? ' inv-view-btn--act' : '');
 }
 
 function mp2ToggleMomentMediaPlan() {
-  inv2MediaPlanVisible = !inv2MediaPlanVisible;
-  mp2UpdateMomentMpBadge();
-  mp2RenderMomentsMediaPlan();
+  mp2ToggleAssetStrip();
 }
 
 function mp2RenderMomentsMediaPlan() {
-  var panel = document.getElementById('inv-media-plan');
+  var panel = document.getElementById('mp2-asset-strip');
   if (!panel) return;
   mp2UpdateMomentMpBadge();
-  if (!inv2MediaPlanVisible) { panel.style.display = 'none'; return; }
-  panel.style.display = 'flex';
   var names = Object.keys(mp2SelectedMoments).filter(function(n) { return mp2SelectedMoments[n]; });
   if (names.length === 0) {
     panel.innerHTML =
