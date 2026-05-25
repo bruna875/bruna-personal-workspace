@@ -1335,7 +1335,7 @@ function mp2ShowUpload() {
 
   var libCols = [
     { label: '',               width: '36px'                    },
-    { label: 'Source',         width: '200px'                   },
+    { label: 'Analysis Name',  width: '220px'                   },
     { label: 'Date',           width: '110px'                   },
     { label: 'Client',         width: '130px'                   },
     { label: 'Campaign',       width: '160px'                   },
@@ -1858,35 +1858,24 @@ function _mp2RenderAnalysisRows(analyses) {
     var iconCell = '<span style="display:flex;align-items:center;justify-content:center;color:var(--muted)">'
       + typeIconForAsset(a.asset_type) + '</span>';
 
-    // Source: if multiple creatives show count, otherwise name/brief/doc
-    var creativeIdsArr = Array.isArray(a.creative_ids) ? a.creative_ids : [];
-    var sourceName;
-    if (creativeIdsArr.length > 1) {
-      sourceName = (a.creative_name || 'Creative') + ' +' + (creativeIdsArr.length - 1) + ' more';
-    } else {
-      sourceName = a.creative_name
-        || (a.brief ? (a.brief.slice(0, 45) + (a.brief.length > 45 ? '…' : '')) : null)
-        || a.doc
-        || ('Analysis #' + a.analysis_id);
-    }
+    // Analysis name
+    var analysisLabel = a.analysis_name || ('Analysis #' + a.analysis_id);
 
     // Date
     var dateStr = a.created_at
       ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       : '—';
 
-    // Moments
+    // Moments: count from moments[] or sum across media_plans[].moments[]
     var momentsVal = '—';
-    if (a.moments != null) {
-      momentsVal = Array.isArray(a.moments) ? a.moments.length : a.moments;
+    if (Array.isArray(a.moments) && a.moments.length) {
+      momentsVal = a.moments.length;
+    } else if (Array.isArray(a.media_plans) && a.media_plans.length) {
+      var total = a.media_plans.reduce(function(s, p) {
+        return s + (Array.isArray(p.moments) ? p.moments.length : 0);
+      }, 0);
+      if (total > 0) momentsVal = total;
     }
-
-    // Status badge
-    var statusBadge = a.status === 'completed'
-      ? '<span style="font-size:10px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px">Completed</span>'
-      : a.status === 'error'
-      ? '<span style="font-size:10px;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px">Error</span>'
-      : '<span style="font-size:10px;font-weight:600;color:var(--faint);background:var(--subtle);border:1px solid var(--border);border-radius:20px;padding:2px 8px">—</span>';
 
     var deleteBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysis(' + a.analysis_id + ',this)"'
       + ' style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;background:none;cursor:pointer;border-radius:6px;color:var(--faint);transition:color .15s,background .15s;margin:auto"'
@@ -1897,7 +1886,7 @@ function _mp2RenderAnalysisRows(analyses) {
 
     return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="' + TDi  + fix + '">' + iconCell                        + '</td>'
-      + '<td style="' + TDl  + fix + '">' + sourceName                      + '</td>'
+      + '<td style="' + TDl  + fix + '">' + analysisLabel                   + '</td>'
       + '<td style="' + TDlm + fix + '">' + dateStr                         + '</td>'
       + '<td style="' + TDlm + fix + '">' + (a.client_name     || '—')      + '</td>'
       + '<td style="' + TDlm + fix + '">' + (a.campaign_name   || '—')      + '</td>'
