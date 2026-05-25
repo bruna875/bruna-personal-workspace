@@ -30,13 +30,13 @@ var _dspColors = {
 // ── Logo URLs per DSP/SSP name ────────────────────────────────────────────────
 var _dspLogos = {
   'TripleLift':              'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692667/triplelift-logo-new_opnz8i.svg',
-  'Magnite':                 'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/magnite_logo_x9jqmb.svg',
+  'Magnite':                 'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694954/mglogo_f3gxp5.webp',
   'Yahoo DSP':               'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/Yahoo-DSP-logo_cvypas.webp',
-  'Xandr':                   'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/xandr_logo_x871tz.png',
-  'The Trade Desk':          'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/The_Trade_Desk.svg_lxfpb2.png',
-  'PubMatic':                'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/pubmatic_logo_brnf3v.png',
-  'Index Exchange':          'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/Index-Exchange-Stacked-Logo-Homepage-1_sip3w5.png',
-  'Amazon DSP':              'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/amazon_dsp_us3lmc.png',
+  'Xandr':                   'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694968/xandr_logo_bofilp.jpg',
+  'The Trade Desk':          'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694963/thetradedesk_logo_lpfoxg.webp',
+  'PubMatic':                'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694959/pubmatic-small-1_fnrdng.png',
+  'Index Exchange':          'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694949/index-exchange-logo_if47uv.png',
+  'Amazon DSP':              'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779694942/Amazon-logo-meaning_nygv5n.jpg',
   'DV360':                   'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/dv360_logo_tfrs2c.png',
   'Adobe Advertising Cloud': 'https://res.cloudinary.com/dhfrgr4qd/image/upload/v1779692666/Adobe_Advertising_Cloud_logo_RGB_192px_no_shadow_nnbjgy.png',
 };
