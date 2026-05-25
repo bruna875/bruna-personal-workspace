@@ -2794,7 +2794,28 @@ function mp2SubTab(tab) {
     strip.style.display = 'none';
     if (toggle) toggle.textContent = '+';
   }
-  if (tab === 'ad-analysis')   { txRenderAdAnalysis(); }
+  // Cart (media plan sidebar) only visible in Moments Match
+  var cartPanel = document.getElementById('inv-media-plan');
+  if (cartPanel) {
+    if (tab !== 'moments') {
+      cartPanel.style.display = 'none';
+    } else if (inv2MediaPlanVisible) {
+      cartPanel.style.display = 'flex';
+    }
+  }
+  if (tab === 'ad-analysis')   {
+    txRenderAdAnalysis();
+    // Fix height so inner flex panels fill the viewport instead of overflowing freely
+    setTimeout(function() {
+      var adPnl = document.getElementById('tx2-sub-content-ad-analysis');
+      if (adPnl) {
+        var rect = adPnl.getBoundingClientRect();
+        adPnl.style.height = Math.max(300, window.innerHeight - rect.top - 20) + 'px';
+        adPnl.style.minHeight = '0';
+        adPnl.style.overflow  = 'hidden';
+      }
+    }, 0);
+  }
   if (tab === 'moments')       { txCustomSelections = []; mp2RenderMoments(); }
   if (tab === 'ai-media-plan') {
     var aiPanel = document.getElementById('tx2-sub-content-ai-media-plan');
