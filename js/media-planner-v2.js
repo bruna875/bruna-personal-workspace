@@ -2719,7 +2719,7 @@ function mp2ShowResults() {
 
     // ── Tab nav + content (free-flowing) ──
     + '<div>'
-    +   '<div style="display:flex;align-items:center;gap:4px;padding:5px 20px;margin-left:-20px;margin-right:-20px;border-bottom:1px solid var(--border);margin-bottom:16px">'
+    +   '<div style="display:flex;align-items:center;gap:4px;padding:5px 20px;margin-top:-20px;margin-left:-20px;margin-right:-20px;border-bottom:1px solid var(--border);margin-bottom:16px">'
     +     '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
     +       'Ad Analysis'
