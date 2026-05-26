@@ -2667,11 +2667,16 @@ function mp2ShowResults() {
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
     +     'AI Media Plan'
     +   '</button>'
-    +   '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 4px;margin-left:auto;flex-shrink:0"></span>'
-    +   '<button id="mp2-asset-toggle" onclick="mp2ToggleAssetStrip()" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
-    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>'
-    +     '<span id="mp2-mp-badge" style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;min-width:14px;text-align:center;display:none"></span>'
-    +   '</button>'
+    +   '<div id="mp2-nav-right-group" style="display:flex;align-items:center;margin-left:auto;flex-shrink:0">'
+    +     '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 6px -5px 0;flex-shrink:0"></span>'
+    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Media Plan">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>'
+    +       '<span id="mp2-mp-badge" style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;min-width:14px;text-align:center;display:none"></span>'
+    +     '</button>'
+    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="List">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 4h7"/><path d="M14 9h7"/><path d="M14 15h7"/><path d="M14 20h7"/></svg>'
+    +     '</button>'
+    +   '</div>'
     + '</div>'
 
     // ── Main area: content + sidebar ──
@@ -2713,17 +2718,46 @@ function mp2TogglePlanCampStrip() {
   if (btn) btn.textContent = open ? '+' : '−';
 }
 
+var mp2SidebarMode = null; // 'plan' | 'list' | null
+
+function mp2ToggleSidebar(mode) {
+  var strip = document.getElementById('mp2-asset-strip');
+  var group = document.getElementById('mp2-nav-right-group');
+  var btnPlan = document.getElementById('mp2-asset-toggle');
+  var btnList = document.getElementById('mp2-list-toggle');
+  if (!strip) return;
+
+  var isOpen = strip.style.display === 'flex';
+  var sameMode = mp2SidebarMode === mode;
+
+  // If open and same icon clicked → close
+  if (isOpen && sameMode) {
+    strip.style.display = 'none';
+    mp2SidebarMode = null;
+    if (group) group.style.width = 'auto';
+  } else {
+    // Open (or switch mode)
+    strip.style.display = 'flex';
+    mp2SidebarMode = mode;
+    if (group) group.style.width = '220px';
+  }
+
+  // Update active states for both buttons
+  [{ btn: btnPlan, m: 'plan' }, { btn: btnList, m: 'list' }].forEach(function(item) {
+    var act = mp2SidebarMode === item.m;
+    if (item.btn) {
+      item.btn.dataset.act      = act ? '1' : '';
+      item.btn.style.background = act ? 'var(--bg)' : 'transparent';
+      item.btn.style.color      = act ? 'var(--text)' : 'var(--muted)';
+    }
+  });
+}
+
+// Kept for backward compat (auto-open from mp2ToggleMomentCard)
 function mp2ToggleAssetStrip() {
   var strip = document.getElementById('mp2-asset-strip');
-  var btn   = document.getElementById('mp2-asset-toggle');
-  if (!strip) return;
-  var open = strip.style.display === 'flex';
-  strip.style.display = open ? 'none' : 'flex';
-  if (btn) {
-    btn.dataset.act      = open ? '' : '1';
-    btn.style.background = open ? 'transparent' : 'var(--bg)';
-    btn.style.color      = open ? 'var(--muted)' : 'var(--text)';
-  }
+  if (strip && strip.style.display !== 'flex') mp2ToggleSidebar('plan');
+  else mp2ToggleSidebar('plan');
 }
 
 function mp2SubTab(tab) {
@@ -6386,7 +6420,7 @@ function mp2ToggleMomentCard(name) {
     mp2SelectedMoments[name] = true;
     // Auto-open the sidebar cart if closed
     var strip = document.getElementById('mp2-asset-strip');
-    if (strip && strip.style.display !== 'flex') mp2ToggleAssetStrip();
+    if (strip && strip.style.display !== 'flex') mp2ToggleSidebar('plan');
   }
   var safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
   var card = document.getElementById('mp2-mcard-' + safeId);
