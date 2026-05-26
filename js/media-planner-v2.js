@@ -2606,23 +2606,6 @@ function mp2ShowResults() {
     ? '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
     : '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
 
-  var cardHeader =
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border)">'
-    + '<div style="display:flex;align-items:center;gap:10px">'
-    +   '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0">' + assetTypeIcon + '</div>'
-    +   '<div style="display:flex;align-items:center;gap:8px">'
-    +     '<span style="font-size:13px;font-weight:600;color:var(--text)">' + campName + '</span>'
-    +     (mp2SelectedCampaign
-          ? '<span style="width:3px;height:3px;border-radius:50%;background:var(--border-md);flex-shrink:0"></span>'
-            + '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
-          : '')
-    +   '</div>'
-    + '</div>'
-    + '</div>';
-
-  var fdLabel = (mp2FlightDates && mp2FlightDates.start && mp2FlightDates.end)
-    ? (function(s,e){ return new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + ' → ' + new Date(e+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); })(mp2FlightDates.start, mp2FlightDates.end)
-    : '—';
   // ── helpers ──
   function infoField(label, value) {
     return '<div style="display:flex;align-items:baseline;gap:8px;min-width:0">'
@@ -2640,9 +2623,89 @@ function mp2ShowResults() {
     return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">' + text + '</div>';
   }
 
+  var fdLabel = (mp2FlightDates && mp2FlightDates.start && mp2FlightDates.end)
+    ? (function(s,e){ return new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + ' → ' + new Date(e+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); })(mp2FlightDates.start, mp2FlightDates.end)
+    : '—';
+
   var geoLabel = _mp2GeoSelected.size > 0
     ? _mp2GeoSelected.size + ' region' + (_mp2GeoSelected.size > 1 ? 's' : '')
     : 'All regions';
+
+  var SEP2 = '<span style="color:var(--border-md);margin:0 8px">·</span>';
+
+  var assetSectionHtml = (function() {
+    if (mp2TaxInputType === 'text') {
+      var briefText = _mp2BriefContent || mp2TaxFileName || '';
+      return briefText
+        ? '<div style="font-size:11px;color:var(--text);line-height:1.6;font-style:italic;max-height:80px;overflow:hidden">"' + briefText.slice(0, 200) + (briefText.length > 200 ? '…' : '') + '"</div>'
+        : '<span style="font-size:11px;color:var(--faint)">—</span>';
+    }
+    if (mp2TaxInputType === 'doc') {
+      var docName = _mp2DocName || mp2TaxFileName || '—';
+      return '<div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text)">'
+        + '<svg width="12" height="12" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+        + '<span>' + docName + '</span></div>';
+    }
+    if (mp2LibrarySelectedItems && mp2LibrarySelectedItems.length) {
+      return '<div style="display:flex;gap:8px;flex-wrap:wrap">' + _mp2CreativeTilesHtml(mp2LibrarySelectedItems) + '</div>';
+    }
+    return '<span style="font-size:11px;color:var(--faint)">—</span>';
+  })();
+
+  var cardHeader =
+    // ── Compact header row ──
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border)">'
+    + '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">'
+    +   '<div style="width:28px;height:28px;border-radius:7px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0">' + assetTypeIcon + '</div>'
+    +   '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0;min-width:0">'
+    +     '<span style="font-size:12px;font-weight:600;color:var(--text)">' + campName + '</span>'
+    +     (mp2SelectedCampaign
+          ? SEP2 + '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
+            + SEP2 + '<span style="font-size:12px;color:var(--faint)">' + fdLabel + '</span>'
+            + SEP2 + '<span style="font-size:12px;color:var(--faint)">' + geoLabel + '</span>'
+          : '')
+    +   '</div>'
+    + '</div>'
+    + '<button id="mp2-analysis-details-toggle" onclick="mp2ToggleAnalysisDetails()" '
+    +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s;flex-shrink:0;margin-left:16px" '
+    +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
+    +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">+</button>'
+    + '</div>'
+
+    // ── Expandable 3-column panel ──
+    + '<div id="mp2-analysis-details-panel" style="border-bottom:1px solid var(--border);display:none">'
+    +   '<div style="display:flex;align-items:stretch">'
+
+    +     '<div style="flex:1;padding:12px 20px;min-width:0">'
+    +     sectionLabel('Asset')
+    +     assetSectionHtml
+    +     '</div>'
+
+    +     '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    +     '<div style="flex:1;padding:12px 20px;min-width:0">'
+    +     sectionLabel('Campaign')
+    +     '<div style="display:flex;flex-direction:column;gap:8px">'
+    +       infoField('Campaign',    campName)
+    +       infoField('Advertiser',  advName)
+    +       infoField('Geography',   geoLabel)
+    +       infoField('Flight Dates',fdLabel)
+    +     '</div>'
+    +     '</div>'
+
+    +     '<div style="width:1px;background:var(--border);flex-shrink:0"></div>'
+
+    +     '<div style="flex:1;padding:12px 20px;min-width:0">'
+    +     sectionLabel('Campaign Details')
+    +     '<div style="display:flex;flex-direction:column;gap:8px">'
+    +       infoField('Budget',     (mp2SelectedCampaign && mp2SelectedCampaign.budget)          ? '$' + mp2SelectedCampaign.budget : '—')
+    +       infoField('Impr. Goal', (mp2SelectedCampaign && mp2SelectedCampaign.impression_goal) ? mp2SelectedCampaign.impression_goal : '—')
+    +       infoField('Lookback',   mp2LookbackSecs ? Math.round(mp2LookbackSecs / 60) + ' min' : '—')
+    +     '</div>'
+    +     '</div>'
+
+    +   '</div>'
+    + '</div>';
 
   var assetStrip =
     '<div id="mp2-asset-strip" style="display:none;width:220px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;overflow-y:auto;flex-direction:column">'
@@ -2698,6 +2761,15 @@ function mp2ShowResults() {
   if (typeof txInjectStyles === 'function') txInjectStyles();
   txCustomSelections = [];
   mp2SubTab('moments');
+}
+
+function mp2ToggleAnalysisDetails() {
+  var panel = document.getElementById('mp2-analysis-details-panel');
+  var btn   = document.getElementById('mp2-analysis-details-toggle');
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? '+' : '−';
 }
 
 function mp2TogglePlanBody() {
