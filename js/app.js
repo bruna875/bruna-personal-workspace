@@ -221,7 +221,9 @@ function setPage(id, label, noPush) {
         ? '/organization'
         : id === 'build-media-plan'
           ? '/campaign-management/draft-campaign/build-media-plan'
-          : '/' + id;
+          : id === 'media-planner-v2'
+            ? '/moments-match'
+            : '/' + id;
     history.pushState({ id: id, label: label }, '', urlSlug);
   }
 }
@@ -244,6 +246,13 @@ function pageFromPath() {
   if (path === 'media-planner-v2/media-plans')       return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'plans' };
   if (path === 'media-planner-v2/previous-analysis') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'analyses' };
   if (path === 'media-planner-v2/analysis') return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' };
+  // ── moments-match URL patterns ──
+  if (path === 'moments-match' || path === 'moments-match/new') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'new-plan' };
+  if (path === 'moments-match/saved') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'analyses' };
+  var mmSavedMatch = path.match(/^moments-match\/saved\/(\d+)(?:-.+)?$/);
+  if (mmSavedMatch) return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: parseInt(mmSavedMatch[1]), origin: 'saved' };
+  var mmNewMatch = path.match(/^moments-match\/new\/(\d+)(?:-.+)?$/);
+  if (mmNewMatch) return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: parseInt(mmNewMatch[1]), origin: 'new' };
   // /organization            → org list (org-management)
   // /organization/{org-slug} → single org detail  (no tab in URL)
   var parts = path.split('/');
@@ -273,7 +282,8 @@ function pageFromPath() {
     'measurement':           'Measurement',
     'dsp-ssp':                   'DSP / SSP Connections',
     'vod-livestream-feeds':      'VoD / Livestream Feeds',
-    'api-docs':                  'API Documentation'
+    'api-docs':                  'API Documentation',
+    'moments-match':             'Media Planner'
   };
   if (directLabels[base]) return { id: base, label: directLabels[base] };
   var found = null;
@@ -302,7 +312,8 @@ window.addEventListener('popstate', function(e) {
   // Media planner analysis view
   if (e.state && e.state.mp2View === 'analysis') {
     setPage('media-planner-v2', 'Media Planner', true);
-    setTimeout(mp2ShowResults, 80);
+    var _aid = e.state.analysisId || null;
+    setTimeout(function() { mp2ShowResults(_aid); }, 80);
     return;
   }
   // Media planner plan detail

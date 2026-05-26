@@ -715,8 +715,18 @@ var mp2NewPlanStep    = 1;
 var mp2CampaignMode   = 'select';   // 'create' | 'select'
 var mp2SelectedCampaign   = null;
 var _mp2LastAnalysisId    = null;   // analysis_id returned from last POST to creatives-analysis
+var _mp2LastAnalysisName  = '';     // analysis_name for URL slug
+var _mp2AnalysisFromSaved = false;  // true when loaded from Previous Analysis
 var _mp2BriefContent      = '';     // full brief text captured before DOM replacement
 var _mp2DocName           = '';     // doc filename captured before DOM replacement
+
+function mp2Slug(name) {
+  return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'analysis';
+}
+function mp2AnalysisUrl(id, name, origin) {
+  var base = origin === 'saved' ? '/moments-match/saved/' : '/moments-match/new/';
+  return base + (id ? id + '-' + mp2Slug(name) : mp2Slug(name));
+}
 var mp2SelectedClientId   = null;   // selected client org dbId
 var mp2Step1Clients       = null;   // null = not fetched yet; [] = loaded
 var mp2Step1Campaigns     = null;   // null = not fetched yet; [] = loaded
@@ -1799,10 +1809,10 @@ function mp2DeleteAnalysis(analysisId, btn) {
     });
 }
 
-function mp2LibLoad(analysisId) {
-  // Navigate to analysis page with the real analysis_id
-  var url = '/media-planner-v2/analysis' + (analysisId ? '/' + analysisId : '');
-  history.pushState({ id: 'media-planner-v2-analysis', analysisId: analysisId }, '', url);
+function mp2LibLoad(analysisId, analysisName) {
+  _mp2AnalysisFromSaved = true;
+  var url = mp2AnalysisUrl(analysisId, analysisName, 'saved');
+  history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: analysisId, origin: 'saved' }, '', url);
   mp2ShowResults(analysisId);
 }
 
@@ -1886,7 +1896,7 @@ function _mp2RenderAnalysisRows(analyses) {
       + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>'
       + '</button>';
 
-    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + a.analysis_id + ',\'' + (a.analysis_name || '').replace(/'/g,"\\'") + '\')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="' + TDi  + fix + '">' + iconCell                        + '</td>'
       + '<td style="' + TDl  + fix + '">' + analysisLabel                   + '</td>'
       + '<td style="' + TDlm + fix + '">' + dateStr                         + '</td>'
@@ -2065,8 +2075,8 @@ function mp2SwitchHomeTab(tab, noPush) {
   if (tab === 'analyses') mp2LoadAnalysesTable();
   // Update URL
   if (!noPush) {
-    var urlMap = { 'new-plan': '/media-planner-v2', 'plans': '/media-planner-v2/media-plans', 'analyses': '/media-planner-v2/previous-analysis' };
-    var url = urlMap[tab] || '/media-planner-v2';
+    var urlMap = { 'new-plan': '/moments-match/new', 'plans': '/moments-match/saved', 'analyses': '/moments-match/saved' };
+    var url = urlMap[tab] || '/moments-match';
     var stateObj = { id: 'media-planner-v2', label: 'Media Planner' };
     if (tab !== 'new-plan') stateObj.mp2Tab = tab;
     history.pushState(stateObj, '', url);
@@ -2471,11 +2481,13 @@ function mp2Analyze() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.analysis_id) {
-        _mp2LastAnalysisId = data.analysis_id;
+        _mp2LastAnalysisId   = data.analysis_id;
+        _mp2LastAnalysisName = _analysisName || '';
+        _mp2AnalysisFromSaved = false;
         history.replaceState(
-          { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: data.analysis_id },
+          { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: data.analysis_id, origin: 'new' },
           '',
-          '/media-planner-v2/analysis/' + data.analysis_id
+          mp2AnalysisUrl(data.analysis_id, _analysisName, 'new')
         );
       }
     })
@@ -2584,6 +2596,7 @@ function mp2ShowResults(analysisId) {
       .then(function(data) {
         var rec = (data.analyses || [])[0];
         if (!rec) throw new Error('Analysis not found');
+        _mp2LastAnalysisName = rec.analysis_name || '';
         // Set asset type / content from DB record
         mp2TaxInputType  = rec.asset_type === 'brief' ? 'text' : rec.asset_type === 'doc' ? 'doc' : 'video';
         _mp2BriefContent = rec.brief || '';
@@ -2634,8 +2647,9 @@ function _mp2DoRender() {
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
-  var analysisUrl = '/media-planner-v2/analysis' + (_mp2LastAnalysisId ? '/' + _mp2LastAnalysisId : '');
-  history.replaceState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: _mp2LastAnalysisId }, '', analysisUrl);
+  var _origin = _mp2AnalysisFromSaved ? 'saved' : 'new';
+  var analysisUrl = mp2AnalysisUrl(_mp2LastAnalysisId, _mp2LastAnalysisName, _origin);
+  history.replaceState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: _mp2LastAnalysisId, origin: _origin }, '', analysisUrl);
 
   var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border)';
   var fileIcon = mp2TaxInputType === 'video'
