@@ -2872,7 +2872,7 @@ function mp2ToggleSidebar(mode) {
     // Open (or switch mode)
     strip.style.display = 'flex';
     mp2SidebarMode = mode;
-    if (group) group.style.width = '220px';
+    if (group) group.style.width = '200px';
   }
 
   // Update active states for both buttons
