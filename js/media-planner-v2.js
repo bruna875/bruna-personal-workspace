@@ -20,7 +20,8 @@ function _mp2CreativeTilesHtml(dbCreatives) {
   return list.map(function(cr) {
     var tpls = cr.templates || [];
     var tplChips = tpls.map(function(t) {
-      return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + t + '</span>';
+      var label = (t && typeof t === 'object') ? (t.name || String(t.id || '')) : String(t);
+      return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + label + '</span>';
     }).join('');
     var addTplBtn = '<button onclick="event.stopPropagation();mp2AddTemplate(\'' + cr.id + '\')" style="display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 6px;border:1px solid var(--border-md);border-radius:5px;font-size:9px;font-weight:500;color:var(--muted);background:var(--surface);cursor:pointer;font-family:inherit;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">' + PLUS + 'Add Template</button>';
     var bottomSection = tpls.length
@@ -1642,7 +1643,8 @@ function _mp2LibrarySelectedGridHtml(items) {
   var tiles = items.map(function(a) {
     var tpls = (a.templates && a.templates.length) ? a.templates : [];
     var tplChips = tpls.map(function(t) {
-      return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + t + '</span>';
+      var label = (t && typeof t === 'object') ? (t.name || String(t.id || '')) : String(t);
+      return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + label + '</span>';
     }).join('');
     var bottomSection = tpls.length
       ? '<div style="padding:4px 6px 6px;border-top:1px solid var(--border);flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:3px">' + tplChips + '</div>'
@@ -2564,7 +2566,7 @@ function mp2Analyze() {
   }, 40);
 }
 
-function mp2ShowResults() {
+function mp2ShowResults(analysisId) {
   mp2TaxStep = 'results';
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
@@ -2573,8 +2575,67 @@ function mp2ShowResults() {
   var pills = document.getElementById('mp2-pills');
   if (pills) pills.style.display = 'none';
 
+  // ── When loading from Previous Analysis, fetch all data from APIs first ──
+  if (analysisId) {
+    _mp2LastAnalysisId = analysisId;
+    ca.innerHTML = '<div style="padding:60px;text-align:center;color:var(--faint);font-size:12px">Loading analysis…</div>';
+    fetch('/api/moments-match?analysis_id=' + analysisId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var rec = (data.analyses || [])[0];
+        if (!rec) throw new Error('Analysis not found');
+        // Set asset type / content from DB record
+        mp2TaxInputType  = rec.asset_type === 'brief' ? 'text' : rec.asset_type === 'doc' ? 'doc' : 'video';
+        _mp2BriefContent = rec.brief || '';
+        _mp2DocName      = rec.doc   || '';
+        mp2TaxFileName   = rec.doc || rec.brief || (rec.analysis_name || ('Analysis #' + analysisId));
+        // Fetch campaign + creatives in parallel
+        var campFetch = rec.campaign_id
+          ? fetch('/api/campaigns?campaign_id=' + rec.campaign_id).then(function(r) { return r.json(); })
+          : Promise.resolve({ campaigns: [] });
+        var crFetch = rec.campaign_id
+          ? fetch('/api/creatives?campaign_id=' + rec.campaign_id).then(function(r) { return r.json(); })
+          : Promise.resolve({ creatives: [] });
+        return Promise.all([campFetch, crFetch]).then(function(results) {
+          var camp = (results[0].campaigns || [])[0] || null;
+          var crs  = results[1].creatives  || [];
+          if (camp) {
+            mp2SelectedCampaign = {
+              name: camp.name, advertiser: camp.advertiser,
+              advertiserId: camp.advertiserId, dbId: camp.dbId,
+              budget: camp.budget, impression_goal: camp.goal,
+            };
+            mp2FlightDates   = { start: camp.start || '', end: camp.end || '' };
+            _mp2GeoSelected  = new Set(camp.geography || []);
+          } else {
+            mp2SelectedCampaign = null;
+            mp2FlightDates      = { start: '', end: '' };
+            _mp2GeoSelected     = new Set();
+          }
+          mp2LibrarySelectedItems = crs.map(function(c) {
+            return { id: c.id, dbId: c.dbId, name: c.name,
+                     thumb: c.thumb || '', fileType: c.fileType || '',
+                     templates: c.templates || [],
+                     campaign: c.campaign || '', advertiser: c.advertiser || '' };
+          });
+          _mp2DoRender();
+        });
+      })
+      .catch(function(err) {
+        ca.innerHTML = '<div style="padding:60px;text-align:center;color:#dc2626;font-size:12px">Error loading analysis: ' + err.message + '</div>';
+      });
+    return; // render happens async inside the fetch chain
+  }
+
+  _mp2DoRender();
+}
+
+function _mp2DoRender() {
+  var ca = document.getElementById('tx2-content-area');
+  if (!ca) return;
+
   var analysisUrl = '/media-planner-v2/analysis' + (_mp2LastAnalysisId ? '/' + _mp2LastAnalysisId : '');
-  history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' }, '', analysisUrl);
+  history.replaceState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: _mp2LastAnalysisId }, '', analysisUrl);
 
   var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border)';
   var fileIcon = mp2TaxInputType === 'video'
