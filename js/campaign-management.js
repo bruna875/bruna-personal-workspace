@@ -95,8 +95,8 @@ var _cmTabGroups = {
 var _cmDraftCreatives   = [];
 var _cmLibSearch        = '';
 
-// ── Draft media plan panel state ──────────────────────────────────────────────
-var _cmDraftMPs         = [];   // selected plans (right col)
+// ── Moments Match panel state (Campaign Setup step) ───────────────────────────
+var _cmSelectedAnalysis = null; // single selected analysis
 var _cmMpLibrary        = null; // null = not loaded, [] = loaded
 var _cmMpLibSearch      = '';
 var _cmOpenDetailId     = null; // tracks which campaign detail is open
@@ -1100,60 +1100,51 @@ function bmpSelectAnalysis(id) {
 }
 
 // ── Media Plan panel — two-col (library + selected) ───────────────────────────
-var _cmMpLibCols = [
-  { label: '',           width: '32px'  },
-  { label: 'Plan'                       },
-  { label: 'Campaign',   width: '160px' },
-  { label: 'Moments',    width: '80px'  },
-  { label: 'Est. Impr.', width: '100px' },
+var _cmAnalysisCols = [
+  { label: '',          width: '32px'  },
+  { label: 'Analysis'                  },
+  { label: 'Campaign',  width: '150px' },
+  { label: 'Date',      width: '100px' },
 ];
 
-function _cmMpLibFilteredRows() {
-  var q         = (_cmMpLibSearch || '').toLowerCase();
-  var lib       = _cmMpLibrary || [];
-  var noFilters = !_cmDraftClient && !_cmDraftAdv && !_cmDraftCampaignName;
-  return lib.filter(function(p) {
-    var searchOk = !q
-      || (p.media_plan_name||'').toLowerCase().indexOf(q) >= 0
-      || (p.campaign_name||'').toLowerCase().indexOf(q) >= 0;
-    if (noFilters) {
-      // Show only plans not yet associated with any campaign
-      return !p.campaign_id && !p.campaign_name && searchOk;
-    }
-    var clientOk = !_cmDraftClient       || (p.client_name||'')     === _cmDraftClient;
-    var advOk    = !_cmDraftAdv          || (p.advertiser_name||'') === _cmDraftAdv;
-    var campOk   = !_cmDraftCampaignName || !p.campaign_name || (p.campaign_name||'') === _cmDraftCampaignName;
-    return clientOk && advOk && campOk && searchOk;
+function _cmAnalysisFilteredRows() {
+  var q   = (_cmMpLibSearch || '').toLowerCase();
+  var lib = _cmMpLibrary || [];
+  return lib.filter(function(a) {
+    return !q
+      || (a.analysis_name   || '').toLowerCase().indexOf(q) >= 0
+      || (a.campaign_name   || '').toLowerCase().indexOf(q) >= 0
+      || (a.advertiser_name || '').toLowerCase().indexOf(q) >= 0;
   });
 }
 
-function _cmMpLibRowsHtml(filtered) {
+function _cmAnalysisRowsHtml(filtered) {
   var TD = 'padding:5px 12px;border-bottom:1px solid var(--border);vertical-align:middle';
-  return filtered.map(function(p) {
-    var key     = (p.media_plan_name||'') + '||' + (p.campaign_id||'');
-    var isAdded = _cmDraftMPs.some(function(d){ return d._key === key; });
-    var cb = '<input type="checkbox"' + (isAdded ? ' checked' : '') + ' onchange="cmMpLibToggle(\'' + key.replace(/'/g,"\\'") + '\')" '
+  return filtered.map(function(a) {
+    var isSel = _cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === a.analysis_id;
+    var cb = '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="cmAnalysisLibToggle(' + a.analysis_id + ')" '
       + 'style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">';
-    var nameCell = '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.media_plan_name||'—') + '</div>';
-    var campCell = '<div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.campaign_name||'—') + '</div>';
-    return '<tr onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'+
-      '<td style="' + TD + ';width:32px">' + cb + '</td>'+
-      '<td style="' + TD + '">' + nameCell + '</td>'+
-      '<td style="' + TD + ';width:160px">' + campCell + '</td>'+
-      '<td style="' + TD + ';width:80px;font-size:12px;color:var(--muted);text-align:right">' + (p.moment_count||0) + '</td>'+
-      '<td style="' + TD + ';width:100px;font-size:12px;color:var(--text);text-align:right">' + (p.total_impressions||'—') + '</td>'+
-      '</tr>';
+    var nameCell = '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.analysis_name || 'Untitled Analysis') + '</div>'
+      + (a.advertiser_name ? '<div style="font-size:10px;color:var(--faint)">' + a.advertiser_name + '</div>' : '');
+    var campCell = '<div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.campaign_name || '—') + '</div>';
+    var date = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—';
+    return '<tr style="cursor:pointer" onclick="cmAnalysisLibToggle(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TD + ';width:32px" onclick="event.stopPropagation()">' + cb + '</td>'
+      + '<td style="' + TD + '">' + nameCell + '</td>'
+      + '<td style="' + TD + ';width:150px">' + campCell + '</td>'
+      + '<td style="' + TD + ';width:100px;font-size:11px;color:var(--muted)">' + date + '</td>'
+      + '</tr>';
   }).join('');
 }
 
 function _cmMpLibColHtml() {
-  var filtered = _cmMpLibFilteredRows();
+  var filtered = _cmAnalysisFilteredRows();
   var search = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
-    + UI.searchBar('cm-mp-lib-search', 'Search media plans…', 'cmMpLibSearch(this.value)', _cmMpLibSearch||'')
+    + UI.searchBar('cm-mp-lib-search', 'Search analyses…', 'cmMpLibSearch(this.value)', _cmMpLibSearch || '')
     + '</div>';
   var tableHtml = filtered.length
-    ? UI.tableScroll(_cmMpLibCols, _cmMpLibRowsHtml(filtered), 'cm-mp-lib-tbody', 0, null, { inCard: true })
-    : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">No results</div>';
+    ? UI.tableScroll(_cmAnalysisCols, _cmAnalysisRowsHtml(filtered), 'cm-mp-lib-tbody', 0, null, { inCard: true })
+    : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">No analyses found</div>';
   return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
     + search
     + '<div style="max-height:277px;overflow-y:auto;overflow-x:auto">' + tableHtml + '</div>'
@@ -1161,55 +1152,50 @@ function _cmMpLibColHtml() {
 }
 
 function _cmMpSelColHtml() {
-  if (_cmDraftMPs.length === 0) {
-    var planSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';
-    var dz = 'border:1.5px dashed var(--border-md);border-radius:10px;cursor:pointer;transition:border-color .15s,background .15s;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;text-align:center;padding:28px 16px';
-    return '<div onclick="cmOpenBuildMediaPlanOverlay()" style="' + dz + '" '
-      + 'onmouseover="this.style.borderColor=\'var(--accent)\';this.style.background=\'rgba(237,0,94,.025)\'" '
-      + 'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.background=\'var(--bg)\'">'
-      + planSvg
-      + '<div><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">No media plan assigned</div>'
-      + '<div style="font-size:11px;color:var(--muted)">Select from library or create a new one</div></div>'
-      + '<button onclick="event.stopPropagation();cmOpenBuildMediaPlanOverlay()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'">'
-      +   '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-      +   'Create Media Plan'
-      + '</button>'
+  if (!_cmSelectedAnalysis) {
+    var dz = 'border:1.5px dashed var(--border-md);border-radius:10px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;text-align:center;padding:28px 16px;min-height:120px';
+    return '<div style="' + dz + '">'
+      + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6M11 8v6"/></svg>'
+      + '<div><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">No analysis selected</div>'
+      + '<div style="font-size:11px;color:var(--muted)">Pick one from the library</div></div>'
       + '</div>';
   }
-  var cards = _cmDraftMPs.map(function(p, i) {
-    return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)">'
-      + '<div style="padding:8px 10px;border-bottom:1px solid var(--border);background:var(--subtle);display:flex;align-items:center;gap:6px">'
-      +   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>'
-      +   '<div style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + (p.media_plan_name||'—') + '</div>'
-      +   '<button onclick="cmMpSelRemove(' + i + ')" style="width:16px;height:16px;border:none;border-radius:3px;background:transparent;color:var(--faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--faint)\'">'
-      +     '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-      +   '</button>'
-      + '</div>'
-      + '<div style="padding:6px 10px 8px;display:flex;flex-direction:column;gap:3px">'
-      +   '<div style="font-size:10px;color:var(--muted)">Campaign: <span style="color:var(--text)">' + (p.campaign_name||'—') + '</span></div>'
-      +   '<div style="font-size:10px;color:var(--muted)">'
-      +     '<span style="margin-right:10px">' + (p.moment_count||0) + ' moments</span>'
-      +     '<span style="color:var(--text);font-weight:600">' + (p.total_impressions||'—') + '</span>'
-      +   '</div>'
-      + '</div>'
-      + '</div>';
-  }).join('');
-  return '<div style="display:flex;flex-direction:column;gap:6px">' + cards + '</div>';
+  var a = _cmSelectedAnalysis;
+  var date = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—';
+  var mCount = 0;
+  try { var _m = typeof a.moments === 'string' ? JSON.parse(a.moments) : a.moments; mCount = Array.isArray(_m) ? _m.length : 0; } catch(e){}
+  return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)">'
+    + '<div style="padding:8px 10px;border-bottom:1px solid var(--border);background:var(--subtle);display:flex;align-items:center;gap:6px">'
+    +   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+    +   '<div style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + (a.analysis_name || 'Untitled Analysis') + '</div>'
+    +   '<button onclick="cmAnalysisDeselect()" style="width:16px;height:16px;border:none;border-radius:3px;background:transparent;color:var(--faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--faint)\'">'
+    +     '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    +   '</button>'
+    + '</div>'
+    + '<div style="padding:6px 10px 8px;display:flex;flex-direction:column;gap:3px">'
+    +   (a.campaign_name   ? '<div style="font-size:10px;color:var(--muted)">Campaign: <span style="color:var(--text)">'   + a.campaign_name   + '</span></div>' : '')
+    +   (a.advertiser_name ? '<div style="font-size:10px;color:var(--muted)">Advertiser: <span style="color:var(--text)">' + a.advertiser_name + '</span></div>' : '')
+    +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">'
+    +     '<span style="margin-right:10px">' + mCount + ' moment' + (mCount !== 1 ? 's' : '') + '</span>'
+    +     '<span style="color:var(--faint)">' + date + '</span>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
 }
 
 function _cmMpPanelInnerHtml() {
   return '<div style="display:flex;align-items:stretch">'
     + '<div style="flex:65;min-width:0;padding:20px 24px;border-right:1px solid var(--border);display:flex;flex-direction:column">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">Add From Library</div>'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">Saved Analyses</div>'
     +   '<div id="cm-mp-lib-col">' + _cmMpLibColHtml() + '</div>'
     + '</div>'
     + '<div style="flex:35;min-width:0;padding:20px 24px;display:flex;flex-direction:column;gap:12px">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Media Plan</div>'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Selected Analysis</div>'
     +   '<div id="cm-mp-sel-col">' + _cmMpSelColHtml() + '</div>'
     + '</div>'
     + '</div>'
     + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
-    +   '<button id="cm-mp-save-btn" onclick="cmSaveMediaPlans()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add Media Plan to Campaign</button>'
+    +   '<button id="cm-mp-save-btn" onclick="cmSaveAnalysis()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Assign Analysis to Campaign</button>'
     +   '<span id="cm-mp-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
     + '</div>';
 }
@@ -1225,10 +1211,10 @@ function cmLoadMediaPlanPanel() {
     return;
   }
   _cmMpLibrary = [];
-  fetch('/api/media-plans-summary')
+  fetch('/api/moments-match')
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      _cmMpLibrary = data.plans || [];
+      _cmMpLibrary = data.analyses || [];
       var el = document.getElementById('cm-mp-panel');
       if (el) el.innerHTML = _cmMpPanelInnerHtml();
     })
@@ -1241,56 +1227,45 @@ function cmMpLibSearch(q) {
   if (el) el.innerHTML = _cmMpLibColHtml();
 }
 
-function cmMpLibToggle(key) {
-  var existing = _cmDraftMPs.findIndex(function(d){ return d._key === key; });
-  if (existing >= 0) {
-    _cmDraftMPs.splice(existing, 1);
-  } else {
-    var plan = (_cmMpLibrary || []).find(function(p){ return ((p.media_plan_name||'')+'||'+(p.campaign_id||'')) === key; });
-    if (plan) _cmDraftMPs.push(Object.assign({}, plan, { _key: key }));
-  }
+function cmAnalysisLibToggle(analysisId) {
+  var a = (_cmMpLibrary || []).find(function(x) { return x.analysis_id === analysisId; });
+  if (!a) return;
+  _cmSelectedAnalysis = (_cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === analysisId) ? null : a;
   var libEl = document.getElementById('cm-mp-lib-col');
   var selEl = document.getElementById('cm-mp-sel-col');
   if (libEl) libEl.innerHTML = _cmMpLibColHtml();
   if (selEl) selEl.innerHTML = _cmMpSelColHtml();
 }
 
-function cmMpSelRemove(idx) {
-  _cmDraftMPs.splice(idx, 1);
+function cmAnalysisDeselect() {
+  _cmSelectedAnalysis = null;
   var libEl = document.getElementById('cm-mp-lib-col');
   var selEl = document.getElementById('cm-mp-sel-col');
   if (libEl) libEl.innerHTML = _cmMpLibColHtml();
   if (selEl) selEl.innerHTML = _cmMpSelColHtml();
 }
 
-function cmSaveMediaPlans() {
+function cmSaveAnalysis() {
   var btn = document.getElementById('cm-mp-save-btn');
   var fb  = document.getElementById('cm-mp-feedback');
   function _showFb(msg, color) {
     if (!fb) return;
-    fb.textContent = msg;
-    fb.style.color = color;
-    fb.style.opacity = '1';
+    fb.textContent = msg; fb.style.color = color; fb.style.opacity = '1';
     setTimeout(function() { fb.style.opacity = '0'; }, 3000);
   }
-  if (!_cmCurrentCampaignDbId) {
-    _showFb('Campaign name needed to save the Media Plan', '#dc2626');
-    return;
-  }
-  var planNames = _cmDraftMPs.map(function(p) { return p.media_plan_name; }).filter(Boolean);
+  if (!_cmCurrentCampaignDbId) { _showFb('Save the campaign first', '#dc2626'); return; }
+  if (!_cmSelectedAnalysis)    { _showFb('Select an analysis first',  '#dc2626'); return; }
   if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
-  fetch('/api/media-plans-link', {
+  fetch('/api/campaigns-update', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ campaign_id: _cmCurrentCampaignDbId, plan_names: planNames })
+    body: JSON.stringify({ campaign_id: _cmCurrentCampaignDbId, analysis_id: _cmSelectedAnalysis.analysis_id })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     if (data.ok) {
       _showFb('Saved ✓', 'var(--accent)');
-      // Reload library so campaign associations are up to date
-      _cmMpLibrary = null;
-      cmLoadMediaPlanPanel();
     } else {
       _showFb(data.error || 'Error saving', '#dc2626');
     }
@@ -1960,7 +1935,7 @@ function cmCreateNewCampaign() {
   }
   _cmDraftAdv = '';
   _cmDraftCampaignName = '';
-  _cmDraftMPs = [];
+  _cmSelectedAnalysis = null;
   _cmMpLibrary = null;
   _cmMpLibSearch = '';
   cmOpenDetail(tempId);
@@ -3476,8 +3451,8 @@ function _cmSummaryDetailHtml(i, c) {
       var crCount = c.creatives || (_cmDraftCreatives && _cmDraftCreatives.length) || 0;
       return row('Creatives', crCount ? crCount + ' attached' : 'None yet');
     case 2:
-      var mpCount = c.moments || (_cmDraftMPs && _cmDraftMPs.length) || 0;
-      return row('Moments', mpCount ? mpCount + ' linked' : 'None yet');
+      var hasAnalysis = _cmSelectedAnalysis || c.analysis_id;
+      return row('Analysis', hasAnalysis ? 'Assigned' : 'None yet');
     case 3:
       return row('Partners', (c.partners && c.partners.length) ? c.partners.join(', ') : 'None yet');
     default: return '';
