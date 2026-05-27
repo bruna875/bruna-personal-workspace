@@ -1207,10 +1207,15 @@ function _cmMpPlansColHtml() {
     var planName  = p.media_plan_name || p.name || ('Media Plan ' + (i + 1));
     var momArr    = Array.isArray(p.moments) ? p.moments : (Array.isArray(p.items) ? p.items : []);
     var itemCount = momArr.length;
-    var selStyle  = isSel ? 'background:rgba(237,0,94,.04);border-left:2px solid var(--accent);' : 'border-left:2px solid transparent;';
-    return '<div onclick="cmSelectMediaPlan(' + i + ')" style="' + selStyle + 'padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'' + (isSel ? 'rgba(237,0,94,.04)' : '') + '\'">'
-      + '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + planName + '</div>'
-      + '<span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0">' + itemCount + ' mom.</span>'
+    var checkIcon = isSel
+      ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><circle cx="8" cy="8" r="7" fill="var(--accent)"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : '<div style="width:14px;height:14px;flex-shrink:0"></div>';
+    return '<div onclick="cmSelectMediaPlan(' + i + ')" style="background:#fff;padding:10px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'#fff\'">'
+      + checkIcon
+      + '<div style="min-width:0">'
+      +   '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + planName + '</div>'
+      +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + itemCount + ' moments</div>'
+      + '</div>'
       + '</div>';
   }).join('');
   return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">' + rows + '</div>';
