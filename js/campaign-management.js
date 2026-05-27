@@ -1203,8 +1203,10 @@ function _cmMpPlansColHtml() {
   if (!plans.length) return _cmThreeColEmpty('No media plans in this analysis');
   var rows = plans.map(function(p, i) {
     var isSel = _cmSelectedMp && _cmSelectedMp._idx === i;
-    var planName  = p.name || ('Media Plan ' + (i + 1));
-    var itemCount = Array.isArray(p.items) ? p.items.length : 0;
+    // DB structure: { media_plan_name, moments[] } — fall back to legacy { name, items[] }
+    var planName  = p.media_plan_name || p.name || ('Media Plan ' + (i + 1));
+    var momArr    = Array.isArray(p.moments) ? p.moments : (Array.isArray(p.items) ? p.items : []);
+    var itemCount = momArr.length;
     var selStyle  = isSel ? 'background:rgba(237,0,94,.04);border-left:2px solid var(--accent);' : 'border-left:2px solid transparent;';
     return '<div onclick="cmSelectMediaPlan(' + i + ')" style="' + selStyle + 'padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'' + (isSel ? 'rgba(237,0,94,.04)' : '') + '\'">'
       + '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + planName + '</div>'
@@ -1216,27 +1218,41 @@ function _cmMpPlansColHtml() {
 
 function _cmMpMomentsColHtml() {
   if (!_cmSelectedMp) return _cmThreeColEmpty('Select a media plan');
-  var items = _cmSelectedMp.items || [];
+  // DB structure: { moments: [{ moment_name, moment_type, moment_channels, moment_est_impr }] }
+  // Fall back to legacy: { items: [{ name, type, channels, impressionsLabel }] }
+  var items = Array.isArray(_cmSelectedMp.moments) ? _cmSelectedMp.moments
+            : Array.isArray(_cmSelectedMp.items)   ? _cmSelectedMp.items
+            : [];
   if (!items.length) return _cmThreeColEmpty('No moments in this plan');
   var TD = 'padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle';
   var rows = items.map(function(item) {
-    var typeRaw = (item.type || '').toLowerCase();
+    // Support both DB field names and legacy field names
+    var name     = item.moment_name    || item.name    || '—';
+    var typeRaw  = (item.moment_type   || item.type    || '').toLowerCase();
+    var channels = item.moment_channels || item.channels || [];
+    // Format impressions: DB stores raw numbers, legacy stores formatted strings
+    var imprNum  = item.moment_est_impr;
+    var imprLabel = item.impressionsLabel
+      || (imprNum >= 1000000 ? (imprNum / 1000000).toFixed(1) + 'M'
+          : imprNum >= 1000  ? Math.round(imprNum / 1000) + 'K'
+          : imprNum          ? String(imprNum)
+          : '—');
     var badge;
     if (typeRaw === 'live') {
       badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">Live</span>';
     } else if (typeRaw === 'vod' || typeRaw === 'ads') {
       badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe">VoD</span>';
     } else {
-      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">' + (item.type || 'OLV') + '</span>';
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">' + (typeRaw || 'OLV') + '</span>';
     }
-    var chCount = Array.isArray(item.channels) ? item.channels.length : 0;
+    var chCount = Array.isArray(channels) ? channels.length : 0;
     var chHtml  = chCount ? '<span style="font-size:10px;color:var(--muted);margin-left:4px">' + chCount + ' ch.</span>' : '';
     return '<tr onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="' + TD + '">'
-      +   '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">' + (item.name || '—') + '</div>'
+      +   '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">' + name + '</div>'
       +   '<div style="display:flex;align-items:center;margin-top:2px">' + badge + chHtml + '</div>'
       + '</td>'
-      + '<td style="' + TD + ';text-align:right;font-size:12px;color:var(--text);white-space:nowrap;width:80px">' + (item.impressionsLabel || '—') + '</td>'
+      + '<td style="' + TD + ';text-align:right;font-size:12px;color:var(--text);white-space:nowrap;width:80px">' + imprLabel + '</td>'
       + '</tr>';
   }).join('');
   return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
