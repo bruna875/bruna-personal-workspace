@@ -1,7 +1,8 @@
-// moments-api.js  v=20260525c
-// Mock Moments API — source of truth for all moment metadata (except moment_name, which lives in DB)
-// moment names below are placeholders — replace via DB when real names arrive
-// moment_type: 'VoD' | 'Live' | 'Organic Pause'
+// moments-api.js  v=20260526a
+// Mock Moments API — source of truth for all moment metadata
+// moment_id, moment_name, moment_type come from the Moments table (DB) — placeholders here
+// moment_type:  'VoD' | 'Live' | 'Organic Pause'
+// moment_score: decimal 0–100 — UI renders as badge: ≥75 → High, <75 → Standard
 // est_dollar_value = est_impressions * est_cpm / 1000
 
 var MOCK_MOMENTS_API = [
@@ -9,39 +10,41 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM001',
     moment_name: 'Sports Comeback Moment',
     moment_type: 'Live',
+    moment_score: 91,
     est_impressions: 4200000,
     est_cpm: 18.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 240,
     channels: ['ESPN', 'ESPN2', 'CBS Sports', 'NBC Sports', 'Fox Sports 1', 'TNT'],
     taxonomies: {
-      emotions:     ['E6', 'E5', 'E1'],           // Adrenaline, Determined, Uplifting
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E6', 'E5', 'E1'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Ball', 'Stadium', 'Trophy', 'Crowd'],
-      locations:    ['Loc14'],                     // Stadium
-      logos:        ['Logo420', 'Logo421'],        // Nike, Adidas
-      iab:          [484, 485, 486],               // Sports, Football, Basketball
-      faces:        ['Celeb120', 'Celeb121']       // Sports athletes
+      locations:    ['Loc14'],
+      logos:        ['Logo420', 'Logo421'],
+      iab:          [484, 485, 486],
+      faces:        ['Celeb120', 'Celeb121']
     }
   },
   {
     moment_id: 'MOM002',
     moment_name: 'Morning Coffee Ritual',
     moment_type: 'VoD',
+    moment_score: 72,
     est_impressions: 1850000,
     est_cpm: 9.20,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 140,
     channels: ['HGTV', 'Food Network', 'Bravo', 'Lifetime', 'Hallmark Channel', 'TLC'],
     taxonomies: {
-      emotions:     ['E1', 'E3'],                 // Uplifting, Curiosity
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E1', 'E3'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Coffee Cup', 'Kettle', 'Newspaper', 'Laptop'],
-      locations:    ['Loc19', 'Loc20'],            // Café, Kitchen
-      logos:        ['Logo45', 'Logo46', 'Logo47'],// Starbucks, Nespresso, Illy
-      iab:          [198, 199, 200],               // Food & Drink, Coffee
+      locations:    ['Loc19', 'Loc20'],
+      logos:        ['Logo45', 'Logo46', 'Logo47'],
+      iab:          [198, 199, 200],
       faces:        []
     }
   },
@@ -49,19 +52,20 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM003',
     moment_name: 'Family Movie Night',
     moment_type: 'VoD',
+    moment_score: 68,
     est_impressions: 2700000,
     est_cpm: 8.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 175,
     channels: ['TBS', 'TNT', 'AMC', 'Freeform', 'USA Network', 'Disney Channel', 'Hallmark Channel'],
     taxonomies: {
-      emotions:     ['E1', 'E7'],                 // Uplifting, Emotional
-      sentiment:    ['S1', 'S4'],                  // Mostly Positive, Mixed
+      emotions:     ['E1', 'E7'],
+      sentiment:    ['S1', 'S4'],
       brand_safety: [],
       objects:      ['Popcorn', 'Remote Control', 'Sofa', 'Television'],
-      locations:    ['Loc25'],                     // Living Room / Home
-      logos:        ['Logo212'],                   // Netflix
-      iab:          [152, 153],                    // Movies, Family
+      locations:    ['Loc25'],
+      logos:        ['Logo212'],
+      iab:          [152, 153],
       faces:        []
     }
   },
@@ -69,19 +73,20 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM004',
     moment_name: 'Holiday Shopping Rush',
     moment_type: 'VoD',
+    moment_score: 88,
     est_impressions: 5800000,
     est_cpm: 22.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 290,
     channels: ['NBC', 'ABC', 'CBS', 'FOX', 'Lifetime', 'Hallmark Channel', 'TLC', 'Bravo'],
     taxonomies: {
-      emotions:     ['E1', 'E6'],                 // Uplifting, Adrenaline
-      sentiment:    ['S1', 'S2'],                  // Mostly/Somewhat Positive
+      emotions:     ['E1', 'E6'],
+      sentiment:    ['S1', 'S2'],
       brand_safety: [],
       objects:      ['Shopping Bag', 'Gift Box', 'Wrapping Paper', 'Christmas Tree'],
-      locations:    ['Loc35', 'Loc36'],            // Mall, Shopping District
-      logos:        ['Logo99', 'Logo100', 'Logo101'], // Amazon, Target, Walmart
-      iab:          [391, 392, 393],               // Shopping, Retail, Gifts
+      locations:    ['Loc35', 'Loc36'],
+      logos:        ['Logo99', 'Logo100', 'Logo101'],
+      iab:          [391, 392, 393],
       faces:        []
     }
   },
@@ -89,19 +94,20 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM005',
     moment_name: 'Outdoor Adventure Escape',
     moment_type: 'VoD',
+    moment_score: 76,
     est_impressions: 1100000,
     est_cpm: 14.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 120,
     channels: ['Discovery', 'National Geographic', 'Travel Channel', 'Animal Planet', 'History'],
     taxonomies: {
-      emotions:     ['E6', 'E1', 'E3'],           // Adrenaline, Uplifting, Curiosity
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E6', 'E1', 'E3'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Hiking Boot', 'Backpack', 'Tent', 'Campfire', 'Mountain Bike'],
-      locations:    ['Loc55', 'Loc56', 'Loc57'],  // Mountain, Forest, River
-      logos:        ['Logo310', 'Logo311'],        // The North Face, Patagonia
-      iab:          [359, 360, 361],               // Outdoors, Hiking, Adventure
+      locations:    ['Loc55', 'Loc56', 'Loc57'],
+      logos:        ['Logo310', 'Logo311'],
+      iab:          [359, 360, 361],
       faces:        []
     }
   },
@@ -109,39 +115,41 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM006',
     moment_name: 'Tech Unboxing Reveal',
     moment_type: 'Organic Pause',
+    moment_score: 82,
     est_impressions: 3400000,
     est_cpm: 15.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 200,
     channels: ['TBS', 'Comedy Central', 'ESPN', 'FX', 'FXX', 'USA Network', 'Syfy'],
     taxonomies: {
-      emotions:     ['E3', 'E1'],                 // Curiosity, Uplifting
-      sentiment:    ['S1', 'S2'],                  // Mostly/Somewhat Positive
+      emotions:     ['E3', 'E1'],
+      sentiment:    ['S1', 'S2'],
       brand_safety: [],
       objects:      ['Smartphone', 'Laptop', 'Headphones', 'Box', 'Cable'],
-      locations:    ['Loc66'],                     // Office / Desk
-      logos:        ['Logo1', 'Logo2', 'Logo3'],  // Apple, Samsung, Sony
-      iab:          [551, 552, 553],               // Technology, Consumer Electronics
-      faces:        ['Celeb200', 'Celeb201']       // Tech influencers
+      locations:    ['Loc66'],
+      logos:        ['Logo1', 'Logo2', 'Logo3'],
+      iab:          [551, 552, 553],
+      faces:        ['Celeb200', 'Celeb201']
     }
   },
   {
     moment_id: 'MOM007',
     moment_name: 'Cooking Competition Finals',
     moment_type: 'VoD',
+    moment_score: 64,
     est_impressions: 2100000,
     est_cpm: 10.80,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 160,
     channels: ['Food Network', 'Bravo', 'TLC', 'Lifetime', 'A&E', 'E!'],
     taxonomies: {
-      emotions:     ['E6', 'E5', 'E9'],           // Adrenaline, Determined, Overwhelmed
-      sentiment:    ['S4'],                        // Mixed
+      emotions:     ['E6', 'E5', 'E9'],
+      sentiment:    ['S4'],
       brand_safety: [],
       objects:      ['Knife', 'Frying Pan', 'Plate', 'Oven', 'Mixing Bowl'],
-      locations:    ['Loc20'],                     // Kitchen
-      logos:        ['Logo80', 'Logo81'],          // KitchenAid, Le Creuset
-      iab:          [198, 201, 202],               // Food & Drink, Cooking
+      locations:    ['Loc20'],
+      logos:        ['Logo80', 'Logo81'],
+      iab:          [198, 201, 202],
       faces:        []
     }
   },
@@ -149,39 +157,41 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM008',
     moment_name: 'Late Night Comedy Punchline',
     moment_type: 'Organic Pause',
+    moment_score: 71,
     est_impressions: 1900000,
     est_cpm: 11.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 145,
     channels: ['NBC', 'CBS', 'ABC', 'Comedy Central', 'TBS', 'Conan'],
     taxonomies: {
-      emotions:     ['E1', 'E3'],                 // Uplifting, Curiosity
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E1', 'E3'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Microphone', 'Stage Lights', 'Desk', 'Camera'],
-      locations:    ['Loc80'],                     // TV Studio
+      locations:    ['Loc80'],
       logos:        [],
-      iab:          [152, 154],                    // Entertainment, Humor & Comedy
-      faces:        ['Celeb5', 'Celeb6', 'Celeb7'] // Late night hosts
+      iab:          [152, 154],
+      faces:        ['Celeb5', 'Celeb6', 'Celeb7']
     }
   },
   {
     moment_id: 'MOM009',
     moment_name: 'Pet Rescue Heartwarming',
     moment_type: 'VoD',
+    moment_score: 69,
     est_impressions: 1500000,
     est_cpm: 9.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 130,
     channels: ['Animal Planet', 'Discovery', 'TLC', 'Hallmark Channel', 'OWN', 'Lifetime'],
     taxonomies: {
-      emotions:     ['E7', 'E1'],                 // Emotional, Uplifting
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E7', 'E1'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Dog', 'Cat', 'Leash', 'Toy', 'Bowl'],
-      locations:    ['Loc25'],                     // Home
-      logos:        ['Logo290', 'Logo291'],        // Purina, Pedigree
-      iab:          [344, 345, 346],               // Pets, Dogs, Cats
+      locations:    ['Loc25'],
+      logos:        ['Logo290', 'Logo291'],
+      iab:          [344, 345, 346],
       faces:        []
     }
   },
@@ -189,19 +199,20 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM010',
     moment_name: 'Thriller Chase Scene',
     moment_type: 'Organic Pause',
+    moment_score: 43,
     est_impressions: 3100000,
     est_cpm: 13.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 210,
     channels: ['AMC', 'FX', 'TNT', 'USA Network', 'Syfy', 'A&E', 'CBS'],
     taxonomies: {
-      emotions:     ['E6', 'E8'],                 // Adrenaline, Mysterious
-      sentiment:    ['S5'],                        // Somewhat Negative
-      brand_safety: ['G14'],                       // Violence
+      emotions:     ['E6', 'E8'],
+      sentiment:    ['S5'],
+      brand_safety: ['G14'],
       objects:      ['Car', 'Gun', 'Police Car', 'Bridge'],
-      locations:    ['Loc3', 'Loc88'],             // Car, City Street
+      locations:    ['Loc3', 'Loc88'],
       logos:        [],
-      iab:          [152, 155],                    // Entertainment, Movies & TV Thrillers
+      iab:          [152, 155],
       faces:        ['Celeb10', 'Celeb11']
     }
   },
@@ -209,59 +220,62 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM011',
     moment_name: 'Fitness & Workout Grind',
     moment_type: 'VoD',
+    moment_score: 79,
     est_impressions: 2500000,
     est_cpm: 12.20,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 180,
     channels: ['ESPN', 'ESPN2', 'NBC Sports', 'Fox Sports 1', 'CBS Sports', 'Discovery'],
     taxonomies: {
-      emotions:     ['E5', 'E6', 'E1'],           // Determined, Adrenaline, Uplifting
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E5', 'E6', 'E1'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Dumbbell', 'Running Shoe', 'Yoga Mat', 'Water Bottle', 'Treadmill'],
-      locations:    ['Loc42'],                     // Gym
-      logos:        ['Logo420', 'Logo421', 'Logo422'], // Nike, Adidas, Under Armour
-      iab:          [240, 241, 242],               // Health & Fitness, Exercise
-      faces:        ['Celeb130', 'Celeb131']       // Fitness athletes
+      locations:    ['Loc42'],
+      logos:        ['Logo420', 'Logo421', 'Logo422'],
+      iab:          [240, 241, 242],
+      faces:        ['Celeb130', 'Celeb131']
     }
   },
   {
     moment_id: 'MOM012',
     moment_name: 'Breaking News Alert',
     moment_type: 'Live',
+    moment_score: 51,
     est_impressions: 6200000,
     est_cpm: 25.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 300,
     channels: ['CNN', 'MSNBC', 'Fox News', 'NBC', 'ABC', 'CBS', 'BBC America'],
     taxonomies: {
-      emotions:     ['E9', 'E3'],                 // Overwhelmed, Curiosity
-      sentiment:    ['S4', 'S5'],                  // Mixed, Somewhat Negative
-      brand_safety: ['G11'],                       // Debated Sensitive Social Issue
+      emotions:     ['E9', 'E3'],
+      sentiment:    ['S4', 'S5'],
+      brand_safety: ['G11'],
       objects:      ['Microphone', 'Camera', 'Map', 'Newspaper'],
-      locations:    ['Loc80', 'Loc88'],            // Studio, City Street
+      locations:    ['Loc80', 'Loc88'],
       logos:        [],
-      iab:          [297, 298, 299],               // News, Politics, Current Events
-      faces:        ['Celeb50', 'Celeb51']         // News anchors/journalists
+      iab:          [297, 298, 299],
+      faces:        ['Celeb50', 'Celeb51']
     }
   },
   {
     moment_id: 'MOM013',
     moment_name: 'Kids Birthday Celebration',
     moment_type: 'VoD',
+    moment_score: 73,
     est_impressions: 1650000,
     est_cpm: 7.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 115,
     channels: ['Disney Channel', 'Nickelodeon', 'Cartoon Network', 'Freeform', 'TLC', 'Hallmark Channel'],
     taxonomies: {
-      emotions:     ['E1', 'E7'],                 // Uplifting, Emotional
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E1', 'E7'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Cake', 'Balloon', 'Gift Box', 'Candle', 'Party Hat'],
-      locations:    ['Loc25'],                     // Home
-      logos:        ['Logo150', 'Logo151'],        // LEGO, Hasbro
-      iab:          [152, 153],                    // Entertainment, Family
+      locations:    ['Loc25'],
+      logos:        ['Logo150', 'Logo151'],
+      iab:          [152, 153],
       faces:        []
     }
   },
@@ -269,19 +283,20 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM014',
     moment_name: 'Luxury Car Commercial',
     moment_type: 'Organic Pause',
+    moment_score: 84,
     est_impressions: 2900000,
     est_cpm: 21.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 190,
     channels: ['NBC', 'ABC', 'CBS', 'FOX', 'CNN', 'MSNBC', 'ESPN', 'Golf Channel'],
     taxonomies: {
-      emotions:     ['E1', 'E2'],                 // Uplifting, Romantic
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E1', 'E2'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Car', 'Road', 'Keys', 'Dashboard'],
-      locations:    ['Loc3', 'Loc104'],            // Car, Mountain Road
-      logos:        ['Logo60', 'Logo61', 'Logo62'], // BMW, Mercedes, Audi
-      iab:          [15, 16, 17],                  // Automotive, Luxury Cars
+      locations:    ['Loc3', 'Loc104'],
+      logos:        ['Logo60', 'Logo61', 'Logo62'],
+      iab:          [15, 16, 17],
       faces:        []
     }
   },
@@ -289,28 +304,28 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM015',
     moment_name: 'Nature Documentary Sunrise',
     moment_type: 'VoD',
+    moment_score: 62,
     est_impressions: 980000,
     est_cpm: 11.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
     pods: 100,
     channels: ['National Geographic', 'Discovery', 'Animal Planet', 'BBC America', 'PBS'],
     taxonomies: {
-      emotions:     ['E8', 'E4', 'E3'],           // Mysterious, Bittersweet, Curiosity
-      sentiment:    ['S1'],                        // Mostly Positive
+      emotions:     ['E8', 'E4', 'E3'],
+      sentiment:    ['S1'],
       brand_safety: [],
       objects:      ['Bird', 'Tree', 'Waterfall', 'Sunrise', 'Cloud'],
-      locations:    ['Loc55', 'Loc95', 'Loc96'],  // Mountain, Rainforest, Ocean
+      locations:    ['Loc55', 'Loc95', 'Loc96'],
       logos:        [],
-      iab:          [340, 341, 342],               // Nature, Environment, Wildlife
+      iab:          [340, 341, 342],
       faces:        []
     }
-  }
-];
-
+  },
   {
     moment_id: 'MOM016',
     moment_name: 'Wedding Day Ceremony',
     moment_type: 'VoD',
+    moment_score: 77,
     est_impressions: 1750000,
     est_cpm: 12.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -331,6 +346,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM017',
     moment_name: 'College Game Day',
     moment_type: 'Live',
+    moment_score: 85,
     est_impressions: 3800000,
     est_cpm: 16.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -351,6 +367,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM018',
     moment_name: 'Real Estate House Tour',
     moment_type: 'VoD',
+    moment_score: 65,
     est_impressions: 1300000,
     est_cpm: 10.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -371,6 +388,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM019',
     moment_name: 'Music Award Show',
     moment_type: 'Live',
+    moment_score: 93,
     est_impressions: 7200000,
     est_cpm: 28.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -391,6 +409,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM020',
     moment_name: 'Beach Summer Vacation',
     moment_type: 'VoD',
+    moment_score: 74,
     est_impressions: 2200000,
     est_cpm: 11.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -411,6 +430,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM021',
     moment_name: 'Hospital Drama Cliffhanger',
     moment_type: 'Organic Pause',
+    moment_score: 38,
     est_impressions: 3500000,
     est_cpm: 14.20,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -431,6 +451,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM022',
     moment_name: 'Grocery Store Discovery',
     moment_type: 'Organic Pause',
+    moment_score: 70,
     est_impressions: 4100000,
     est_cpm: 8.80,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -451,6 +472,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM023',
     moment_name: 'Travel Airport Departure',
     moment_type: 'VoD',
+    moment_score: 67,
     est_impressions: 1600000,
     est_cpm: 13.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -471,6 +493,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM024',
     moment_name: 'Political Debate Showdown',
     moment_type: 'Live',
+    moment_score: 29,
     est_impressions: 5500000,
     est_cpm: 30.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -491,6 +514,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM025',
     moment_name: 'Wine & Dining Experience',
     moment_type: 'Organic Pause',
+    moment_score: 78,
     est_impressions: 1050000,
     est_cpm: 19.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -511,6 +535,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM026',
     moment_name: 'Newborn Baby Arrival',
     moment_type: 'VoD',
+    moment_score: 71,
     est_impressions: 1400000,
     est_cpm: 9.50,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -531,6 +556,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM027',
     moment_name: 'Superhero Action Sequence',
     moment_type: 'Organic Pause',
+    moment_score: 58,
     est_impressions: 4800000,
     est_cpm: 16.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -551,6 +577,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM028',
     moment_name: 'Back to School Season',
     moment_type: 'VoD',
+    moment_score: 73,
     est_impressions: 3300000,
     est_cpm: 10.00,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -571,6 +598,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM029',
     moment_name: 'Crime Investigation Reveal',
     moment_type: 'VoD',
+    moment_score: 34,
     est_impressions: 2800000,
     est_cpm: 13.80,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -591,6 +619,7 @@ var MOCK_MOMENTS_API = [
     moment_id: 'MOM030',
     moment_name: 'Graduation Day Celebration',
     moment_type: 'VoD',
+    moment_score: 75,
     est_impressions: 1200000,
     est_cpm: 11.80,
     get est_dollar_value() { return Math.round(this.est_impressions * this.est_cpm / 1000); },
@@ -606,16 +635,22 @@ var MOCK_MOMENTS_API = [
       iab:          [147, 150, 151],
       faces:        []
     }
-  },
+  }
+];
 
 // Helper: get moment by ID
 function momentById(id) {
   var m = MOCK_MOMENTS_API.find(function(m) { return m.moment_id === id; });
   if (!m) return null;
-  // Resolve computed est_dollar_value
   return Object.assign({}, m, {
     est_dollar_value: Math.round(m.est_impressions * m.est_cpm / 1000)
   });
+}
+
+// Helper: moment_score → badge label
+function momentScoreBadge(score) {
+  if (score == null) return 'Standard';
+  return score >= 75 ? 'High' : 'Standard';
 }
 
 // Helper: format impressions  2100000 → "2.1M"

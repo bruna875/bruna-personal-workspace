@@ -3,6 +3,7 @@
     { "source": "/moments-search", "destination": "/inventory-explorer", "permanent": true }
   ],
   "rewrites": [
+    { "source": "/dev-specs", "destination": "/dev-specs.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

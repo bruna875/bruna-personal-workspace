@@ -288,7 +288,6 @@ function mp1ShowResults() {
     +     '<button class="cs-dv-tab cs-dv-tab--act" id="tx2-sub-tab-pods"     onclick="csTx2SubTab(\'pods\')">By Inventory</button>'
     +     '<button class="cs-dv-tab"                 id="tx2-sub-tab-moments"       onclick="csTx2SubTab(\'moments\')">By Moments</button>'
     +     '<button class="cs-dv-tab cs-dv-tab--ai"   id="tx2-sub-tab-ai-media-plan" onclick="csTx2SubTab(\'ai-media-plan\')">'
-    +       '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2L7.3 5.7 11 7 7.3 8.3 6 12 4.7 8.3 1 7 4.7 5.7Z"/><path d="M12.5 1L13.3 3.2 15.5 4 13.3 4.8 12.5 7 11.7 4.8 9.5 4 11.7 3.2Z" opacity=".65"/></svg>'
     +       'AI Media Plan'
     +     '</button>'
     +   '</div>'

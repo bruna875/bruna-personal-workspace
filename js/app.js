@@ -87,9 +87,10 @@ var NAV_CONFIG = [
   {
     section: 'Explore Inventory',
     items: [
-      { id: 'vod-analysis',          label: 'VoD Analysis',                 icon: ico.tv     },
-      { id: 'livestream-analysis',   label: 'Livestream Analysis',          icon: ico.radio  },
-      { id: 'pods-explorer',    label: 'Inventory Explorer',           icon: ico.search   }
+      { id: 'vod-analysis',          label: 'VoD Analysis',                 icon: ico.tv          },
+      { id: 'livestream-analysis',   label: 'Livestream Analysis',          icon: ico.radio       },
+      { id: 'olv-analysis',          label: 'OLV Analysis',                 icon: ico.smartphone  },
+      { id: 'pods-explorer',    label: 'Inventory Explorer',           icon: ico.search      }
     ]
   },
   {
@@ -98,7 +99,7 @@ var NAV_CONFIG = [
       { id: 'campaign-management',      label: 'Campaign Manager',          icon: ico.campaign },
       { id: 'creative-studio',          label: 'Creative Studio',           icon: ico.creative,  dividerBefore: true },
       { id: 'moments-builder',          label: 'Moments Builder',           icon: ico.builder  },
-      { id: 'media-planner-v2',         label: 'Media Planner',             icon: ico.showcase }
+      { id: 'media-planner-v2',         label: 'Moments Match',             icon: ico.combine  }
     ]
   },
   {
@@ -111,8 +112,8 @@ var NAV_CONFIG = [
     section: 'Integrations',
     dividerBefore: true,
     items: [
-      { id: 'vod-livestream-feeds',      label: 'VoD / Livestream Feeds',   icon: ico.castconn },
-      { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.dsp      },
+      { id: 'vod-livestream-feeds',      label: 'VoD/Live/OLV Feed',        icon: ico.castconn },
+      { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.merge    },
       { id: 'api-docs',                  label: 'API Documentation',        icon: ico.api      }
     ]
   }
@@ -124,6 +125,7 @@ var PAGES = {
   'overview':              renderOverview,
   'vod-analysis':          renderMetadataAnalysis,
   'livestream-analysis':   renderLivestreamAnalysis,
+  'olv-analysis':          renderOlvAnalysis,
   'pods-explorer':    renderMomentsSearch,
   'media-planner-v2':      renderMediaPlannerV2,
   'moments-builder':       renderMomentsBuilder,
@@ -242,17 +244,17 @@ function pageFromPath() {
   if (cmDetailMatch) return { id: 'campaign-management', label: 'Campaign Management', cmCampaignId: cmDetailMatch[2] };
   if (path === 'campaign-management/draft-campaign' || path === 'campaign-management/pacing-campaign') return { id: 'campaign-management', label: 'Campaign Management' };
   var mp2PlanMatch = path.match(/^media-planner-v2\/media-plans\/(.+)$/);
-  if (mp2PlanMatch) return { id: 'media-planner-v2', label: 'Media Planner', mp2PlanId: mp2PlanMatch[1] };
-  if (path === 'media-planner-v2/media-plans')       return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'plans' };
-  if (path === 'media-planner-v2/previous-analysis') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'analyses' };
-  if (path === 'media-planner-v2/analysis') return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis' };
+  if (mp2PlanMatch) return { id: 'media-planner-v2', label: 'Moments Match', mp2PlanId: mp2PlanMatch[1] };
+  if (path === 'media-planner-v2/media-plans')       return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'plans' };
+  if (path === 'media-planner-v2/previous-analysis') return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'analyses' };
+  if (path === 'media-planner-v2/analysis') return { id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis' };
   // ── moments-match URL patterns ──
-  if (path === 'moments-match' || path === 'moments-match/new') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'new-plan' };
-  if (path === 'moments-match/saved') return { id: 'media-planner-v2', label: 'Media Planner', mp2Tab: 'analyses' };
+  if (path === 'moments-match' || path === 'moments-match/new') return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'new-plan' };
+  if (path === 'moments-match/saved') return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'analyses' };
   var mmSavedMatch = path.match(/^moments-match\/saved\/(\d+)(?:-.+)?$/);
-  if (mmSavedMatch) return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: parseInt(mmSavedMatch[1]), origin: 'saved' };
+  if (mmSavedMatch) return { id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis', analysisId: parseInt(mmSavedMatch[1]), origin: 'saved' };
   var mmNewMatch = path.match(/^moments-match\/new\/(\d+)(?:-.+)?$/);
-  if (mmNewMatch) return { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: parseInt(mmNewMatch[1]), origin: 'new' };
+  if (mmNewMatch) return { id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis', analysisId: parseInt(mmNewMatch[1]), origin: 'new' };
   // /organization            → org list (org-management)
   // /organization/{org-slug} → single org detail  (no tab in URL)
   var parts = path.split('/');
@@ -273,6 +275,7 @@ function pageFromPath() {
     'org-management':        'Organization',
     'overview':              'Overview',
     'livestream-analysis':   'Livestream Analysis',
+    'olv-analysis':          'OLV Analysis',
     'pods-explorer':    'Inventory Explorer',
     'campaign-management':   'Campaign Management',
     'build-media-plan':      'Build Media Plan',
@@ -281,9 +284,9 @@ function pageFromPath() {
     'creative-studio':       'Creative Studio',
     'measurement':           'Measurement',
     'dsp-ssp':                   'DSP / SSP Connections',
-    'vod-livestream-feeds':      'VoD / Livestream Feeds',
+    'vod-livestream-feeds':      'VoD/Live/OLV Feed',
     'api-docs':                  'API Documentation',
-    'moments-match':             'Media Planner'
+    'moments-match':             'Moments Match'
   };
   if (directLabels[base]) return { id: base, label: directLabels[base] };
   var found = null;
@@ -311,27 +314,27 @@ window.addEventListener('popstate', function(e) {
   }
   // Media planner analysis view
   if (e.state && e.state.mp2View === 'analysis') {
-    setPage('media-planner-v2', 'Media Planner', true);
+    setPage('media-planner-v2', 'Moments Match', true);
     var _aid = e.state.analysisId || null;
     setTimeout(function() { mp2ShowResults(_aid); }, 80);
     return;
   }
   // Media planner plan detail
   if (e.state && e.state.mp2PlanId) {
-    setPage('media-planner-v2', 'Media Planner', true);
+    setPage('media-planner-v2', 'Moments Match', true);
     setTimeout(function() { mp2OpenPlanById(e.state.mp2PlanId, true); }, 80);
     return;
   }
   // Media planner tab (media-plans / previous-analysis)
   if (e.state && e.state.mp2Tab) {
     mp2HomeTab = e.state.mp2Tab; // set before render so correct tab is shown
-    setPage('media-planner-v2', 'Media Planner', true);
+    setPage('media-planner-v2', 'Moments Match', true);
     return;
   }
   // Media planner home (back from analysis/new-plan with no specific tab)
   if (e.state && e.state.id === 'media-planner-v2' && !e.state.mp2View) {
     mp2HomeTab = 'new-plan';
-    setPage('media-planner-v2', 'Media Planner', true);
+    setPage('media-planner-v2', 'Moments Match', true);
     return;
   }
   if (e.state && e.state.id) {
@@ -762,15 +765,16 @@ function selectOrg(id) {
       'overview':              'Overview',
       'vod-analysis':          'VoD Analysis',
       'livestream-analysis':   'Livestream Analysis',
+      'olv-analysis':          'OLV Analysis',
       'pods-explorer':    'Inventory Explorer',
       'campaign-management':   'Campaign Management',
       'build-media-plan':      'Build Media Plan',
       'creative-studio':       'Creative Studio',
       'moments-builder':       'Custom Moments Builder',
-      'media-planner-v2':      'Media Planner',
+      'media-planner-v2':      'Moments Match',
       'measurement':           'Measurement',
       'dsp-ssp':               'DSP / SSP Connections',
-      'vod-livestream-feeds':  'VoD / Livestream Feeds',
+      'vod-livestream-feeds':  'VoD/Live/OLV Feed',
       'api-docs':              'API Documentation',
       'org-management':        'Organization',
     };

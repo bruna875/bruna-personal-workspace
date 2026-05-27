@@ -10,27 +10,38 @@ export default async function handler(req, res) {
 
   try {
     const sql = neon(process.env.DATABASE_URL);
-    const { campaign_name, client_name, advertiser_name } = req.body || {};
+    const {
+      campaign_name,
+      client_org_id: rawClientId,
+      advertiser_id: rawAdvId,
+      client_name,
+      advertiser_name,
+      geo,
+      start_date,
+      end_date,
+    } = req.body || {};
 
-    // Resolve client_org_id
-    let client_org_id = null;
-    if (client_name) {
+    // Prefer direct IDs; fall back to name-based lookup for backward compat
+    let client_org_id = rawClientId ? parseInt(rawClientId) : null;
+    if (!client_org_id && client_name) {
       const rows = await sql`SELECT client_org_id FROM client_organizations WHERE client_name = ${client_name} LIMIT 1`;
       if (rows.length) client_org_id = rows[0].client_org_id;
     }
 
-    // Resolve advertiser_id (only meaningful if client is set)
-    let advertiser_id = null;
-    if (advertiser_name && client_org_id) {
+    let advertiser_id = rawAdvId ? parseInt(rawAdvId) : null;
+    if (!advertiser_id && advertiser_name && client_org_id) {
       const rows = await sql`SELECT advertiser_id FROM advertisers WHERE advertiser_name = ${advertiser_name} AND client_org_id = ${client_org_id} LIMIT 1`;
       if (rows.length) advertiser_id = rows[0].advertiser_id;
     }
 
-    const nameVal = (campaign_name && campaign_name.trim()) ? campaign_name.trim() : null;
+    const nameVal      = (campaign_name && campaign_name.trim()) ? campaign_name.trim() : null;
+    const geoVal       = (geo && geo.trim()) ? geo.trim() : null;
+    const startDateVal = start_date || null;
+    const endDateVal   = end_date   || null;
 
     const result = await sql`
-      INSERT INTO campaigns (status, campaign_name, client_org_id, advertiser_id)
-      VALUES ('draft', ${nameVal}, ${client_org_id}, ${advertiser_id})
+      INSERT INTO campaigns (status, campaign_name, client_org_id, advertiser_id, geo, start_date, end_date)
+      VALUES ('draft', ${nameVal}, ${client_org_id}, ${advertiser_id}, ${geoVal}, ${startDateVal}, ${endDateVal})
       RETURNING campaign_id
     `;
 

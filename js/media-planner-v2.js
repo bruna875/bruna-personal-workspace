@@ -70,18 +70,20 @@ var mp2TaxFileName  = '';
 
 function renderMediaPlannerV2() {
   // Reset client/campaign selection state so data re-fetches with current org filter
-  mp2Step1Clients   = null;
-  mp2SelectedClientId = null;
-  mp2Step1Campaigns  = null;
-  mp2SelectedCampaign = null;
+  mp2Step1Clients        = null;
+  mp2SelectedClientId    = null;
+  mp2Step1Campaigns      = null;
+  mp2SelectedCampaign    = null;
+  mp2LibrarySelected     = null;
+  mp2LibrarySelectedItems = [];
   setTimeout(function() {
     mp2TaxStep = 'upload'; mp2TaxInputType = 'video'; mp2TaxFileName = '';
     sdtInjectStyles();
     mp2InjectSliderStyles();
     mp2SwitchHomeTab(mp2HomeTab, true); // restore correct tab without pushing history
   }, 0);
-  var mp2PillTabs = [{id:'new-plan',label:'New Plan'},{id:'plans',label:'Media Plans',dividerBefore:true},{id:'analyses',label:'Previous Analysis'}];
-  return UI.pageHeader({ title: 'Media Planner', subtitle: 'Upload an ad or brief to see recommendations on moments to engage your ideal audience'})
+  var mp2PillTabs = [{id:'new-plan',label:'New Moments Match'},{id:'analyses',label:'Previous Moments Match',dividerBefore:true}];
+  return UI.pageHeader({ title: 'Moments Match', subtitle: 'AI-powered inventory matching and media plan generation'})
     + '<div id="mp2-pills" style="margin-bottom:20px">' + UI.tabNav(mp2PillTabs, mp2HomeTab, 'mp2SwitchHomeTab') + '</div>'
     + `<div id="sdt-panel-taxonomy2">
   <div class="cs-card" id="mp2-outer-card" style="padding:${mp2HomeTab === 'new-plan' ? '32px' : '0'};overflow:hidden">
@@ -92,7 +94,7 @@ function renderMediaPlannerV2() {
 
 function mp2OpenPlanById(id, noPush) {
   var idx = savedMediaPlansV2.findIndex(function(p) { return p.id === id; });
-  if (idx < 0) { mp2SwitchHomeTab('plans'); return; }
+  if (idx < 0) { mp2SwitchHomeTab('analyses'); return; }
   mp2ShowMediaPlanDetail(idx, noPush);
 }
 
@@ -102,7 +104,7 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
-  mp2HomeTab = 'plans';
+  mp2HomeTab = 'analyses';
 
   // Hide tab nav while a plan detail is open
   var pills = document.getElementById('mp2-pills');
@@ -187,7 +189,7 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
   // Update breadcrumb
   var pgname = document.getElementById('content-bc');
   if (pgname) pgname.innerHTML =
-    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2SwitchHomeTab(\'plans\')">Media Planner</span>'
+    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2SwitchHomeTab(\'plans\')">Moments Match</span>'
     + ' &nbsp;/&nbsp; ' + plan.name;
 
   // ── Campaign panel (same structure as analysis detail) ────────────────────────
@@ -369,11 +371,39 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
     +     '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3M2 10v1.5A1.5 1.5 0 003.5 13h7a1.5 1.5 0 001.5-1.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     +     'Export to IO'
     +   '</button>'
-    +   '<button onclick="mp2ActivateDSP(' + idx + ')" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'
-    +     '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="5" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="4.5" cy="11.5" r="1" fill="currentColor"/><circle cx="11.5" cy="11.5" r="1" fill="currentColor"/></svg>'
-    +     'Activate via DSP / SSP'
+    +   '<button onclick="mp2ActivateDSP(' + idx + ')" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:#0f172a;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s" onmouseenter="this.style.background=\'#1e293b\'" onmouseleave="this.style.background=\'#0f172a\'">'
+    +     '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>'
+    +     'Send to DSP / SSP'
     +   '</button>'
     + '</div>';
+}
+
+function mp2SaveCurrentAnalysis() {
+  var btn = event && event.currentTarget;
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  var analysisId = _mp2LastAnalysisId;
+  if (!analysisId) {
+    if (btn) { btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save'; btn.disabled = false; }
+    return;
+  }
+  fetch('/api/moments-match?analysis_id=' + analysisId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ media_plans: _mp2CurrentAnalysisPlans.map(function(p) { return p._dbRaw || p; }) })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    if (btn) {
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Saved';
+      setTimeout(function() {
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save';
+        btn.disabled = false;
+      }, 1800);
+    }
+  })
+  .catch(function() {
+    if (btn) { btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save'; btn.disabled = false; }
+  });
 }
 
 function mp2ActivateDSP(idx) {
@@ -708,17 +738,25 @@ function mp2DeleteMediaPlan(idx) {
   if (!plan) return;
   if (!confirm('Delete "' + plan.name + '"? This cannot be undone.')) return;
   savedMediaPlansV2.splice(idx, 1);
-  mp2SwitchHomeTab('plans');
+  mp2SwitchHomeTab('analyses');
 }
 
 var mp2NewPlanStep    = 1;
 var mp2CampaignMode   = 'select';   // 'create' | 'select'
 var mp2SelectedCampaign   = null;
 var _mp2LastAnalysisId    = null;   // analysis_id returned from last POST to creatives-analysis
+var _mp2CurrentAnalysisPlans = [];  // saved media plans for the current analysis only
+var _mp2DistributePlanIdx    = null; // index of plan selected for Save & Distribute
 var _mp2LastAnalysisName  = '';     // analysis_name for URL slug
 var _mp2AnalysisFromSaved = false;  // true when loaded from Previous Analysis
 var _mp2BriefContent      = '';     // full brief text captured before DOM replacement
 var _mp2DocName           = '';     // doc filename captured before DOM replacement
+
+// Statuses that lock editing actions on an analysis
+var _MP2_LOCKED_STATUSES = ['pacing', 'underpacing', 'completed', 'error', 'failed'];
+function _mp2IsLocked() {
+  return !!(mp2SelectedCampaign && _MP2_LOCKED_STATUSES.indexOf((mp2SelectedCampaign.status || '').toLowerCase()) >= 0);
+}
 
 function mp2Slug(name) {
   return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'analysis';
@@ -730,6 +768,11 @@ function mp2AnalysisUrl(id, name, origin) {
 var mp2SelectedClientId   = null;   // selected client org dbId
 var mp2Step1Clients       = null;   // null = not fetched yet; [] = loaded
 var mp2Step1Campaigns     = null;   // null = not fetched yet; [] = loaded
+var mp2CreateClientId     = null;   // selected client in create mode
+var mp2CreateAdvId        = null;   // selected advertiser id in create mode
+var mp2CreateAdvs         = null;   // null = not fetched; 'loading' | []
+var mp2CreateGeo          = '';     // selected geography in create mode
+var mp2Step1CreateError   = '';     // validation error message for create mode
 var mp2LibrarySelected    = null;   // selected CS_LIBRARY item (first selected, for step-1 compat)
 var mp2LibrarySelectedItems = [];   // all selected CS_LIBRARY items
 
@@ -788,8 +831,10 @@ function mp2RefreshStep1() {
 
 function mp2LoadStep1Clients() {
   if (mp2Step1Clients !== null) return; // already loading or loaded
-  // Use global _appClientOrgs() if available (already loaded at login)
-  if (typeof _appClientOrgs === 'function') {
+  // Use global _appClientOrgs() only if _appDbOrgs has already been populated.
+  // If it is still empty (orgs fetch hasn't resolved yet), fall through to the API fetch
+  // so we don't lock mp2Step1Clients to [] and block future retries.
+  if (typeof _appClientOrgs === 'function' && typeof _appDbOrgs !== 'undefined' && _appDbOrgs.length > 0) {
     mp2Step1Clients = _appClientOrgs();
     // For non-super orgs, auto-select their org and load campaigns
     if (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId) {
@@ -804,7 +849,7 @@ function mp2LoadStep1Clients() {
     mp2RefreshStep1();
     return;
   }
-  // Fallback: fetch from API
+  // Fallback: fetch from API (also used when _appDbOrgs is not yet populated)
   mp2Step1Clients = 'loading';
   fetch('/api/organizations')
     .then(function(r) { return r.json(); })
@@ -824,6 +869,7 @@ function mp2SelectStep1Client(orgId) {
   mp2SelectedClientId = orgId;
   mp2SelectedCampaign = null;
   mp2Step1Campaigns   = null;
+  mp2ClearStep1Error();
   mp2RefreshStep1();
   fetch('/api/campaigns?client_org_id=' + orgId).then(function(r){return r.json();}).then(function(d){
     mp2Step1Campaigns = d.campaigns || [];
@@ -833,6 +879,60 @@ function mp2SelectStep1Client(orgId) {
 
 function mp2SelectStep1Campaign(idx) {
   mp2SelectedCampaign = (mp2Step1Campaigns || [])[idx] || null;
+  mp2ClearStep1Error();
+  mp2RefreshStep1();
+}
+
+function mp2ClearStep1Error() {
+  mp2Step1CreateError = '';
+  var el = document.getElementById('mp2-step1-error');
+  if (el) el.remove();
+}
+
+function mp2ShowStep3Error(msg) {
+  var existing = document.getElementById('mp2-step3-error');
+  if (existing) return;
+  var nav = document.getElementById('mp2-step-nav');
+  if (!nav) return;
+  var div = document.createElement('div');
+  div.id = 'mp2-step3-error';
+  div.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin:0 24px 8px;padding:9px 12px;background:#fff1f4;border:1px solid #fca5a5;border-radius:8px;font-size:12px;color:#b91c1c;line-height:1.5';
+  div.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+    + '<span style="flex:1">' + msg + '</span>'
+    + '<button onclick="mp2ClearStep3Error()" type="button" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;color:#b91c1c;opacity:.7;flex-shrink:0;margin-top:1px" title="Dismiss"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+  nav.parentNode.insertBefore(div, nav);
+}
+
+function mp2ClearStep3Error() {
+  var el = document.getElementById('mp2-step3-error');
+  if (el) el.remove();
+}
+
+function mp2LoadCreateAdvs() {
+  if (mp2CreateAdvs !== null) return;
+  mp2CreateAdvs = 'loading';
+  fetch('/api/advertisers')
+    .then(function(r){return r.json();})
+    .then(function(d){ mp2CreateAdvs = d.advertisers || []; mp2RefreshStep1(); })
+    .catch(function(){ mp2CreateAdvs = []; mp2RefreshStep1(); });
+}
+
+function mp2SelectCreateClient(orgId) {
+  mp2CreateClientId = orgId;
+  mp2CreateAdvId = null;
+  mp2ClearStep1Error();
+  mp2RefreshStep1();
+}
+
+function mp2SelectCreateAdv(advId) {
+  mp2CreateAdvId = String(advId);
+  mp2ClearStep1Error();
+  mp2RefreshStep1();
+}
+
+function mp2SelectCreateGeo(val) {
+  mp2CreateGeo = val;
+  mp2ClearStep1Error();
   mp2RefreshStep1();
 }
 
@@ -863,8 +963,8 @@ function _mp2Step1Html() {
   }
 
   var toggle = _segControlHtml(mp2CampaignMode, [
-    { id: 'select', label: 'Select Campaign', onclick: "mp2CampaignMode='select';mp2RefreshStep1();mp2LoadStep1Clients()" },
-    { id: 'create', label: 'Create Campaign', onclick: "mp2CampaignMode='create';mp2RefreshStep1()" },
+    { id: 'select', label: 'Select Campaign', onclick: "mp2CampaignMode='select';mp2Step1CreateError='';mp2RefreshStep1();mp2LoadStep1Clients()" },
+    { id: 'create', label: 'Create Campaign', onclick: "mp2CampaignMode='create';mp2Step1CreateError='';mp2RefreshStep1();mp2LoadStep1Clients();mp2LoadCreateAdvs()" },
   ]);
 
   var campField;
@@ -912,11 +1012,18 @@ function _mp2Step1Html() {
     if (mp2SelectedClientId) {
       var selCamp = mp2SelectedCampaign;
       var campItems = Array.isArray(mp2Step1Campaigns)
-        ? mp2Step1Campaigns.map(function(c, ci) {
-            var adv = (c.advertiser && c.advertiser !== '—') ? c.advertiser : '';
-            var html = c.name + (adv ? ' <span style="font-size:10px;font-weight:400;color:var(--faint)">(' + adv + ')</span>' : '');
-            return { html: html, label: c.name, searchText: c.name + ' ' + adv, selected: selCamp && selCamp.dbId === c.dbId, onclick: 'mp2SelectStep1Campaign(' + ci + ')' };
-          })
+        ? mp2Step1Campaigns
+            .map(function(c, ci) { return { c: c, ci: ci }; })
+            .filter(function(item) { return item.c.status === 'draft' || item.c.status === 'planned' || !item.c.status; })
+            .map(function(item) {
+              var c = item.c, ci = item.ci;
+              var adv = (c.advertiser && c.advertiser !== '—') ? c.advertiser : '';
+              var badge = (typeof cmStatusChip === 'function' && c.status) ? cmStatusChip(c.status) : '';
+              var html = c.name
+                + (adv ? ' <span style="font-size:10px;font-weight:400;color:var(--faint)">(' + adv + ')</span>' : '')
+                + (badge ? ' ' + badge : '');
+              return { html: html, label: c.name, searchText: c.name + ' ' + adv, selected: selCamp && selCamp.dbId === c.dbId, onclick: 'mp2SelectStep1Campaign(' + ci + ')' };
+            })
         : [];
       campField2 = '<div style="margin-bottom:' + (selCamp ? '14px' : '0') + '">'
         + '<label style="' + LBL + '">Campaign</label>'
@@ -945,41 +1052,200 @@ function _mp2Step1Html() {
       }
     }
 
-    return toggle + clientField + campField2;
+    var _selErrMsg = mp2Step1CreateError === 'select'
+      ? 'Please select Campaign details to proceed with a Campaign. Click on <strong>Skip this step</strong> if you don\'t have a Campaign yet.'
+      : '';
+    var selErrorBanner = _selErrMsg
+      ? '<div id="mp2-step1-error" style="display:flex;align-items:flex-start;gap:8px;margin-top:4px;padding:9px 12px;background:#fff1f4;border:1px solid #fca5a5;border-radius:8px;font-size:12px;color:#b91c1c;line-height:1.5">'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+        + '<span style="flex:1">' + _selErrMsg + '</span>'
+        + '<button onclick="mp2ClearStep1Error()" type="button" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;color:#b91c1c;opacity:.7;flex-shrink:0;margin-top:1px" title="Dismiss">'
+        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        + '</button>'
+        + '</div>'
+      : '';
+    return toggle + clientField + campField2 + selErrorBanner;
   }
 
-  // Create mode
-  campField = '<div style="margin-bottom:14px">'
-    + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Campaign Name</label>'
-    + '<input id="mp2-campaign-name" type="text" placeholder="e.g. Walmart Summer Launch" style="' + INP + '" ' + FOCUS + '>'
+  // ── Create mode ──────────────────────────────────────────────────────────
+  var isSuperOrg = typeof _appIsSuperOrg === 'function' && _appIsSuperOrg();
+
+  // Auto-set client for non-super orgs (pre-fill + lock)
+  if (!isSuperOrg && !mp2CreateClientId && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId) {
+    mp2CreateClientId = selectedClientOrgId;
+  }
+
+  var clientSelected = !!mp2CreateClientId;
+
+  // ── Client field ──────────────────────────────────────────────────────────
+  var selCCLabel = '';
+  if (mp2CreateClientId) {
+    if (Array.isArray(mp2Step1Clients)) {
+      for (var cci = 0; cci < mp2Step1Clients.length; cci++) {
+        if (mp2Step1Clients[cci].dbId === mp2CreateClientId) { selCCLabel = mp2Step1Clients[cci].name; break; }
+      }
+    }
+    // Fallback: try _appDbOrgs if clients not yet loaded
+    if (!selCCLabel && typeof _appDbOrgs !== 'undefined') {
+      for (var dbi = 0; dbi < _appDbOrgs.length; dbi++) {
+        if (_appDbOrgs[dbi].dbId === mp2CreateClientId) { selCCLabel = _appDbOrgs[dbi].name; break; }
+      }
+    }
+  }
+
+  var createClientField;
+  if (!isSuperOrg) {
+    // Non-super: locked, pre-filled
+    createClientField = '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Client</label>'
+      + '<div style="height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);display:flex;align-items:center;font-size:13px;font-weight:500;color:var(--text);cursor:not-allowed;opacity:.8;box-sizing:border-box">'
+      + (selCCLabel || '—') + '</div></div>';
+  } else {
+    // Super org: active search-select
+    var ccItems = Array.isArray(mp2Step1Clients)
+      ? mp2Step1Clients.map(function(c) {
+          return { label: c.name, selected: c.dbId === mp2CreateClientId, onclick: 'mp2SelectCreateClient(' + c.dbId + ')' };
+        })
+      : [];
+    createClientField = '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Client</label>'
+      + _mp2SearchSelectHtml({
+          id: 'mp2-s1-create-client',
+          placeholder: '— select a client —',
+          selectedLabel: selCCLabel,
+          loading: mp2Step1Clients === 'loading' || mp2Step1Clients === null,
+          items: ccItems,
+          emptyMsg: 'No clients found.',
+          searchPlaceholder: 'Search clients…',
+        })
+      + '</div>';
+  }
+
+  var LOCKED = 'height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);display:flex;align-items:center;font-size:13px;color:var(--faint);cursor:not-allowed;opacity:.65;box-sizing:border-box';
+
+  // ── Advertiser (filtered by client, disabled until client selected) ───────
+  // Filter advertiser list by selected client
+  var filteredAdvs = [];
+  if (clientSelected && Array.isArray(mp2CreateAdvs)) {
+    filteredAdvs = mp2CreateAdvs.filter(function(a) {
+      return String(a.client_org_id) === String(mp2CreateClientId);
+    });
+  }
+  var selCALabel = '';
+  if (mp2CreateAdvId) {
+    for (var cai = 0; cai < filteredAdvs.length; cai++) {
+      if (String(filteredAdvs[cai].advertiser_id) === String(mp2CreateAdvId)) { selCALabel = filteredAdvs[cai].advertiser_name; break; }
+    }
+    if (!selCALabel) mp2CreateAdvId = null; // clear if no longer in filtered list
+  }
+
+  var createAdvField;
+  if (!clientSelected) {
+    createAdvField = '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Advertiser</label>'
+      + '<div style="' + LOCKED + '">— select a client first —</div>'
+      + '</div>';
+  } else {
+    var caItems = filteredAdvs.map(function(a) {
+      return { label: a.advertiser_name, selected: String(a.advertiser_id) === String(mp2CreateAdvId), onclick: 'mp2SelectCreateAdv(\'' + a.advertiser_id + '\')' };
+    });
+    createAdvField = '<div style="margin-bottom:14px">'
+      + '<label style="' + LBL + '">Advertiser</label>'
+      + _mp2SearchSelectHtml({
+          id: 'mp2-s1-create-adv',
+          placeholder: '— select an advertiser —',
+          selectedLabel: selCALabel,
+          loading: mp2CreateAdvs === 'loading' || mp2CreateAdvs === null,
+          items: caItems,
+          emptyMsg: 'No advertisers for this client.',
+          searchPlaceholder: 'Search advertisers…',
+        })
+      + '</div>';
+  }
+
+  // ── Campaign Name (disabled until client selected) ─────────────────────
+  var createNameField = '<div style="margin-bottom:14px">'
+    + '<label style="' + LBL + '">Campaign Name</label>'
+    + (clientSelected
+        ? '<input id="mp2-campaign-name" type="text" placeholder="e.g. Walmart Summer Launch" style="' + INP + '" ' + FOCUS + ' oninput="mp2ClearStep1Error()">'
+        : '<input type="text" disabled placeholder="— select a client first —" style="' + DISABLED + '">')
     + '</div>';
 
-  var advField = '<div style="margin-bottom:14px">'
-    + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Advertiser</label>'
-    + '<div style="position:relative">'
-    + '<button id="mp2-adv-trigger" onclick="toggleSharedAdvPanel(event,\'mp2-adv-trigger\',\'mp2-adv-panel\')" style="' + TRIGBTN + ';color:var(--text)">'
-    + '<span class="adv-lbl">' + ((APP_ADVERTISERS.find(function(a){return a.id===selectedAdvId;})||{}).name||'Select Advertiser') + '</span>'
-    + CHEVRON + '</button>'
-    + '<div id="mp2-adv-panel" style="display:none"></div>'
-    + '</div></div>';
+  // ── Flight Dates (disabled until client selected) ──────────────────────
+  var cFlightSet = mp2FlightDates.start && mp2FlightDates.end;
+  var createFlightField;
+  if (!clientSelected) {
+    createFlightField = '<div>'
+      + '<label style="' + LBL + '">Flight Dates</label>'
+      + '<div style="' + LOCKED + '">— select a client first —</div>'
+      + '</div>';
+  } else {
+    createFlightField = '<div>'
+      + '<label style="' + LBL + '">Flight Dates</label>'
+      + '<button type="button" onclick="mp2ClearStep1Error();mp2OpenFlightPicker(this)" style="' + TRIGBTN + ';color:' + (cFlightSet ? 'var(--text)' : 'var(--faint)') + '">'
+      + '<span id="mp2-s1-flight-lbl">' + (cFlightSet ? mp2FlightPillLabel() : 'Select flight dates') + '</span>'
+      + CHEVRON + '</button>'
+      + '</div>';
+  }
 
-  var geoField = '<div>'
-    + '<label style="display:block;font-size:11px;font-weight:500;color:var(--text);margin-bottom:5px">Geography</label>'
-    + '<div style="position:relative">'
-    + '<button id="mp2-geo-trigger" onclick="mp2ToggleGeoPanel(event)" style="' + TRIGBTN + ';color:var(--faint)">'
-    + '<span id="mp2-geo-label">All regions</span>'
-    + CHEVRON + '</button>'
-    + UI.searchCheckboxPanel({ id:'mp2-geo-panel', placeholder:'Search regions…', onChangeFn:'mp2GeoToggle', items:[
-        {val:'europe',label:'Europe',checked:false},{val:'united-states',label:'United States',checked:false},
-        {val:'canada',label:'Canada',checked:false},{val:'united-kingdom',label:'United Kingdom',checked:false},
-        {val:'australia',label:'Australia',checked:false},{val:'new-zealand',label:'New Zealand',checked:false},
-        {val:'japan',label:'Japan',checked:false},{val:'brazil',label:'Brazil',checked:false},
-        {val:'germany',label:'Germany',checked:false},{val:'france',label:'France',checked:false},
-        {val:'italy',label:'Italy',checked:false},{val:'spain',label:'Spain',checked:false},
-      ]})
-    + '</div></div>';
+  // ── Geography (disabled until client selected) ─────────────────────────
+  var GEO_OPTS = [
+    {val:'europe',label:'Europe'},{val:'united-states',label:'United States'},{val:'canada',label:'Canada'},
+    {val:'united-kingdom',label:'United Kingdom'},{val:'australia',label:'Australia'},{val:'new-zealand',label:'New Zealand'},
+    {val:'japan',label:'Japan'},{val:'brazil',label:'Brazil'},{val:'germany',label:'Germany'},
+    {val:'france',label:'France'},{val:'italy',label:'Italy'},{val:'spain',label:'Spain'},
+  ];
+  var createGeoField;
+  if (!clientSelected) {
+    createGeoField = '<div>'
+      + '<label style="' + LBL + '">Geography</label>'
+      + '<div style="' + LOCKED + '">— select a client first —</div>'
+      + '</div>';
+  } else {
+    var selGeoLbl = '';
+    for (var gi = 0; gi < GEO_OPTS.length; gi++) {
+      if (GEO_OPTS[gi].val === mp2CreateGeo) { selGeoLbl = GEO_OPTS[gi].label; break; }
+    }
+    var geoItems2 = GEO_OPTS.map(function(g) {
+      return { label: g.label, selected: g.val === mp2CreateGeo, onclick: 'mp2SelectCreateGeo(\'' + g.val + '\')' };
+    });
+    createGeoField = '<div>'
+      + '<label style="' + LBL + '">Geography</label>'
+      + _mp2SearchSelectHtml({
+          id: 'mp2-s1-create-geo',
+          placeholder: '— select a region —',
+          selectedLabel: selGeoLbl,
+          loading: false,
+          items: geoItems2,
+          emptyMsg: 'No regions found.',
+          searchPlaceholder: 'Search regions…',
+        })
+      + '</div>';
+  }
 
-  return toggle + campField + advField + geoField;
+  var _errMsg = mp2Step1CreateError === 'create'
+    ? 'Please fill in Campaign details to create a Campaign. Click on <strong>Skip this step</strong> if you don\'t have a Campaign yet.'
+    : mp2Step1CreateError === 'select'
+    ? 'Please select Campaign details to proceed with a Campaign. Click on <strong>Skip this step</strong> if you don\'t have a Campaign yet.'
+    : '';
+  var errorBanner = _errMsg
+    ? '<div id="mp2-step1-error" style="display:flex;align-items:flex-start;gap:8px;margin-top:4px;padding:9px 12px;background:#fff1f4;border:1px solid #fca5a5;border-radius:8px;font-size:12px;color:#b91c1c;line-height:1.5">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+      + '<span style="flex:1">' + _errMsg + '</span>'
+      + '<button onclick="mp2ClearStep1Error()" type="button" style="background:none;border:none;cursor:pointer;padding:0;line-height:1;color:#b91c1c;opacity:.7;flex-shrink:0;margin-top:1px" title="Dismiss">'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+      + '</button>'
+      + '</div>'
+    : '';
+
+  return toggle
+    + createClientField
+    + createAdvField
+    + createNameField
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
+    + createFlightField + createGeoField
+    + '</div>'
+    + errorBanner;
 }
 
 function _mp2StepHdrHtml() {
@@ -1012,7 +1278,7 @@ function _mp2StepNavHtml() {
     ? '<button onclick="mp2StepNav(-1)" style="' + BACK + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'
     : '<div></div>';
   var right = '';
-  if (mp2NewPlanStep !== 3) right += '<button type="button" onclick="mp2StepNav(1)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
+  if (mp2NewPlanStep !== 3) right += '<button type="button" onclick="mp2StepNav(1,true)" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:400;cursor:pointer;font-family:inherit;padding:0;letter-spacing:.1px;display:inline-flex;align-items:center;line-height:1;transition:opacity .15s" onmouseenter="this.style.opacity=\'.65\'" onmouseleave="this.style.opacity=\'1\'">Skip this step</button>';
   right += mp2NewPlanStep < 3
     ? '<button onclick="mp2StepNav(1)" style="' + NEXT + '">Next<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>'
     : '<button onclick="mp2Analyze()" style="' + NEXT + '"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>Start Analysis</button>';
@@ -1020,7 +1286,30 @@ function _mp2StepNavHtml() {
   return html + '</div>';
 }
 
-function mp2StepNav(dir) {
+function mp2StepNav(dir, skip) {
+  // Validate step 1 before advancing (unless Skip was clicked)
+  if (dir === 1 && mp2NewPlanStep === 1 && !skip) {
+    var invalid = false;
+    if (mp2CampaignMode === 'create') {
+      var nameVal = (document.getElementById('mp2-campaign-name') || {}).value || '';
+      if (!mp2CreateClientId || !mp2CreateAdvId || !nameVal.trim() || !mp2FlightDates.start || !mp2FlightDates.end || !mp2CreateGeo) {
+        mp2Step1CreateError = 'create';
+        mp2RefreshStep1();
+        invalid = true;
+      }
+    } else {
+      // select mode
+      if (!mp2SelectedClientId || !mp2SelectedCampaign) {
+        mp2Step1CreateError = 'select';
+        mp2RefreshStep1();
+        invalid = true;
+      }
+    }
+    if (invalid) return;
+    mp2Step1CreateError = '';
+  } else {
+    mp2Step1CreateError = '';
+  }
   mp2NewPlanStep = Math.min(3, Math.max(1, mp2NewPlanStep + dir));
   var hdr = document.getElementById('mp2-step-hdr');
   if (hdr) hdr.innerHTML = _mp2StepHdrHtml();
@@ -1034,18 +1323,58 @@ function mp2StepNav(dir) {
   if (mp2NewPlanStep === 2) mp2BuildNewPlanAIPanel();
   if (mp2NewPlanStep === 3) {
     setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
+    // Pre-fill analysis name from whichever mode provided a campaign name
+    var _step3CampaignName = '';
+    if (mp2CampaignMode === 'create') {
+      var _cnInput = document.getElementById('mp2-campaign-name');
+      _step3CampaignName = (_cnInput && _cnInput.value.trim()) ? _cnInput.value.trim() : '';
+      // Store it so it survives the DOM re-render
+      if (_step3CampaignName) window._mp2CreateCampaignName = _step3CampaignName;
+    } else if (mp2CampaignMode === 'select' && mp2SelectedCampaign) {
+      _step3CampaignName = mp2SelectedCampaign.name || '';
+    }
+    if (_step3CampaignName) {
+      setTimeout(function() {
+        var anInput = document.getElementById('mp2-analysis-name-input');
+        if (!anInput) return;
+        var _baseName = _step3CampaignName + ' Moments Match';
+        var _uniqueName = _baseName;
+        var _existing = (_mp2AnalysesCache || []).map(function(a) { return (a.analysis_name || '').toLowerCase(); });
+        if (_existing.indexOf(_baseName.toLowerCase()) !== -1) {
+          var _n2 = 2;
+          while (_existing.indexOf((_baseName + ' ' + _n2).toLowerCase()) !== -1) { _n2++; }
+          _uniqueName = _baseName + ' ' + _n2;
+        }
+        anInput.value = _uniqueName;
+        anInput.disabled = false;
+        anInput.style.background = '';
+        anInput.style.color      = '';
+        anInput.style.cursor     = '';
+      }, 50);
+    }
     // If a campaign was selected in Step 1, pre-select "Asset from Library"
     // and auto-load its associated creatives
     if (mp2SelectedCampaign && mp2SelectedCampaign.dbId) {
       mp2SelectInput('library');
-      // Pre-fill analysis name with campaign name and lock it
+      // Pre-fill analysis name with campaign name; make it editable but suggest a unique name
       var anInput = document.getElementById('mp2-analysis-name-input');
       if (anInput) {
-        anInput.value = (mp2SelectedCampaign.name ? mp2SelectedCampaign.name + ' Moments Match' : '');
-        anInput.disabled = true;
-        anInput.style.background = 'var(--subtle)';
-        anInput.style.color = 'var(--faint)';
-        anInput.style.cursor = 'not-allowed';
+        var _baseName = (mp2SelectedCampaign.name ? mp2SelectedCampaign.name + ' Moments Match' : '');
+        // Find a unique name by incrementing suffix if name already exists in cache
+        var _uniqueName = _baseName;
+        if (_baseName) {
+          var _existing = (_mp2AnalysesCache || []).map(function(a) { return (a.analysis_name || '').toLowerCase(); });
+          if (_existing.indexOf(_baseName.toLowerCase()) !== -1) {
+            var _n = 2;
+            while (_existing.indexOf((_baseName + ' ' + _n).toLowerCase()) !== -1) { _n++; }
+            _uniqueName = _baseName + ' ' + _n;
+          }
+        }
+        anInput.value    = _uniqueName;
+        anInput.disabled = false;
+        anInput.style.background = '';
+        anInput.style.color      = '';
+        anInput.style.cursor     = '';
       }
       var area = document.getElementById('tx2-input-area');
       if (area) area.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">Loading creatives…</div>';
@@ -1166,7 +1495,6 @@ function mp2BuildNewPlanAIPanel() {
     '<div style="display:flex;flex-direction:column;min-height:200px">'
     + '<div style="width:100%">'
 
-    + '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Step 2 — Add Campaign Details</div>'
 
     + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px;text-align:left">'
     +   'The budget for my media plan is ' + aiTriggerHtml('budget')
@@ -1174,8 +1502,7 @@ function mp2BuildNewPlanAIPanel() {
     +   'The Channels should be ' + aiTriggerHtml('channels')
     +   ' and the type ' + aiTriggerHtml('type') + '. '
     +   'My Brand Safety parameters are ' + aiTriggerHtml('brand') + '. '
-    +   'Use ' + aiTriggerHtml('score') + ' Match Score. '
-    +   'The ad will be on air on ' + aiTriggerHtml('dates') + '.'
+    +   'Use ' + aiTriggerHtml('score') + ' Match Score.'
     + '</div>'
 
     + '</div>'
@@ -1297,12 +1624,12 @@ function mp2ShowUpload() {
   if (pills) pills.style.display = '';
 
   var pgname = document.getElementById('content-bc');
-  if (pgname) pgname.textContent = 'Media Planner';
+  if (pgname) pgname.textContent = 'Moments Match';
 
   function inputArea(type) {
     var uploadZone = type === 'video'
       ? '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="document.getElementById(\'tx2-file-input-video\').click()">'
-        + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*,image/*">'
+        + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*,image/*" onchange="if(this.files&&this.files.length)mp2ClearStep3Error()">'
         + '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="color:var(--faint)"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>'
         + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Drop Asset Here</div>'
         + '<div style="font-size:11px;color:var(--faint);margin-top:1px">MP4, MOV, JPG, PNG — up to 2 GB</div>'
@@ -1345,14 +1672,14 @@ function mp2ShowUpload() {
   ];
 
   var libCols = [
-    { label: '',               width: '36px'                    },
-    { label: 'Analysis Name',  width: '220px'                   },
-    { label: 'Date',           width: '110px'                   },
-    { label: 'Client',         width: '130px'                   },
-    { label: 'Campaign',       width: '160px'                   },
-    { label: 'Advertiser',     width: '130px'                   },
-    { label: 'Moments',        width: '90px',  align: 'right'   },
-    { label: '',               width: '44px'                    },
+    { label: '',               width: '36px'                       },
+    { label: 'Analysis Name',  width: '220px'                      },
+    { label: 'Campaign',       width: '220px'                      },
+    { label: 'Client',         width: '120px'                      },
+    { label: 'Advertiser',     width: '120px'                      },
+    { label: 'Media Plans',    width: '90px',  align: 'center'     },
+    { label: 'Date',           width: '100px'                      },
+    { label: '',               width: '44px'                       },
   ];
   var TDl  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
   var TDlm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
@@ -1362,47 +1689,20 @@ function mp2ShowUpload() {
     + UI.searchBar('mp2-lib-search', 'Search analyses…', 'mp2LibSearch(this.value)')
     + '</div>';
   var libraryRows = UI.cardHeader({
-    title: 'Previous Analysis',
-    subtitle: '<span id="mp2-analyses-subtitle">Loading…</span>',
+    titleHtml: '<div style="font-size:13px;font-weight:600;color:var(--text)">Previous Moments Match</div>'
+      + '<div style="font-size:12px;color:var(--faint)"><span id="mp2-analyses-subtitle">Loading…</span></div>',
     padding: '0',
-    bodyHtml: libSearchBar + UI.tableScroll(libCols, '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-analyses-loading">Loading…</td></tr>', 'mp2-lib-tbody', 0, null, { inCard: true }),
-  });
-
-  var planCols = [
-    { label: 'Plan Name',        width: '260px' },
-    { label: 'Campaign',         width: '190px' },
-    { label: 'Client',           width: '130px' },
-    { label: 'Advertiser',       width: '120px' },
-    { label: 'Moments',          width: '80px',  align: 'right' },
-    { label: 'Est. Impr.',       width: '100px', align: 'right' },
-    { label: 'Avg CPM',          width: '90px',  align: 'right' },
-    { label: 'Est. $ Value',     width: '110px', align: 'right' },
-    { label: 'Created By',       width: '110px' },
-    { label: 'Last Updated',     width: '110px' },
-    { label: '',                 width: '48px',  align: 'center' },
-  ];
-
-  // Shell — rows injected async by mp2LoadPlansTable()
-  var plansBodyHtml = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
-    + UI.searchBar('mp2-plans-search', 'Search media plans…', 'mp2PlansSearch(this.value)')
-    + '</div>'
-    + UI.tableScroll(planCols, '<tr><td colspan="11" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-plans-loading">Loading…</td></tr>', 'mp2-plans-tbody', 1, null, { inCard: true });
-
-  var plansRows = UI.cardHeader({
-    title: 'Media Plans',
-    subtitle: '<span id="mp2-plans-subtitle">Loading…</span>',
-    padding: '0',
-    bodyHtml: plansBodyHtml,
+    bodyHtml: libSearchBar + UI.tableScroll(libCols, '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)" id="mp2-analyses-loading">Loading…</td></tr>', 'mp2-lib-tbody', 0, null, { inCard: true, tableLayout: 'fixed' }),
   });
 
   ca.innerHTML =
-    '<div style="display:flex;flex-direction:column;min-height:400px">'
+    '<div style="display:flex;flex-direction:column">'
 
     // ── New Plan tab — gradient bg, 2 columns: AI panel | upload form ──
-    + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px;display:flex;flex-direction:column">'
+    + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'min-height:400px;background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px;display:flex;flex-direction:column">'
     +   '<div style="text-align:center;margin-bottom:16px">'
-    +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">Get AI personalized Media Plans</div>'
-    +     '<div style="font-size:11px;color:var(--muted)">Describe your campaigns, scan your creatives and let the AI find the best placements.</div>'
+    +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">AI-powered inventory matching and media plan generation</div>'
+    +     '<div style="font-size:11px;color:var(--muted)">Scan your creatives or describe your campaign and let AI match them to the right shows and inventory.</div>'
     +   '</div>'
     // ── Stepper card ──
     +   '<div style="max-width:520px;width:100%;margin:0 auto;flex:1;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
@@ -1449,9 +1749,9 @@ function mp2ShowUpload() {
     +                 '<span class="mp2-lbw-tt" style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:220px;background:#1e293b;color:#e2e8f0;font-size:10px;line-height:1.5;padding:7px 10px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999;pointer-events:none">The lookback window indicates the time before an Ad Break used to qualify the scene as a Moment</span>'
     +               '</span>'
     +             '</div>'
-    +             '<span id="mp2-lookback-label" style="font-size:11px;font-weight:600;color:var(--accent)">4 min</span>'
+    +             '<span id="mp2-lookback-label" style="font-size:11px;font-weight:600;color:var(--accent)">2 min</span>'
     +           '</div>'
-    +           '<input type="range" id="mp2-lookback-slider" min="30" max="300" value="240" step="15" oninput="mp2UpdateLookback(this.value)" style="accent-color:var(--accent)">'
+    +           '<input type="range" id="mp2-lookback-slider" min="30" max="300" value="120" step="15" oninput="mp2UpdateLookback(this.value)" style="accent-color:var(--accent)">'
     +           '<div style="display:flex;justify-content:space-between;margin-top:1px">'
     +             '<span style="font-size:9px;color:var(--faint)">30 sec</span>'
     +             '<span style="font-size:9px;color:var(--faint)">5 min</span>'
@@ -1465,13 +1765,8 @@ function mp2ShowUpload() {
     +   '</div>'
     + '</div>'
 
-    // ── Media Plans tab ──
-    + '<div id="tx2-home-panel-plans" style="flex:1;overflow-y:auto;' + (mp2HomeTab !== 'plans' ? 'display:none' : '') + '">'
-    +   plansRows
-    + '</div>'
-
     // ── Previous Analysis tab ──
-    + '<div id="tx2-home-panel-analyses" style="flex:1;overflow-y:auto;flex-direction:column;gap:0;' + (mp2HomeTab !== 'analyses' ? 'display:none' : 'display:flex') + '">'
+    + '<div id="tx2-home-panel-analyses" style="overflow-y:auto;flex-direction:column;gap:0;' + (mp2HomeTab !== 'analyses' ? 'display:none' : 'display:flex') + '">'
     +   libraryRows
     + '</div>'
 
@@ -1479,7 +1774,6 @@ function mp2ShowUpload() {
 
   setTimeout(function(){
     mp2SliderFill(mp2LookbackSecs);
-    if (mp2HomeTab === 'plans')    mp2LoadPlansTable();
     if (mp2HomeTab === 'analyses') mp2LoadAnalysesTable();
   }, 0);
 }
@@ -1624,6 +1918,7 @@ function mp2ConfirmLibraryAsset() {
   if (!items.length) return;
   mp2LibrarySelectedItems = items;
   mp2LibrarySelected = items[0]; // keep first for step-1 compat
+  mp2ClearStep3Error();
   var area = document.getElementById('tx2-input-area');
   if (area) area.innerHTML = _mp2LibrarySelectedGridHtml(items);
   mp2CloseLibraryModal();
@@ -1765,9 +2060,14 @@ function mp2FilterLibraryModal(q) {
 
 function mp2LibSearch(q) {
   var term = (q || '').toLowerCase().trim();
-  document.querySelectorAll('#mp2-lib-tbody tr').forEach(function(tr) {
-    tr.style.display = (!term || tr.textContent.toLowerCase().indexOf(term) >= 0) ? '' : 'none';
+  if (!_mp2AnalysesCache.length) return;
+  var filtered = !term ? _mp2AnalysesCache : _mp2AnalysesCache.filter(function(a) {
+    return (a.analysis_name  || '').toLowerCase().indexOf(term) >= 0
+        || (a.campaign_name  || '').toLowerCase().indexOf(term) >= 0
+        || (a.client_name    || '').toLowerCase().indexOf(term) >= 0
+        || (a.advertiser_name|| '').toLowerCase().indexOf(term) >= 0;
   });
+  _mp2RenderAnalysisRows(filtered);
 }
 
 function mp2PlansSearch(q) {
@@ -1778,35 +2078,32 @@ function mp2PlansSearch(q) {
 }
 
 function mp2DeleteAnalysis(analysisId, btn) {
-  if (!confirm('Delete this analysis?')) return;
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
-  fetch('/api/moments-match?analysis_id=' + analysisId, { method: 'DELETE' })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.ok) {
-        // Remove the row from the table
-        var row = btn ? btn.closest('tr') : null;
-        if (row) {
-          row.style.transition = 'opacity .2s';
-          row.style.opacity = '0';
-          setTimeout(function() { row.remove(); }, 200);
-        }
-        // Update subtitle count
-        var subtitle = document.getElementById('mp2-analyses-subtitle');
-        if (subtitle) {
-          var current = parseInt(subtitle.textContent) || 0;
-          var n = Math.max(0, current - 1);
-          subtitle.textContent = n + ' anal' + (n !== 1 ? 'yses' : 'ysis');
-        }
-      } else {
-        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-        alert('Delete failed: ' + (data.error || 'unknown error'));
-      }
-    })
-    .catch(function(err) {
-      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-      alert('Delete failed: ' + err.message);
-    });
+  var rec = _mp2AnalysesCache.filter(function(a) { return a.analysis_id === analysisId; })[0] || {};
+  var aName = rec.analysis_name || ('Analysis #' + analysisId);
+  mp2ShowConfirmModal(
+    'Delete analysis?',
+    'Deleting <strong>' + aName.replace(/</g,'&lt;') + '</strong> will also permanently remove all media plans associated with this analysis. This cannot be undone.',
+    function() {
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+      fetch('/api/moments-match?analysis_id=' + analysisId, { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            _mp2AnalysesCache = _mp2AnalysesCache.filter(function(a) { return a.analysis_id !== analysisId; });
+            delete _mp2ExpandedRows[analysisId];
+            _mp2RenderAnalysisRows(_mp2AnalysesCache);
+            var subtitle = document.getElementById('mp2-analyses-subtitle');
+            var n = _mp2AnalysesCache.length;
+            if (subtitle) subtitle.textContent = n + ' anal' + (n !== 1 ? 'yses' : 'ysis');
+          } else {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+          }
+        })
+        .catch(function() {
+          if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        });
+    }
+  );
 }
 
 function mp2LibLoad(analysisId, analysisName) {
@@ -1817,12 +2114,15 @@ function mp2LibLoad(analysisId, analysisName) {
 }
 
 // ── Previous Analysis table — DB-backed ───────────────────────────────────────
+var _mp2AnalysesCache = [];   // full fetched list; used by search + delete
+var _mp2ExpandedRows  = {};   // analysisId → true/false
+
 function mp2LoadAnalysesTable() {
   var tbody    = document.getElementById('mp2-lib-tbody');
   var subtitle = document.getElementById('mp2-analyses-subtitle');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Loading…</td></tr>';
   if (subtitle) subtitle.textContent = 'Loading…';
 
   var _analysesQs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
@@ -1830,14 +2130,144 @@ function mp2LoadAnalysesTable() {
   fetch('/api/moments-match' + _analysesQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var analyses = data.analyses || [];
-      if (subtitle) subtitle.textContent = analyses.length + ' anal' + (analyses.length !== 1 ? 'yses' : 'ysis');
-      _mp2RenderAnalysisRows(analyses);
+      _mp2AnalysesCache = data.analyses || [];
+      var n = _mp2AnalysesCache.length;
+      if (subtitle) subtitle.textContent = n + ' anal' + (n !== 1 ? 'yses' : 'ysis');
+      _mp2RenderAnalysisRows(_mp2AnalysesCache);
     })
     .catch(function(e) {
       if (subtitle) subtitle.textContent = 'Error';
-      tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading analyses: ' + e.message + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="padding:32px;text-align:center;font-size:12px;color:#dc2626">Error loading analyses: ' + e.message + '</td></tr>';
     });
+}
+
+// Toggle expand/collapse for an analysis row
+function mp2ToggleAnalysisExpand(analysisId, e) {
+  if (e) e.stopPropagation();
+  _mp2ExpandedRows[analysisId] = !_mp2ExpandedRows[analysisId];
+  var chevron = document.getElementById('mp2-chev-' + analysisId);
+  var open    = _mp2ExpandedRows[analysisId];
+  if (chevron) chevron.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+  // sub-rows are siblings in the same table — find by class
+  var subRows = document.querySelectorAll('.mp2-sub-' + analysisId);
+  if (!subRows.length) { _mp2RenderAnalysisRows(_mp2AnalysesCache); return; }
+  subRows.forEach(function(tr) { tr.style.display = open ? '' : 'none'; });
+}
+
+// Delete a specific media plan from an analysis (from the expanded sub-rows)
+function mp2DeleteAnalysisPlanFromLib(analysisId, planIdx, planName) {
+  mp2ShowConfirmModal(
+    'Delete media plan?',
+    'Are you sure you want to delete <strong>' + (planName || 'this plan').replace(/</g,'&lt;') + '</strong>? This cannot be undone.',
+    function() {
+      var rec = _mp2AnalysesCache.filter(function(a) { return a.analysis_id === analysisId; })[0];
+      if (!rec || !Array.isArray(rec.media_plans)) return;
+      rec.media_plans.splice(planIdx, 1);
+      // Remove old sub-rows and re-insert
+      document.querySelectorAll('.mp2-sub-' + analysisId).forEach(function(tr) { tr.remove(); });
+      var anchor = document.getElementById('mp2-anchor-' + analysisId);
+      if (anchor) {
+        var newHtml = _mp2SubRowsHtml(analysisId, rec.media_plans, true);
+        anchor.insertAdjacentHTML('afterend', newHtml);
+      }
+      var countEl = document.getElementById('mp2-pcount-' + analysisId);
+      if (countEl) countEl.textContent = rec.media_plans.length;
+      fetch('/api/moments-match?analysis_id=' + analysisId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_plans: rec.media_plans })
+      }).catch(function(err) { console.warn('mp2DeleteAnalysisPlanFromLib DB error:', err); });
+    }
+  );
+}
+
+// ─── Sub-rows for expanded media plans ────────────────────────────────────────
+// Returns sibling <tr> elements for the SAME parent table — no nested table,
+// so column widths are inherited from the parent's table-layout:fixed automatically.
+// ─────────────────────────────────────────────────────────────────────────────
+function _mp2SubRowsHtml(analysisId, plans, visible) {
+  var _cacheRec = (_mp2AnalysesCache || []).filter(function(a) { return a.analysis_id === analysisId; })[0] || {};
+  var _campName = (_cacheRec.campaign_name || '').replace(/</g,'&lt;');
+  var cls  = 'mp2-sub-' + analysisId;
+  var disp = visible ? '' : 'display:none';
+
+  var HDR = 'padding:5px 16px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);background:var(--bg);border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  var CEL = 'padding:7px 16px;font-size:11px;border-bottom:1px solid var(--border);background:var(--surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+
+  // Header row (Plan Name / Campaign / Channels / …)
+  var hdrRow = '<tr class="' + cls + '" style="' + disp + '">'
+    + '<td style="' + HDR + '"></td>'
+    + '<td style="' + HDR + ';text-align:left">Plan Name</td>'
+    + '<td style="' + HDR + ';text-align:left">Campaign</td>'
+    + '<td style="' + HDR + ';text-align:center">Channels</td>'
+    + '<td style="' + HDR + ';text-align:center">Moments</td>'
+    + '<td style="' + HDR + ';text-align:right">Est. Imp.</td>'
+    + '<td style="' + HDR + ';text-align:right">Avg CPM</td>'
+    + '<td style="' + HDR + '"></td>'
+    + '</tr>';
+
+  if (!plans || !plans.length) {
+    var emptyRow = '<tr class="' + cls + '" style="' + disp + '">'
+      + '<td style="' + CEL + '"></td>'
+      + '<td colspan="7" style="' + CEL + ';color:var(--faint);font-style:italic">No media plans saved for this analysis.</td>'
+      + '</tr>';
+    return hdrRow + emptyRow;
+  }
+
+  var MERGE_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>';
+  var TRASH_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>';
+  var IBTN = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:none;background:none;cursor:pointer;border-radius:4px;transition:color .15s,background .15s';
+
+  function fmtImpr(n) {
+    n = Number(n) || 0;
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000)    return Math.round(n / 1000) + 'K';
+    return n || '—';
+  }
+  function fmtCpm(n) { return n ? '$' + Number(n).toFixed(2) : '—'; }
+
+  var dataRows = plans.map(function(p, idx) {
+    var moms        = Array.isArray(p.moments) ? p.moments : [];
+    var momCount    = moms.length;
+    var totalImpr   = moms.reduce(function(s,m){ return s + (Number(m.moment_est_impr)||0); }, 0);
+    var totalDollar = moms.reduce(function(s,m){ return s + (Number(m.moment_est_dollar_value)||0); }, 0);
+    var avgCpm      = (totalImpr > 0) ? (totalDollar / totalImpr * 1000) : 0;
+    var chanSet = {};
+    moms.forEach(function(m){ (m.moment_channels||[]).forEach(function(c){ chanSet[c]=1; }); });
+    var chanCount = Object.keys(chanSet).length;
+    var pName     = (p.media_plan_name || 'Untitled').replace(/</g,'&lt;');
+    var safeQ     = (p.media_plan_name || 'Untitled').replace(/'/g,"\\'").replace(/</g,'&lt;');
+
+    var chanBadge = chanCount
+      ? '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:16px;padding:0 5px;border-radius:9px;background:var(--bg);border:1px solid var(--border);font-size:10px;font-weight:600;color:var(--muted)">' + chanCount + '</span>'
+      : '<span style="color:var(--faint)">—</span>';
+
+    var delBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysisPlanFromLib(' + analysisId + ',' + idx + ',\'' + safeQ + '\')"'
+      + ' style="' + IBTN + ';color:var(--faint)"'
+      + ' onmouseover="this.style.color=\'#dc2626\';this.style.background=\'#fef2f2\'"'
+      + ' onmouseout="this.style.color=\'var(--faint)\';this.style.background=\'none\'">'
+      + TRASH_ICON + '</button>';
+
+    return '<tr class="' + cls + '" style="' + disp + '">'
+      + '<td style="' + CEL + '"></td>'
+      + '<td style="' + CEL + ';font-weight:600;color:var(--text);max-width:0">' + pName + '</td>'
+      + '<td style="' + CEL + ';color:var(--muted);vertical-align:middle;overflow:hidden;max-width:0">'
+      +   '<div style="display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden">'
+      +     '<span style="overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0">' + (_campName || '—') + '</span>'
+      +     ((_cacheRec.campaign_status) && typeof cmStatusChip === 'function' ? cmStatusChip(_cacheRec.campaign_status) : '')
+      +   '</div>'
+      + '</td>'
+      + '<td style="' + CEL + ';text-align:center">' + chanBadge + '</td>'
+      + '<td style="' + CEL + ';color:var(--muted);text-align:center">' + (momCount || '—') + '</td>'
+      + '<td style="' + CEL + ';color:var(--muted);text-align:right">' + (totalImpr ? fmtImpr(totalImpr) : '—') + '</td>'
+      + '<td style="' + CEL + ';color:var(--muted);text-align:right">' + (avgCpm ? fmtCpm(avgCpm) : '—') + '</td>'
+      + '<td style="' + CEL + ';text-align:center;padding:4px 8px">'
+      +   '<div style="display:flex;align-items:center;justify-content:center;gap:2px">' + delBtn + '</div>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+
+  return hdrRow + dataRows;
 }
 
 function _mp2RenderAnalysisRows(analyses) {
@@ -1849,63 +2279,68 @@ function _mp2RenderAnalysisRows(analyses) {
     return;
   }
 
-  function typeIconForAsset(assetType) {
-    if (assetType === 'brief') return '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    if (assetType === 'doc')   return '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-    // creative (video)
-    return '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
-  }
+  var CHEVRON_R = '<svg id="mp2-chev-{ID}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .18s;transform:{ROT};flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>';
 
-  var TDi  = 'padding:11px 12px 11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);width:36px';
-  var TDl  = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
-  var TDlm = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
-  var TDln = 'padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border);text-align:right';
-  var TDlc = 'padding:11px 16px;font-size:12px;border-bottom:1px solid var(--border);text-align:center';
+  var TDchev = 'padding:0 0 0 12px;width:36px;border-bottom:1px solid var(--border);vertical-align:middle';
+  var TDl    = 'padding:11px 16px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)';
+  var TDlm   = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TDlc   = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);text-align:center';
 
-  tbody.innerHTML = analyses.map(function(a, i) {
-    var last = i === analyses.length - 1;
-    var fix  = last ? ';border-bottom:none' : '';
+  tbody.innerHTML = analyses.map(function(a) {
+    var aid  = a.analysis_id;
+    var open = !!_mp2ExpandedRows[aid];
 
-    // Icon cell
-    var iconCell = '<span style="display:flex;align-items:center;justify-content:center;color:var(--muted)">'
-      + typeIconForAsset(a.asset_type) + '</span>';
+    var chevron = CHEVRON_R
+      .replace('{ID}', aid)
+      .replace('{ROT}', open ? 'rotate(90deg)' : 'rotate(0deg)');
 
-    // Analysis name
-    var analysisLabel = a.analysis_name || ('Analysis #' + a.analysis_id);
+    var analysisLabel = (a.analysis_name || ('Analysis #' + aid)).replace(/</g,'&lt;');
+    var safeQuote     = (a.analysis_name || '').replace(/'/g,"\\'");
 
-    // Date
     var dateStr = a.created_at
       ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       : '—';
 
-    // Moments: count from moments[] or sum across media_plans[].moments[]
-    var momentsVal = '—';
-    if (Array.isArray(a.moments) && a.moments.length) {
-      momentsVal = a.moments.length;
-    } else if (Array.isArray(a.media_plans) && a.media_plans.length) {
-      var total = a.media_plans.reduce(function(s, p) {
-        return s + (Array.isArray(p.moments) ? p.moments.length : 0);
-      }, 0);
-      if (total > 0) momentsVal = total;
-    }
+    var planCount = Array.isArray(a.media_plans) ? a.media_plans.length : 0;
 
-    var deleteBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysis(' + a.analysis_id + ',this)"'
-      + ' style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;background:none;cursor:pointer;border-radius:6px;color:var(--faint);transition:color .15s,background .15s;margin:auto"'
+    var deleteBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysis(' + aid + ',this)"'
+      + ' style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;background:none;cursor:pointer;border-radius:6px;color:var(--faint);transition:color .15s,background .15s"'
       + ' onmouseover="this.style.color=\'#dc2626\';this.style.background=\'#fef2f2\'"'
       + ' onmouseout="this.style.color=\'var(--faint)\';this.style.background=\'none\'">'
       + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>'
       + '</button>';
 
-    return '<tr style="cursor:pointer;transition:background .12s" onclick="mp2LibLoad(' + a.analysis_id + ',\'' + (a.analysis_name || '').replace(/'/g,"\\'") + '\')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TDi  + fix + '">' + iconCell                        + '</td>'
-      + '<td style="' + TDl  + fix + '">' + analysisLabel                   + '</td>'
-      + '<td style="' + TDlm + fix + '">' + dateStr                         + '</td>'
-      + '<td style="' + TDlm + fix + '">' + (a.client_name     || '—')      + '</td>'
-      + '<td style="' + TDlm + fix + '">' + (a.campaign_name   || '—')      + '</td>'
-      + '<td style="' + TDlm + fix + '">' + (a.advertiser_name || '—')      + '</td>'
-      + '<td style="' + TDln + fix + '">' + momentsVal                      + '</td>'
-      + '<td style="padding:8px 12px;border-bottom:1px solid var(--border)' + fix + ';text-align:center" onclick="event.stopPropagation()">' + deleteBtn + '</td>'
+    // Main analysis row — id used as anchor for sub-row insertion after delete
+    var mainRow = '<tr id="mp2-anchor-' + aid + '" style="cursor:pointer;transition:background .12s"'
+      + ' onclick="mp2LibLoad(' + aid + ',\'' + safeQuote + '\')"'
+      + ' onmouseover="this.style.background=\'var(--hover)\'"'
+      + ' onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TDchev + '">'
+      +   '<button onclick="mp2ToggleAnalysisExpand(' + aid + ',event)"'
+      +     ' style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:none;background:none;cursor:pointer;border-radius:4px;color:var(--muted);transition:background .12s"'
+      +     ' onmouseover="this.style.background=\'var(--border)\'"'
+      +     ' onmouseout="this.style.background=\'none\'">'
+      +     chevron
+      +   '</button>'
+      + '</td>'
+      + '<td style="' + TDl + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0">' + analysisLabel + '</td>'
+      + '<td style="' + TDlm + ';vertical-align:middle;overflow:hidden;max-width:0">'
+      +   '<div style="display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden">'
+      +     '<span style="overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0">' + (a.campaign_name || '—') + '</span>'
+      +     (a.campaign_status && typeof cmStatusChip === 'function' ? cmStatusChip(a.campaign_status) : '')
+      +   '</div>'
+      + '</td>'
+      + '<td style="' + TDlm + '">' + (a.client_name     || '—') + '</td>'
+      + '<td style="' + TDlm + '">' + (a.advertiser_name || '—') + '</td>'
+      + '<td style="' + TDlc + '"><span id="mp2-pcount-' + aid + '">' + planCount + '</span></td>'
+      + '<td style="' + TDlm + '">' + dateStr + '</td>'
+      + '<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center" onclick="event.stopPropagation()">' + deleteBtn + '</td>'
       + '</tr>';
+
+    // Sub-rows: siblings in the same table — alignment is automatic via table-layout:fixed
+    var subRows = _mp2SubRowsHtml(aid, a.media_plans, open);
+
+    return mainRow + subRows;
   }).join('');
 }
 
@@ -2055,27 +2490,63 @@ function mp2EditPlan(p) {
 
 function mp2SwitchHomeTab(tab, noPush) {
   mp2HomeTab = tab;
-  var mp2PillTabs = [{id:'new-plan',label:'New Plan'},{id:'plans',label:'Media Plans',dividerBefore:true},{id:'analyses',label:'Previous Analysis'}];
+
+  // Reset wizard state FIRST, before any DOM rebuild, so _mp2Step1Html()
+  // always renders clean when New Plan tab is shown.
+  if (tab === 'new-plan') {
+    mp2SelectedCampaign     = null;
+    mp2SelectedClientId     = null;
+    mp2Step1Campaigns       = null;
+    mp2Step1Clients         = null;   // force re-run so non-super orgs get client auto-selected
+    mp2LibrarySelected      = null;
+    mp2LibrarySelectedItems = [];
+    mp2NewPlanStep          = 1;
+  }
+
+  var mp2PillTabs = [{id:'new-plan',label:'New Moments Match'},{id:'analyses',label:'Previous Moments Match',dividerBefore:true}];
   var pillsEl = document.getElementById('mp2-pills');
   if (pillsEl) { pillsEl.style.display = ''; pillsEl.innerHTML = UI.tabNav(mp2PillTabs, tab, 'mp2SwitchHomeTab'); }
   // If home panels were replaced by analysis content, re-render home first
+  // (variables already cleared above, so _mp2Step1Html renders clean)
   if (!document.getElementById('tx2-home-panel-new-plan')) {
     mp2ShowUpload();
   }
+  // If panel already exists but we're switching to new-plan, refresh step 1 in-place
+  if (tab === 'new-plan') {
+    var s1 = document.getElementById('mp2-step1');
+    if (s1) s1.innerHTML = _mp2Step1Html();
+    var stepHdr = document.getElementById('mp2-step-hdr');
+    if (stepHdr) stepHdr.innerHTML = _mp2StepHdrHtml();
+    var stepNav = document.getElementById('mp2-step-nav');
+    if (stepNav) stepNav.innerHTML = _mp2StepNavHtml();
+    [1,2,3].forEach(function(n) {
+      var el = document.getElementById('mp2-step' + n);
+      if (el) el.style.display = n === 1 ? '' : 'none';
+    });
+    mp2LoadStep1Clients();
+  }
   var newPlan  = document.getElementById('tx2-home-panel-new-plan');
-  var plans    = document.getElementById('tx2-home-panel-plans');
   var analyses = document.getElementById('tx2-home-panel-analyses');
   if (newPlan)  newPlan.style.display  = tab === 'new-plan'  ? ''     : 'none';
-  if (plans)    plans.style.display    = tab === 'plans'     ? ''     : 'none';
   if (analyses) analyses.style.display = tab === 'analyses'  ? 'flex' : 'none';
   var outerCard = document.getElementById('mp2-outer-card');
-  if (outerCard) outerCard.style.padding = tab === 'new-plan' ? '32px' : '0';
-  // Lazy-load tables from DB every time the tab becomes visible
-  if (tab === 'plans')    mp2LoadPlansTable();
+  if (outerCard) {
+    outerCard.style.padding  = tab === 'new-plan' ? '32px' : '0';
+    outerCard.style.height   = '';
+    outerCard.style.overflow = 'hidden';
+  }
+  var ca = document.getElementById('tx2-content-area');
+  if (ca) {
+    ca.style.height        = '';
+    ca.style.display       = '';
+    ca.style.flexDirection = '';
+    ca.style.overflow      = '';
+  }
+  // Lazy-load analyses table from DB every time the tab becomes visible
   if (tab === 'analyses') mp2LoadAnalysesTable();
   // Update URL
   if (!noPush) {
-    var urlMap = { 'new-plan': '/moments-match/new', 'plans': '/moments-match/saved', 'analyses': '/moments-match/saved' };
+    var urlMap = { 'new-plan': '/moments-match/new', 'analyses': '/moments-match/saved' };
     var url = urlMap[tab] || '/moments-match';
     var stateObj = { id: 'media-planner-v2', label: 'Media Planner' };
     if (tab !== 'new-plan') stateObj.mp2Tab = tab;
@@ -2083,7 +2554,7 @@ function mp2SwitchHomeTab(tab, noPush) {
   }
 }
 
-var mp2LookbackSecs = 240;
+var mp2LookbackSecs = 120;
 
 // ── Flight Dates picker state (New Analysis panel) ────────────────────────────
 var mp2FlightDates = {
@@ -2103,11 +2574,11 @@ function mp2FlightPillLabel() {
 }
 
 function mp2UpdateFlightPill() {
-  var lbl = document.getElementById('mp2-flight-pill-label');
-  if (!lbl) return;
   var set = mp2FlightDates.start && mp2FlightDates.end;
-  lbl.textContent = mp2FlightPillLabel();
-  lbl.style.color = set ? 'var(--text)' : 'var(--faint)';
+  var lbl = document.getElementById('mp2-flight-pill-label');
+  if (lbl) { lbl.textContent = mp2FlightPillLabel(); lbl.style.color = set ? 'var(--text)' : 'var(--faint)'; }
+  var s1lbl = document.getElementById('mp2-s1-flight-lbl');
+  if (s1lbl) { s1lbl.textContent = set ? mp2FlightPillLabel() : 'Select flight dates'; s1lbl.style.color = set ? 'var(--text)' : 'var(--faint)'; }
 }
 
 function mp2OpenFlightPicker(triggerEl) {
@@ -2268,7 +2739,7 @@ function mp2DeletePlan(idx, e) {
   if (e) e.stopPropagation();
   if (!confirm('Delete "' + savedMediaPlansV2[idx].name + '"?')) return;
   savedMediaPlansV2.splice(idx, 1);
-  mp2SwitchHomeTab('plans');
+  mp2SwitchHomeTab('analyses');
 }
 
 function mp2RefreshDSP(idx, e) {
@@ -2371,6 +2842,7 @@ function mp2FilterLibraryItems(q) {
 }
 
 function mp2SelectInput(type) {
+  mp2ClearStep3Error();
   ['video', 'library', 'brief'].forEach(function(t) {
     var el = document.getElementById('tx2-opt-' + t);
     if (el) el.className = 'tx2-seg' + (t === type ? ' tx2-seg--act' : '');
@@ -2383,7 +2855,7 @@ function mp2SelectInput(type) {
     mp2LibrarySelectedItems = [];
     area.innerHTML =
       '<div class="tx2-upload-zone" style="padding:18px 20px" onclick="document.getElementById(\'tx2-file-input-video\').click()">'
-      + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*,image/*">'
+      + '<input type="file" id="tx2-file-input-video" style="display:none" accept="video/*,image/*" onchange="if(this.files&&this.files.length)mp2ClearStep3Error()">'
       + '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="color:var(--faint)"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>'
       + '<div style="font-size:12px;font-weight:500;color:var(--text);margin-top:4px">Drop Asset Here</div>'
       + '<div style="font-size:11px;color:var(--faint);margin-top:1px">MP4, MOV, JPG, PNG — up to 2 GB</div>'
@@ -2410,6 +2882,7 @@ function mp2BriefHtml() {
   return '<div style="border:1px solid var(--border-md);border-radius:8px;overflow:hidden;background:var(--surface)">'
     + '<textarea id="tx2-text-input"'
     + ' placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…"'
+    + ' oninput="if(this.value.trim())mp2ClearStep3Error()"'
     + ' style="width:100%;box-sizing:border-box;min-height:110px;resize:none;border:none;outline:none;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;display:block"></textarea>'
     + '<div style="height:1px;background:var(--border)"></div>'
     + '<label for="tx2-file-input-doc" id="tx2-brief-upload-label"'
@@ -2420,19 +2893,95 @@ function mp2BriefHtml() {
     +   '<span id="tx2-brief-file-label">Upload Doc or PDF</span>'
     + '</label>'
     + '<input type="file" id="tx2-file-input-doc" style="display:none" accept=".pdf,.doc,.docx"'
-    +   ' onchange="var n=this.files[0]?this.files[0].name:\'\';document.getElementById(\'tx2-brief-file-label\').textContent=n||\'Upload Doc or PDF\';mp2TaxInputType=n?\'doc\':\'text\'">'
+    +   ' onchange="var n=this.files[0]?this.files[0].name:\'\';document.getElementById(\'tx2-brief-file-label\').textContent=n||\'Upload Doc or PDF\';mp2TaxInputType=n?\'doc\':\'text\';if(n)mp2ClearStep3Error()">'
     + '</div>';
 }
 
 function mp2Analyze() {
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
+
+  // ── Validate: at least one asset input must be provided ──────────────────
+  var hasAsset = false;
+  if (mp2TaxInputType === 'video') {
+    var _vf = document.getElementById('tx2-file-input-video');
+    hasAsset = !!(_vf && _vf.files && _vf.files.length > 0);
+  } else if (mp2TaxInputType === 'library') {
+    hasAsset = !!(mp2LibrarySelectedItems && mp2LibrarySelectedItems.length > 0);
+  } else if (mp2TaxInputType === 'text') {
+    var _ta = document.getElementById('tx2-text-input');
+    hasAsset = !!(_ta && _ta.value.trim().length > 0);
+  } else if (mp2TaxInputType === 'doc') {
+    var _df = document.getElementById('tx2-file-input-doc');
+    hasAsset = !!(_df && _df.files && _df.files.length > 0);
+  }
+  if (!hasAsset) {
+    mp2ShowStep3Error('Upload / Link an asset, a brief or a doc to start the analysis');
+    return;
+  }
+  mp2ClearStep3Error();
+
+  // ── Re-run guard: if this campaign already has an analysis, ask first ─────
+  if (mp2CampaignMode === 'select' && mp2SelectedCampaign && mp2SelectedCampaign.dbId) {
+    var _campId   = parseInt(mp2SelectedCampaign.dbId);
+    var _existing = (_mp2AnalysesCache || []).filter(function(a) { return parseInt(a.campaign_id) === _campId; })[0];
+    if (_existing) {
+      var _existingIds = (_existing.creative_ids || []).map(Number);
+      var _currentIds  = (mp2LibrarySelectedItems || []).map(function(c) {
+        return c.dbId ? parseInt(c.dbId) : (c.id ? parseInt(String(c.id).replace('dbcr', '')) : null);
+      }).filter(Boolean);
+      var _newCount = _currentIds.filter(function(id) { return _existingIds.indexOf(id) === -1; }).length;
+      _mp2ShowRerunConfirmModal(_newCount, function() { _mp2DoAnalyze(); });
+      return;
+    }
+  }
+
+  _mp2DoAnalyze();
+}
+
+function _mp2ShowRerunConfirmModal(newCreativesCount, onConfirm) {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center';
+
+  var creativeNote = newCreativesCount > 0
+    ? '<div style="display:flex;align-items:flex-start;gap:10px;background:#FFF3D0;border:1px solid #E5A100;border-radius:8px;padding:10px 12px;margin-bottom:16px">'
+    +   '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px;color:#E5A100"><path d="M8 2L14.9 14H1.1L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><line x1="8" y1="7" x2="8" y2="10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="12" r=".6" fill="currentColor"/></svg>'
+    +   '<span style="font-size:12px;color:#92400E">' + newCreativesCount + ' new creative' + (newCreativesCount !== 1 ? 's' : '') + ' detected since the last analysis.</span>'
+    + '</div>'
+    : '';
+
+  overlay.innerHTML =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:inherit">'
+    + '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Re-run Analysis?</div>'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:16px">This campaign already has an analysis. Running a new one will replace it and flag any existing Media Plans as outdated.</div>'
+    + creativeNote
+    + '<div style="display:flex;gap:8px">'
+    +   '<button id="mp2-rerun-cancel" style="flex:1;height:38px;border-radius:8px;border:1px solid var(--border-md);background:none;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:border-color .12s,color .12s" onmouseenter="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">Cancel</button>'
+    +   '<button id="mp2-rerun-confirm" style="flex:1;height:38px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .12s" onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'">Continue</button>'
+    + '</div>'
+    + '</div>';
+
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#mp2-rerun-cancel').addEventListener('click', function() { overlay.remove(); });
+  overlay.querySelector('#mp2-rerun-confirm').addEventListener('click', function() {
+    overlay.remove();
+    onConfirm();
+  });
+}
+
+function _mp2DoAnalyze() {
   mp2TaxStep = 'progress';
 
-  // ── Save ONE analysis record to DB (all creatives in a single row) ────────
+  // ── DB save chain ─────────────────────────────────────────────────────────
+  // Order: (A) create campaign if needed → (B) save analysis → (C) assign analysis_id to campaign
   (function() {
-    var campaignId     = (mp2SelectedCampaign && mp2SelectedCampaign.dbId) ? parseInt(mp2SelectedCampaign.dbId) : null;
-    var clientOrgId    = mp2SelectedClientId ? parseInt(mp2SelectedClientId) : null;
+    var isCreateMode   = mp2CampaignMode === 'create';
+    var campaignDbId   = (mp2SelectedCampaign && mp2SelectedCampaign.dbId) ? parseInt(mp2SelectedCampaign.dbId) : null;
+    var clientOrgId    = mp2SelectedClientId
+      ? parseInt(mp2SelectedClientId)
+      : (typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId ? parseInt(selectedClientOrgId) : null);
     var advertiserDbId = (mp2SelectedCampaign && mp2SelectedCampaign.advertiserId) ? parseInt(mp2SelectedCampaign.advertiserId) : null;
 
     // Collect all selected creative IDs as an array
@@ -2461,26 +3010,62 @@ function mp2Analyze() {
     var _analysisName = _analysisNameInput ? _analysisNameInput.value.trim() : '';
 
     _mp2LastAnalysisId = null;
-    fetch('/api/moments-match', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        analysis_name:   _analysisName || null,
-        campaign_id:     campaignId,
-        client_org_id:   clientOrgId,
-        advertiser_id:   advertiserDbId,
-        creative_ids:    creativeIdsArr.length ? creativeIdsArr : null,
-        created_by:      'Bruna M.',
-        mediaplan_id:    null,
-        lookback_window: Math.round(mp2LookbackSecs / 60),
-        asset_type:      _assetType,
-        brief:           _briefText,
-        doc:             _docName
+    mp2AnalysisMoments = null; // reset so new analysis uses MOCK_MOMENTS_API live
+
+    // ── Step A: create campaign if in create mode ──────────────────────────
+    var stepA;
+    if (isCreateMode) {
+      var _createClientId = mp2CreateClientId ? parseInt(mp2CreateClientId) : clientOrgId;
+      var _createAdvId    = mp2CreateAdvId    ? parseInt(mp2CreateAdvId)    : null;
+      var _campName       = window._mp2CreateCampaignName || '';
+      stepA = fetch('/api/campaigns-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaign_name: _campName,
+          client_org_id: _createClientId,
+          advertiser_id: _createAdvId,
+          geo:           mp2CreateGeo || null,
+          start_date:    mp2FlightDates.start || null,
+          end_date:      mp2FlightDates.end   || null
+        })
       })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.analysis_id) {
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.campaign_id) {
+          advertiserDbId = _createAdvId;
+          return parseInt(d.campaign_id);
+        }
+        return null;
+      });
+    } else {
+      // Select mode: use existing campaign_id (may be null if no campaign selected)
+      stepA = Promise.resolve(campaignDbId);
+    }
+
+    // ── Step B: save analysis record ───────────────────────────────────────
+    stepA.then(function(campaignId) {
+      return fetch('/api/moments-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis_name:   _analysisName || null,
+          campaign_id:     campaignId,
+          client_org_id:   clientOrgId,
+          advertiser_id:   advertiserDbId,
+          creative_ids:    creativeIdsArr.length ? creativeIdsArr : null,
+          created_by:      'Bruna M.',
+          mediaplan_id:    null,
+          lookback_window: Math.round(mp2LookbackSecs / 60),
+          asset_type:      _assetType,
+          brief:           _briefText,
+          doc:             _docName,
+          moments:         MOCK_MOMENTS_API  // snapshot saved to DB at creation time
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.analysis_id) return;
         _mp2LastAnalysisId   = data.analysis_id;
         _mp2LastAnalysisName = _analysisName || '';
         _mp2AnalysisFromSaved = false;
@@ -2489,9 +3074,17 @@ function mp2Analyze() {
           '',
           mp2AnalysisUrl(data.analysis_id, _analysisName, 'new')
         );
-      }
+        // ── Step C: assign analysis_id back to the campaign ───────────────
+        if (campaignId) {
+          fetch('/api/campaigns-update', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaign_id: campaignId, analysis_id: data.analysis_id })
+          }).catch(function(e) { console.warn('campaign analysis_id assign error:', e); });
+        }
+      });
     })
-    .catch(function(err) { console.warn('creatives-analysis save error:', err); });
+    .catch(function(err) { console.warn('analyze save error:', err); });
   })();
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -2580,6 +3173,8 @@ function mp2Analyze() {
 
 function mp2ShowResults(analysisId) {
   mp2TaxStep = 'results';
+  _mp2CurrentAnalysisPlans = []; // reset saved plans for this analysis
+  _mp2DistributePlanIdx    = null; // reset distribution selection
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
@@ -2597,6 +3192,32 @@ function mp2ShowResults(analysisId) {
         var rec = (data.analyses || [])[0];
         if (!rec) throw new Error('Analysis not found');
         _mp2LastAnalysisName = rec.analysis_name || '';
+        // Restore moments snapshot from DB (avoids re-calling API on every load)
+        mp2AnalysisMoments = (rec.moments && Array.isArray(rec.moments) && rec.moments.length) ? rec.moments : null;
+        // Restore saved media plans for this analysis from DB
+        if (rec.media_plans && Array.isArray(rec.media_plans) && rec.media_plans.length) {
+          _mp2CurrentAnalysisPlans = rec.media_plans.map(function(p) {
+            var moms = (p.moments || []).map(function(m) {
+              var impM = m.moment_est_impr >= 1000000
+                ? (m.moment_est_impr / 1000000).toFixed(1) + 'M'
+                : m.moment_est_impr ? Math.round(m.moment_est_impr / 1000) + 'K' : '';
+              return { moment: m.moment_name, channels: m.moment_channels || [], impressions: impM, cpm: m.moment_est_cpm ? ('$' + m.moment_est_cpm) : '', type: 'ads' };
+            });
+            var totalImpr = (p.moments || []).reduce(function(s, m) { return s + (Number(m.moment_est_impr) || 0); }, 0);
+            var fmtImpr = totalImpr >= 1000000 ? (totalImpr / 1000000).toFixed(1) + 'M' : totalImpr ? Math.round(totalImpr / 1000) + 'K' : '';
+            return {
+              id:          p.media_plan_id,
+              name:        p.media_plan_name || '(Untitled)',
+              date:        '—',
+              source:      'ai',
+              moments:     moms,
+              impressions: fmtImpr,
+              programs:    [],
+              episodes:    [],
+              _dbRaw:      p  // keep original DB object for delete/patch
+            };
+          });
+        }
         // Set asset type / content from DB record
         mp2TaxInputType  = rec.asset_type === 'brief' ? 'text' : rec.asset_type === 'doc' ? 'doc' : 'video';
         _mp2BriefContent = rec.brief || '';
@@ -2617,6 +3238,8 @@ function mp2ShowResults(analysisId) {
               name: camp.name, advertiser: camp.advertiser,
               advertiserId: camp.advertiserId, dbId: camp.dbId,
               budget: camp.budget, impression_goal: camp.goal,
+              client: camp.client || '',
+              status: camp.status || '',
             };
             mp2FlightDates   = { start: camp.start || '', end: camp.end || '' };
             _mp2GeoSelected  = new Set(camp.geography || []);
@@ -2660,26 +3283,24 @@ function _mp2DoRender() {
 
   var pgname = document.getElementById('content-bc');
   if (pgname) pgname.innerHTML =
-    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2SwitchHomeTab(mp2HomeTab)">Media Planner</span>'
-    + ' &nbsp;/&nbsp; Analysis';
+    '<span style="font-weight:400;opacity:.55;cursor:pointer" onclick="mp2SwitchHomeTab(mp2HomeTab)">Moments Match</span>'
+    + ' &nbsp;/&nbsp; '
+    + (_mp2LastAnalysisName ? _mp2LastAnalysisName : 'Analysis');
 
   var typeLabel = mp2TaxInputType === 'video' ? 'Video' : mp2TaxInputType === 'doc' ? 'Document' : 'Text';
 
   var outerCard = document.getElementById('mp2-outer-card');
   if (outerCard) outerCard.style.padding = '0';
 
-  var campName  = (mp2SelectedCampaign && mp2SelectedCampaign.name)
+  var campName   = (mp2SelectedCampaign && mp2SelectedCampaign.name)
     ? mp2SelectedCampaign.name
-    : mp2TaxFileName || '—';
-  var advName   = (mp2SelectedCampaign && mp2SelectedCampaign.advertiser)
+    : '—';
+  var advName    = (mp2SelectedCampaign && mp2SelectedCampaign.advertiser)
     ? mp2SelectedCampaign.advertiser
     : '—';
-
-  var assetTypeIcon = mp2TaxInputType === 'text'
-    ? '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M4 8h24M4 14h18M4 20h24M4 26h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-    : mp2TaxInputType === 'doc'
-    ? '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-    : '<svg width="14" height="14" viewBox="0 0 32 32" fill="none"><rect x="2" y="6" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M22 13l8-5v16l-8-5V13z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  var clientName = (mp2SelectedCampaign && mp2SelectedCampaign.client)
+    ? mp2SelectedCampaign.client
+    : '—';
 
   // ── helpers ──
   function infoField(label, value) {
@@ -2698,13 +3319,25 @@ function _mp2DoRender() {
     return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:10px">' + text + '</div>';
   }
 
-  var fdLabel = (mp2FlightDates && mp2FlightDates.start && mp2FlightDates.end)
-    ? (function(s,e){ return new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) + ' → ' + new Date(e+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); })(mp2FlightDates.start, mp2FlightDates.end)
-    : '—';
+  var fdLabel = (function() {
+    if (!mp2FlightDates || !mp2FlightDates.start || !mp2FlightDates.end) return '—';
+    function fmtDateStr(s) {
+      // If it looks like an ISO date (YYYY-MM-DD), parse and format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        var d = new Date(s + 'T00:00:00');
+        return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+      // Otherwise use as-is (already formatted, e.g. "1 Jan 2025")
+      return s;
+    }
+    return fmtDateStr(mp2FlightDates.start) + ' → ' + fmtDateStr(mp2FlightDates.end);
+  })();
 
-  var geoLabel = _mp2GeoSelected.size > 0
-    ? _mp2GeoSelected.size + ' region' + (_mp2GeoSelected.size > 1 ? 's' : '')
-    : 'All regions';
+  var geoLabel = !mp2SelectedCampaign
+    ? '—'
+    : _mp2GeoSelected.size > 0
+      ? _mp2GeoSelected.size + ' region' + (_mp2GeoSelected.size > 1 ? 's' : '')
+      : 'All regions';
 
   var SEP2 = '<span style="color:var(--border-md);margin:0 8px">·</span>';
 
@@ -2731,27 +3364,34 @@ function _mp2DoRender() {
     // ── Compact header row ──
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border)">'
     + '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">'
-    +   '<div style="width:28px;height:28px;border-radius:7px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0">' + assetTypeIcon + '</div>'
     +   '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0;min-width:0">'
-    +     '<span style="font-size:12px;font-weight:600;color:var(--text)">' + campName + '</span>'
+    +     '<span style="font-size:12px;font-weight:600;color:var(--text)">' + (mp2SelectedCampaign ? campName + ' — Campaign Details' : 'Campaign Details') + '</span>'
+    +     (!mp2SelectedCampaign ? '<span style="margin-left:8px;display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;color:var(--muted);background:var(--subtle)">No campaign selected for this analysis</span>' : '')
+    +     (mp2SelectedCampaign && mp2SelectedCampaign.status
+          ? '<span style="margin-left:8px">' + (typeof cmStatusChip === 'function' ? cmStatusChip(mp2SelectedCampaign.status) : '') + '</span>'
+          : '')
     +     (mp2SelectedCampaign
-          ? SEP2 + '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
+          ? SEP2 + '<span style="font-size:12px;color:var(--faint)">' + clientName + '</span>'
+            + SEP2 + '<span style="font-size:12px;color:var(--faint)">' + advName + '</span>'
             + SEP2 + '<span style="font-size:12px;color:var(--faint)">' + fdLabel + '</span>'
-            + SEP2 + '<span style="font-size:12px;color:var(--faint)">' + geoLabel + '</span>'
           : '')
     +   '</div>'
     + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:16px">'
+
+    // Expand/collapse toggle
     + '<button id="mp2-analysis-details-toggle" onclick="mp2ToggleAnalysisDetails()" '
-    +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s;flex-shrink:0;margin-left:16px" '
+    +   'style="width:26px;height:26px;border:1px solid var(--border-md);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;font-weight:300;line-height:1;font-family:inherit;transition:border-color .12s,color .12s;flex-shrink:0" '
     +   'onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" '
     +   'onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">+</button>'
+    + '</div>'
     + '</div>'
 
     // ── Expandable 3-column panel ──
     + '<div id="mp2-analysis-details-panel" style="border-bottom:1px solid var(--border);display:none">'
     +   '<div style="display:flex;align-items:stretch">'
 
-    +     '<div style="flex:1;padding:12px 20px;min-width:0">'
+    +     '<div style="flex:2;padding:12px 20px;min-width:0;overflow:hidden">'
     +     sectionLabel('Asset')
     +     assetSectionHtml
     +     '</div>'
@@ -2782,10 +3422,39 @@ function _mp2DoRender() {
     +   '</div>'
     + '</div>';
 
+  var WAND_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>';
+
   var assetStrip =
-    '<div id="mp2-asset-strip" style="display:none;width:220px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;overflow-y:auto;flex-direction:column">'
-    + '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;flex-shrink:0">Media Plan</div>'
-    + '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px">Click a moment card to add it to your media plan</div>'
+    '<div id="mp2-asset-strip" style="display:none;width:220px;flex-shrink:0;border-left:1px solid var(--border);flex-direction:column;overflow:hidden">'
+
+    // ── Build Media Plan zone ──
+    + '<div id="mp2-strip-plan" style="display:flex;flex-direction:column;flex:1;overflow:hidden">'
+    +   '<div id="mp2-strip-plan-body" style="flex:1;overflow-y:auto;padding:16px 16px 12px">'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Media Plan</div>'
+    +     '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your media plan</div>'
+    +   '</div>'
+    +   '<div style="flex-shrink:0">'
+    +     '<div id="mp2-strip-plan-totals" style="display:none;border-top:1px solid var(--border);padding:10px 16px">'
+    +     '</div>'
+    +     '<div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;flex-direction:column;gap:8px">'
+    +       '<div style="position:relative">'
+    +         '<input id="mp2-plan-name-input" type="text" placeholder="Media Plan Name" class="ai-input" style="width:100%;box-sizing:border-box;min-height:0;height:34px;padding:0 28px 0 10px;font-size:12px;resize:none;transition:border-color .15s,box-shadow .15s">'
+    +         '<button onclick="mp2GeneratePlanName()" title="Generate name with AI" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--faint);transition:color .13s" onmouseover="this.style.color=\'var(--text)\'" onmouseout="this.style.color=\'var(--faint)\'">' + WAND_ICON + '</button>'
+    +         '<span id="mp2-plan-name-err" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;font-size:10px;color:#ef4444;background:#fff;border:1px solid #fca5a5;border-radius:5px;padding:3px 8px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 6px rgba(239,68,68,.12)"></span>'
+    +       '</div>'
+    +       (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="mp2SaveBuilderMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:' + (_lk ? 'var(--bg)' : 'var(--accent)') + ';color:' + (_lk ? 'var(--faint)' : '#fff') + ';border:' + (_lk ? '1px solid var(--border)' : 'none') + ';border-radius:8px;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';opacity:' + (_lk ? '.6' : '1') + ';transition:opacity .13s,background .2s"' + (_lk ? '' : ' onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'"') + '>Save as Media Plan</button>'; })()
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+
+    // ── Saved Media Plans zone ──
+    + '<div id="mp2-strip-list" style="display:none;flex-direction:column;flex:1;overflow:hidden">'
+    +   '<div style="flex-shrink:0;padding:16px 16px 12px">'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text)">Saved Media Plans</div>'
+    +   '</div>'
+    +   '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet</div>'
+    + '</div>'
+
     + '</div>';  // closes mp2-asset-strip
 
   ca.innerHTML = cardHeader
@@ -2793,33 +3462,40 @@ function _mp2DoRender() {
     // ── Nav strip ──
     + '<div style="display:flex;align-items:center;gap:4px;padding:5px 20px;border-bottom:1px solid var(--border)">'
     +   '<button id="tx2-sub-tab-ad-analysis" onclick="mp2SubTab(\'ad-analysis\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
-    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><polygon points="10 12 15 15 10 18"/></svg>'
     +     'Ad Analysis'
     +   '</button>'
     +   '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 4px;flex-shrink:0"></span>'
+    +   '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>'
+    +     'AI Media Plans'
+    +   '</button>'
     +   '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--bg);color:var(--text);transition:background .13s,color .13s" data-act="1">'
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
     +     'Moments Match'
     +   '</button>'
-    +   '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
-    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>'
-    +     'AI Media Plan'
+    +   '<button id="tx2-sub-tab-custom-moments" onclick="mp2SubTab(\'custom-moments\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>'
+    +     'Custom Moments'
     +   '</button>'
-    +   '<div id="mp2-nav-right-group" style="display:flex;align-items:center;margin-left:auto;flex-shrink:0">'
+    +   '<div id="mp2-nav-right-group" style="display:flex;align-items:center;margin-left:auto;justify-content:flex-start;flex-shrink:0">'
     +     '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 6px -5px 0;flex-shrink:0"></span>'
-    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Media Plan">'
-    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>'
+    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Build Media Plan">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><path d="M7 14v4"/><path d="M5 16h4"/></svg>'
     +       '<span id="mp2-mp-badge" style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;min-width:14px;text-align:center;display:none"></span>'
     +     '</button>'
-    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="List">'
-    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 4h7"/><path d="M14 9h7"/><path d="M14 15h7"/><path d="M14 20h7"/></svg>'
+    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Saved Media Plans">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8a2 2 0 0 1 2-2h1l2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 10v6l-2-2-2 2v-6"/></svg>'
+    +     '</button>'
+    +     '<button id="mp2-sidebar-close" onclick="mp2CloseSidebar()" title="Close panel" style="display:none;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s;margin-left:auto" onmouseover="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
     +     '</button>'
     +   '</div>'
     + '</div>'
 
     // ── Main area: content + sidebar ──
-    + '<div style="display:flex;min-height:0;flex:1">'
-    +   '<div style="flex:1;min-width:0;padding:20px;display:flex;flex-direction:column;gap:16px">'
+    + '<div style="display:flex;min-height:0;flex:1;overflow:hidden">'
+    +   '<div style="flex:1;min-width:0;padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto">'
     +     '<div id="tx2-sub-content-ad-analysis" style="display:none">'
     +       '<table style="width:100%;border-collapse:collapse"><thead><tr>'
     +         '<th style="text-align:left;'  + TH + '">Moment</th>'
@@ -2827,8 +3503,13 @@ function _mp2DoRender() {
     +         '<th style="text-align:right;' + TH + '">PODs</th>'
     +       '</tr></thead><tbody id="tx-cat-body"></tbody></table>'
     +     '</div>'
-    +     '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
     +     '<div id="tx2-sub-content-ai-media-plan" style="display:none;border-radius:10px"></div>'
+    +     '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
+    +     '<div id="tx2-sub-content-custom-moments" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:10px">'
+    +       '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint)"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>'
+    +       '<div style="font-size:13px;font-weight:600;color:var(--text)">Custom Moments</div>'
+    +       '<div style="font-size:12px;color:var(--faint);text-align:center;max-width:280px">Define and manage your own custom moment groups to target specific audience contexts.</div>'
+    +     '</div>'
     +   '</div>'
     + assetStrip
     + '</div>';
@@ -2836,7 +3517,56 @@ function _mp2DoRender() {
   if (typeof txInjectStyles === 'function') txInjectStyles();
   txCustomSelections = [];
   mp2SubTab('moments');
+  // Fix sidebar height after DOM settles
+  setTimeout(mp2FixSidebarHeight, 50);
 }
+
+// ── Analysis layout viewport-lock ─────────────────────────────────────────────
+// Pins the outer card + sidebar to the viewport so only the left content scrolls
+function mp2FixSidebarHeight() {
+  // Only apply in analysis view (when the moments panel exists)
+  var isAnalysis = !!document.getElementById('tx2-sub-content-moments');
+  if (!isAnalysis) return;
+
+  // Extra height when the Campaign Details accordion is open — so the card
+  // grows to accommodate the panel without squishing the content below it.
+  var detailsPanel = document.getElementById('mp2-analysis-details-panel');
+  var panelH = (detailsPanel && detailsPanel.style.display !== 'none')
+    ? (detailsPanel.offsetHeight || 0)
+    : 0;
+
+  // 1. Constrain the outer card to the remaining viewport height + any open accordion
+  var card = document.getElementById('mp2-outer-card');
+  if (card) {
+    var cardRect = card.getBoundingClientRect();
+    var cardH = Math.max(200, window.innerHeight - cardRect.top) + panelH;
+    card.style.height   = cardH + 'px';
+    card.style.overflow = 'hidden';
+  }
+
+  // 2. Make tx2-content-area propagate height through the flex chain
+  var ca = document.getElementById('tx2-content-area');
+  if (ca) {
+    ca.style.height         = '100%';
+    ca.style.display        = 'flex';
+    ca.style.flexDirection  = 'column';
+    ca.style.overflow       = 'hidden';
+  }
+
+  // 3. Constrain the sidebar to whatever space is left below the nav strip
+  var strip = document.getElementById('mp2-asset-strip');
+  if (strip && strip.style.display !== 'none') {
+    var stripRect = strip.getBoundingClientRect();
+    strip.style.height = Math.max(120, window.innerHeight - stripRect.top) + 'px';
+  }
+}
+(function() {
+  var _mp2ResizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(_mp2ResizeTimer);
+    _mp2ResizeTimer = setTimeout(mp2FixSidebarHeight, 60);
+  });
+})();
 
 function mp2ToggleAnalysisDetails() {
   var panel = document.getElementById('mp2-analysis-details-panel');
@@ -2845,6 +3575,8 @@ function mp2ToggleAnalysisDetails() {
   var open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : '';
   if (btn) btn.textContent = open ? '+' : '−';
+  // Accordion changes the strip's top position — recalculate
+  setTimeout(mp2FixSidebarHeight, 0);
 }
 
 function mp2TogglePlanBody() {
@@ -2868,28 +3600,40 @@ function mp2TogglePlanCampStrip() {
 var mp2SidebarMode = null; // 'plan' | 'list' | null
 
 function mp2ToggleSidebar(mode) {
-  var strip = document.getElementById('mp2-asset-strip');
-  var group = document.getElementById('mp2-nav-right-group');
-  var btnPlan = document.getElementById('mp2-asset-toggle');
-  var btnList = document.getElementById('mp2-list-toggle');
+  var strip    = document.getElementById('mp2-asset-strip');
+  var group    = document.getElementById('mp2-nav-right-group');
+  var btnPlan  = document.getElementById('mp2-asset-toggle');
+  var btnList  = document.getElementById('mp2-list-toggle');
+  var closeBtn = document.getElementById('mp2-sidebar-close');
+  var zonePlan = document.getElementById('mp2-strip-plan');
+  var zoneList = document.getElementById('mp2-strip-list');
   if (!strip) return;
 
-  var isOpen = strip.style.display === 'flex';
+  var isOpen   = strip.style.display === 'flex';
   var sameMode = mp2SidebarMode === mode;
 
-  // If open and same icon clicked → close
+  // Same icon clicked while open → close
   if (isOpen && sameMode) {
     strip.style.display = 'none';
     mp2SidebarMode = null;
     if (group) group.style.width = 'auto';
+    if (closeBtn) closeBtn.style.display = 'none';
   } else {
-    // Open (or switch mode)
+    // Open or switch zone
     strip.style.display = 'flex';
     mp2SidebarMode = mode;
     if (group) group.style.width = '200px';
+    if (closeBtn) closeBtn.style.display = 'inline-flex';
+    // Show the correct zone, hide the other
+    if (zonePlan) zonePlan.style.display = mode === 'plan' ? 'flex' : 'none';
+    if (zoneList) zoneList.style.display = mode === 'list' ? 'flex' : 'none';
+    // Always re-render list from current in-memory state (loaded from DB on analysis open)
+    if (mode === 'list') mp2RenderStripList();
+    // Lock sidebar to viewport
+    setTimeout(mp2FixSidebarHeight, 0);
   }
 
-  // Update active states for both buttons
+  // Update button active states
   [{ btn: btnPlan, m: 'plan' }, { btn: btnList, m: 'list' }].forEach(function(item) {
     var act = mp2SidebarMode === item.m;
     if (item.btn) {
@@ -2897,6 +3641,49 @@ function mp2ToggleSidebar(mode) {
       item.btn.style.background = act ? 'var(--bg)' : 'transparent';
       item.btn.style.color      = act ? 'var(--text)' : 'var(--muted)';
     }
+  });
+}
+
+// Always opens the list panel (never closes) and re-renders it
+function mp2OpenSidebarList(highlightIdx) {
+  var strip    = document.getElementById('mp2-asset-strip');
+  var group    = document.getElementById('mp2-nav-right-group');
+  var closeBtn = document.getElementById('mp2-sidebar-close');
+  var zonePlan = document.getElementById('mp2-strip-plan');
+  var zoneList = document.getElementById('mp2-strip-list');
+  var btnPlan  = document.getElementById('mp2-asset-toggle');
+  var btnList  = document.getElementById('mp2-list-toggle');
+  if (!strip) return;
+  strip.style.display = 'flex';
+  mp2SidebarMode = 'list';
+  if (group)    group.style.width        = '200px';
+  if (closeBtn) closeBtn.style.display   = 'inline-flex';
+  if (zonePlan) zonePlan.style.display = 'none';
+  if (zoneList) zoneList.style.display = 'flex';
+  mp2RenderStripList(highlightIdx);
+  setTimeout(mp2FixSidebarHeight, 0);
+  // Update button active states
+  [{ btn: btnPlan, m: 'plan' }, { btn: btnList, m: 'list' }].forEach(function(item) {
+    var act = item.m === 'list';
+    if (item.btn) {
+      item.btn.dataset.act      = act ? '1' : '';
+      item.btn.style.background = act ? 'var(--bg)' : 'transparent';
+      item.btn.style.color      = act ? 'var(--text)' : 'var(--muted)';
+    }
+  });
+}
+
+function mp2CloseSidebar() {
+  var strip    = document.getElementById('mp2-asset-strip');
+  var group    = document.getElementById('mp2-nav-right-group');
+  var closeBtn = document.getElementById('mp2-sidebar-close');
+  if (strip)    strip.style.display = 'none';
+  if (group)    group.style.width   = 'auto';
+  if (closeBtn) closeBtn.style.display = 'none';
+  mp2SidebarMode = null;
+  ['mp2-asset-toggle','mp2-list-toggle'].forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (btn) { btn.dataset.act = ''; btn.style.background = 'transparent'; btn.style.color = 'var(--muted)'; }
   });
 }
 
@@ -2908,7 +3695,7 @@ function mp2ToggleAssetStrip() {
 }
 
 function mp2SubTab(tab) {
-  ['ad-analysis', 'moments', 'ai-media-plan'].forEach(function(t) {
+  ['ad-analysis', 'ai-media-plan', 'moments', 'custom-moments'].forEach(function(t) {
     var btn = document.getElementById('tx2-sub-tab-' + t);
     var pnl = document.getElementById('tx2-sub-content-' + t);
     if (btn) {
@@ -2939,17 +3726,16 @@ function mp2SubTab(tab) {
       aiPanel.style.display = 'flex';
       aiPanel.style.flexDirection = 'column';
       if (!aiPanel.firstChild) {
-        if (!_aiSuggestions || _aiSuggestions.length === 0) {
-          _aiSuggestions = [
-            { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
-            { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
-            { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
-            { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
-            { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
-          ];
-        }
+        // Always initialise from the mock API (replaces any stale hardcoded data)
+        aiInitPlanVariantsFromAPI();
         aiRenderResultsPanel();
       }
+      setTimeout(function() {
+        var rect = aiPanel.getBoundingClientRect();
+        aiPanel.style.height    = Math.max(300, window.innerHeight - rect.top - 20) + 'px';
+        aiPanel.style.minHeight = '0';
+        aiPanel.style.overflow  = 'hidden';
+      }, 0);
     }
   }
 }
@@ -3015,185 +3801,7 @@ var INV_PROGRAMS_V2 = [
     moments:[{label:'Family',score:90},{label:'Fun',score:84},{label:'Humor',score:79},{label:'Competition',score:74},{label:'Entertainment',score:69},{label:'Pop Culture',score:64},{label:'Winning',score:59}] }
 ];
 
-var savedMediaPlansV2     = [
-  {
-    id:          'mp1',
-    name:        'Kroger — Fresh & Family Moments',
-    date:        '9 May 2026',
-    author:      'Bruna M.',
-    campaign:    'Fresh & Family Q2',
-    advertiser:  'Kroger',
-    inputType:   'video',
-    flightStart: '2 Jun 2026',
-    flightEnd:   '29 Jun 2026',
-    dsp:         { name: 'DV360', status: 'active', pushedAt: '10 May 2026', refId: 'DV3-48821' },
-    impressions: '14.3M',
-    avgCpm:      '$24',
-    dollars:     '$341K',
-    moments: [
-      { name:'Family Dinner Time',   channels:['NBC','Fox','ABC','Food Network'],   pods:312, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:28, type:'ads'     },
-      { name:'Grocery Shopping',     channels:['Food Network','NBC','CBS'],         pods:278, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:22, type:'organic' },
-      { name:'Healthy Eating',       channels:['CBS','Fox','Discovery'],            pods:241, impressionsNum:2.6, impressionsLabel:'2.6M', cpm:19, type:'live'    },
-      { name:'Meal Prep & Cooking',  channels:['Food Network','PBS','Bravo'],       pods:198, impressionsNum:2.9, impressionsLabel:'2.9M', cpm:24, type:'ads'     },
-      { name:'Weekend BBQ',          channels:['Fox','ABC','NBC'],                  pods:143, impressionsNum:1.8, impressionsLabel:'1.8M', cpm:31, type:'organic' }
-    ]
-  },
-  {
-    id:          'mp2',
-    name:        'Spring Campaign — Comedy Block',
-    date:        '1 May 2026',
-    author:      'Bruna M.',
-    campaign:    'Spring Comedy',
-    advertiser:  'NBC Universal',
-    inputType:   'document',
-    flightStart: '12 May 2026',
-    flightEnd:   '8 Jun 2026',
-    dsp:         { name: 'The Trade Desk', status: 'pending', pushedAt: '2 May 2026', refId: 'TTD-73041' },
-    impressions: '6.6M',
-    avgCpm:      '$19',
-    dollars:     '$142K',
-    moments: [
-      { name:'Urban Lifestyle',      channels:['NBC','ABC','Fox','Peacock'],        pods:156, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:18 },
-      { name:'Youth Culture',        channels:['Peacock','MTV','Bravo'],            pods:97,  impressionsNum:2.1, impressionsLabel:'2.1M', cpm:17 },
-      { name:'Championship Moments', channels:['ESPN','NBC','CBS'],                 pods:198, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:23 }
-    ]
-  },
-  {
-    id:          'mp3',
-    name:        'Heineken — Late Night Sports',
-    date:        '24 Apr 2026',
-    author:      'Marika L.',
-    campaign:    'Late Night Sports',
-    advertiser:  'Heineken',
-    inputType:   'text',
-    flightStart: '5 May 2026',
-    flightEnd:   '18 May 2026',
-    dsp:         { name: 'Xandr', status: 'error', pushedAt: '25 Apr 2026', refId: 'XND-29104' },
-    impressions: '6.7M',
-    avgCpm:      '$21',
-    dollars:     '$153K',
-    moments: [
-      { name:'Sports Drama',         channels:['Paramount','NBC','Discovery'],      pods:167, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:21 },
-      { name:'Endurance Sports',     channels:['ESPN','Discovery','Sports+'],       pods:143, impressionsNum:2.2, impressionsLabel:'2.2M', cpm:20 },
-      { name:'Peak Performance',     channels:['ESPN','NBC','Fox'],                 pods:156, impressionsNum:1.7, impressionsLabel:'1.7M', cpm:22 }
-    ]
-  },
-  {
-    id:          'mp4',
-    name:        'Spotify — Daytime Discovery',
-    date:        '18 Apr 2026',
-    author:      'Luca R.',
-    campaign:    'Daytime Discovery',
-    advertiser:  'Spotify',
-    inputType:   'video',
-    flightStart: '26 Apr 2026',
-    flightEnd:   '31 May 2026',
-    dsp:         null,
-    impressions: '6.9M',
-    avgCpm:      '$16',
-    dollars:     '$104K',
-    moments: [
-      { name:'Adventure Travel',     channels:['Discovery','NatGeo','NBC'],         pods:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:16 },
-      { name:'Outdoor & Nature',     channels:['NatGeo','Discovery','PBS'],         pods:211, impressionsNum:2.5, impressionsLabel:'2.5M', cpm:15 },
-      { name:'Motivation & Mindset', channels:['NBC','ABC','Peacock','TNT'],        pods:302, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:17 }
-    ]
-  },
-  {
-    id:          'mp5',
-    name:        'Q3 Walmart — Summer Refresh',
-    date:        '12 Apr 2026',
-    author:      'Sara L.',
-    campaign:    'Summer Fresh Campaign',
-    advertiser:  'Walmart',
-    inputType:   'video',
-    flightStart: '1 Jul 2026',
-    flightEnd:   '31 Aug 2026',
-    dsp:         null,
-    impressions: '11.2M',
-    avgCpm:      '$18',
-    dollars:     '$201K',
-    moments: [
-      { name:'Summer Grilling',      channels:['Food Network','NBC','ABC'],         pods:245, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:18 },
-      { name:'Outdoor Activities',   channels:['Discovery','ESPN','Fox'],           pods:189, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:17 },
-      { name:'Family Weekends',      channels:['ABC','CBS','NBC','Peacock'],        pods:312, impressionsNum:4.3, impressionsLabel:'4.3M', cpm:19 }
-    ]
-  },
-  {
-    id:          'mp6',
-    name:        'Audience Segmentation Test',
-    date:        '8 Apr 2026',
-    author:      'Bruna M.',
-    campaign:    null,
-    advertiser:  null,
-    inputType:   'text',
-    flightStart: null,
-    flightEnd:   null,
-    dsp:         null,
-    impressions: '4.1M',
-    avgCpm:      '$14',
-    dollars:     '$57K',
-    moments: [
-      { name:'In-Market Shoppers',   channels:['NBC','CBS','Fox'],                  pods:143, impressionsNum:2.0, impressionsLabel:'2.0M', cpm:15 },
-      { name:'Value Seekers',        channels:['ABC','Peacock','TBS'],              pods:201, impressionsNum:2.1, impressionsLabel:'2.1M', cpm:13 }
-    ]
-  },
-  {
-    id:          'mp7',
-    name:        'P&G — Evening Essentials',
-    date:        '3 Apr 2026',
-    author:      'Marco F.',
-    campaign:    'Everyday Essentials',
-    advertiser:  'P&G',
-    inputType:   'document',
-    flightStart: '15 Apr 2026',
-    flightEnd:   '15 Jun 2026',
-    dsp:         null,
-    impressions: '8.4M',
-    avgCpm:      '$20',
-    dollars:     '$168K',
-    moments: [
-      { name:'Evening Routines',     channels:['CBS','NBC','Lifetime'],             pods:267, impressionsNum:3.2, impressionsLabel:'3.2M', cpm:21 },
-      { name:'Homecare Moments',     channels:['HGTV','Bravo','TLC'],              pods:198, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:19 },
-      { name:'Personal Care',        channels:['Lifetime','E!','TLC'],             pods:178, impressionsNum:2.4, impressionsLabel:'2.4M', cpm:20 }
-    ]
-  },
-  {
-    id:          'mp8',
-    name:        'Q2 Funnel Draft',
-    date:        '28 Mar 2026',
-    author:      'Luca R.',
-    campaign:    null,
-    advertiser:  null,
-    inputType:   'video',
-    flightStart: null,
-    flightEnd:   null,
-    dsp:         null,
-    impressions: '—',
-    avgCpm:      '—',
-    dollars:     '—',
-    moments: []
-  },
-  {
-    id:          'mp9',
-    name:        'Nike — Running Season',
-    date:        '21 Mar 2026',
-    author:      'Sara L.',
-    campaign:    'Running Season Q2',
-    advertiser:  'Nike',
-    inputType:   'video',
-    flightStart: '1 Apr 2026',
-    flightEnd:   '31 May 2026',
-    dsp:         null,
-    impressions: '9.7M',
-    avgCpm:      '$26',
-    dollars:     '$252K',
-    moments: [
-      { name:'Morning Run',          channels:['ESPN','NBC Sports','Fox Sports'],   pods:156, impressionsNum:3.1, impressionsLabel:'3.1M', cpm:27 },
-      { name:'Race Day',             channels:['NBC','ESPN','CBS Sports'],          pods:201, impressionsNum:3.8, impressionsLabel:'3.8M', cpm:25 },
-      { name:'Recovery & Wellness',  channels:['Discovery','NBC','Peacock'],        pods:143, impressionsNum:2.8, impressionsLabel:'2.8M', cpm:26 }
-    ]
-  }
-];
+var savedMediaPlansV2     = [];
 var mp2HomeTab        = 'new-plan';
 
 // ── AI Media Plan params state ────────────────────────────────────────────────
@@ -3942,8 +4550,7 @@ function csTx2BuildAIParamsPanel() {
     +   'The Channels should be ' + aiTriggerHtml('channels')
     +   ' and the type ' + aiTriggerHtml('type') + '. '
     +   'My Brand Safety parameters are ' + aiTriggerHtml('brand') + '. '
-    +   'Use ' + aiTriggerHtml('score') + ' Match Score. '
-    +   'The ad will be on air on ' + aiTriggerHtml('dates') + '.'
+    +   'Use ' + aiTriggerHtml('score') + ' Match Score.'
     + '</div>'
 
     // Button — inside the same wrapper, same gap
@@ -3956,63 +4563,57 @@ function csTx2BuildAIParamsPanel() {
 
     + '</div>'  // max-width wrapper
     + '</div>';  // scroll area
+  mp2FixAiPanelHeight();
 }
 
-var _aiSuggestions = [];
-var _aiActiveVariant = 2;
+function mp2FixAiPanelHeight() {
+  setTimeout(function() {
+    var p = document.getElementById('tx2-sub-content-ai-media-plan');
+    if (!p || p.style.display === 'none') return;
+    var rect = p.getBoundingClientRect();
+    p.style.height    = Math.max(300, window.innerHeight - rect.top - 20) + 'px';
+    p.style.minHeight = '0';
+    p.style.overflow  = 'hidden';
+  }, 0);
+}
 
-var _aiPlanVariants = [
-  {
-    name: 'Efficiency Plan', budget: 120, impressions: 8.2,
-    suggestions: [
-      { moment:'Grocery Shopping',    channels:['Food Network'],        pods:198, cpm:'$18', impressions:'1.8M', type:'organic' },
-      { moment:'Meal Prep & Cooking', channels:['PBS', 'Food Network'], pods:143, cpm:'$16', impressions:'1.4M', type:'ads'     },
-      { moment:'Healthy Eating',      channels:['CBS'],                 pods:112, cpm:'$19', impressions:'1.2M', type:'live'    },
-    ]
-  },
-  {
-    name: 'Value Plan', budget: 220, impressions: 15.0,
-    suggestions: [
-      { moment:'Family Dinner Time',  channels:['NBC', 'ABC'],          pods:245, cpm:'$22', impressions:'2.8M', type:'ads'     },
-      { moment:'Grocery Shopping',    channels:['Food Network', 'NBC'], pods:198, cpm:'$20', impressions:'2.1M', type:'organic' },
-      { moment:'Meal Prep & Cooking', channels:['Food Network', 'PBS'], pods:143, cpm:'$18', impressions:'1.6M', type:'ads'     },
-      { moment:'Healthy Eating',      channels:['CBS', 'Discovery'],    pods:167, cpm:'$21', impressions:'1.9M', type:'live'    },
-    ]
-  },
-  {
-    name: 'Optimized Media Plan', budget: 380, impressions: 22.0,
-    suggestions: [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28', impressions:'3.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22', impressions:'2.8M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19', impressions:'2.1M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24', impressions:'1.9M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31', impressions:'2.8M', type:'organic' },
-    ]
-  },
-  {
-    name: 'Scale Plan', budget: 560, impressions: 32.0,
-    suggestions: [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    pods:420, cpm:'$30', impressions:'4.8M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  pods:380, cpm:'$24', impressions:'4.1M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     pods:310, cpm:'$22', impressions:'3.2M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  pods:285, cpm:'$26', impressions:'3.1M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           pods:230, cpm:'$33', impressions:'3.8M', type:'organic' },
-      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   pods:190, cpm:'$35', impressions:'3.2M', type:'live'    },
-    ]
-  },
-  {
-    name: 'Premium Plan', budget: 750, impressions: 45.0,
-    suggestions: [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC', 'CBS'],    pods:520, cpm:'$34', impressions:'6.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC', 'CBS'],  pods:480, cpm:'$28', impressions:'5.5M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'],     pods:410, cpm:'$25', impressions:'4.8M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS', 'NBC'],  pods:360, cpm:'$29', impressions:'4.2M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],           pods:290, cpm:'$36', impressions:'4.8M', type:'organic' },
-      { moment:'Sports & Game Night',  channels:['ESPN', 'Fox Sports', 'NBC'],   pods:250, cpm:'$38', impressions:'4.5M', type:'live'    },
-      { moment:'Morning News',         channels:['NBC', 'ABC', 'CBS'],           pods:380, cpm:'$22', impressions:'3.8M', type:'ads'     },
-    ]
-  }
-];
+var _aiSuggestions    = [];
+var _aiActiveVariant  = 2;   // default: Optimized (index 2)
+var _aiPlanVariants   = [];  // populated by aiInitPlanVariantsFromAPI()
+
+// ── Map MOCK_AI_MEDIA_PLANS → internal _aiPlanVariants format ────────────────
+function aiInitPlanVariantsFromAPI() {
+  var typeMap = { 'Live': 'live', 'Organic Pause': 'organic', 'VoD': 'ads' };
+  _aiPlanVariants = (MOCK_AI_MEDIA_PLANS || []).map(function(plan) {
+    var suggestions = (plan.moments || []).map(function(m) {
+      // pods from MOCK_MOMENTS_API lookup (ai-plans API doesn't carry pods)
+      var mockM = (MOCK_MOMENTS_API || []).find(function(x) { return x.moment_id === m.moment_id; }) || {};
+      var impM  = m.est_impressions >= 1000000
+        ? (m.est_impressions / 1000000).toFixed(1) + 'M'
+        : Math.round(m.est_impressions / 1000) + 'K';
+      return {
+        moment:          m.moment_name,
+        channels:        m.channels,
+        type:            typeMap[m.moment_type] || 'ads',
+        pods:            mockM.pods || 0,
+        cpm:             '$' + m.est_cpm.toFixed(2),
+        impressions:     impM,
+        est_dollar_value: m.est_dollar_value,
+        moment_score:    m.moment_score,
+      };
+    });
+    return {
+      plan_id:     plan.plan_id,
+      name:        plan.plan_name,
+      budget:      plan.budget_k,
+      impressions: plan.total_impressions_m,
+      description: plan.description,
+      suggestions: suggestions,
+    };
+  });
+  _aiActiveVariant = 2; // Optimized
+  _aiSuggestions   = _aiPlanVariants.length > 2 ? _aiPlanVariants[2].suggestions.slice() : [];
+}
 
 function aiSelectPlanVariant(idx) {
   _aiActiveVariant = idx;
@@ -4050,7 +4651,13 @@ function aiInitPlanScatter() {
   var upImg     = makeImg('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>');
   var downImg   = makeImg('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>');
 
-  function iconForIdx(i) { return i === 2 ? awardImg : (i >= 3 ? upImg : downImg); }
+  function iconForIdx(i) {
+    var v = _aiPlanVariants[i];
+    if (!v) return downImg;
+    if (v.plan_id === 'PLAN003') return awardImg;   // Optimized ★
+    if (v.plan_id === 'PLAN004' || v.plan_id === 'PLAN005') return upImg;   // Scale, Premium ↑
+    return downImg;  // Efficiency, Value ↓
+  }
 
   var awardPlugin = {
     id: 'awardIcon',
@@ -4121,19 +4728,22 @@ function aiRenderResultsPanel() {
   var panel = document.getElementById('tx2-sub-content-ai-media-plan');
   if (!panel) return;
   var sugg = _aiSuggestions;
-  var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap';
+  var TH = 'font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);padding:10px 10px;border-bottom:1px solid var(--border);white-space:nowrap';
   var totalImpr   = sugg.reduce(function(s, r) { return s + parseFloat(r.impressions) * (r.impressions.indexOf('M') >= 0 ? 1000000 : 1000); }, 0);
   var fmtImpr = totalImpr >= 1000000 ? (totalImpr/1000000).toFixed(1) + 'M' : Math.round(totalImpr/1000) + 'K';
   var avgCpm = Math.round(sugg.reduce(function(s, r) { return s + parseInt(r.cpm.replace(/[^0-9]/g,'')); }, 0) / (sugg.length || 1));
-  var TOT  = 'padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg)';
+  var TOT  = 'padding:10px 10px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:#fff';
   var DELBTN = 'border:none;background:none;cursor:pointer;color:var(--faint);padding:2px 6px;border-radius:5px;line-height:1;font-size:16px;transition:color .12s';
   var activeVariant = _aiPlanVariants[_aiActiveVariant];
+  // Dollar values come directly from suggestion rows (set by aiInitPlanVariantsFromAPI)
+  var totalDollar = sugg.reduce(function(s, r) { return s + (r.est_dollar_value || 0); }, 0);
+  var fmtDollar   = totalDollar >= 1000000 ? '$' + (totalDollar/1000000).toFixed(2) + 'M' : '$' + Math.round(totalDollar/1000) + 'K';
 
   panel.innerHTML =
-    '<div style="display:flex;flex:1;min-height:0;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
+    '<div style="display:flex;flex:1;min-height:0;padding:0 9px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
 
     // ── Left: scatter chart ──
-    + '<div style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:14px">'
+    + '<div style="width:360px;flex-shrink:0;display:flex;flex-direction:column;padding:9px 13px">'
     +   '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">'
     +     '<div style="width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
     +       '<svg width="10" height="10" viewBox="0 0 16 16" fill="#fff"><path d="M6 1L7.3 4.7 11 6 7.3 7.3 6 11 4.7 7.3 1 6 4.7 4.7Z"/><path d="M12.5 0.5L13.3 2.7 15.5 3.5 13.3 4.3 12.5 6.5 11.7 4.3 9.5 3.5 11.7 2.7Z" opacity=".8"/></svg>'
@@ -4144,56 +4754,84 @@ function aiRenderResultsPanel() {
     +   '<div style="flex:1;min-height:0;position:relative">'
     +     '<canvas id="ai-plan-scatter"></canvas>'
     +   '</div>'
-    +   '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">'
-    +     '<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden">'
-    +       (_aiActiveVariant === 2
-          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e11d8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>'
-          : _aiActiveVariant >= 3
-          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ED005E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>'
-          : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ED005E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>')
-    +       '<span style="font-size:10px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis">' + (activeVariant ? activeVariant.name : '') + '</span>'
-    +     '</div>'
-    +     '<div style="font-size:10px;color:var(--muted);margin-top:2px">'
-    +       (activeVariant ? '$' + activeVariant.budget + 'K &nbsp;·&nbsp; ' + activeVariant.impressions + 'M imp.' : '')
-    +     '</div>'
-    +   '</div>'
     + '</div>'
 
     // ── Vertical divider ──
     + '<div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0"></div>'
 
     // ── Right: table ──
-    + '<div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:14px;overflow:hidden">'
-    + '<div style="overflow-y:auto;flex:1;min-height:0">'
-    +   '<table style="width:100%;border-collapse:collapse">'
-    +   '<thead><tr>'
+    + '<div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:9px 13px;overflow:hidden">'
+
+    // Header — aligns with "AI-Suggested Plans" on the left
+    + (function() {
+        var _av = _aiPlanVariants[_aiActiveVariant] || {};
+        var planIcon = (_av.plan_id === 'PLAN003')
+          ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>'
+          : (_av.plan_id === 'PLAN004' || _av.plan_id === 'PLAN005')
+          ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>'
+          : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>';
+        var subtitle = activeVariant
+          ? sugg.length + ' moment' + (sugg.length !== 1 ? 's' : '') + ' &nbsp;·&nbsp; $' + activeVariant.budget + 'K budget &nbsp;·&nbsp; ' + activeVariant.impressions + 'M imp.'
+          : '';
+        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-shrink:0">'
+          + '<div style="width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#e11d8f,#f43f5e);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+          +   planIcon
+          + '</div>'
+          + '<div>'
+          +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3">' + (activeVariant ? activeVariant.name : 'Media Plan') + '</div>'
+          +   '<div style="font-size:10px;color:var(--faint);line-height:1.3">' + subtitle + '</div>'
+          + '</div>'
+          + '</div>';
+      })()
+
+    // Card wrapping the table
+    + '<div style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff">'
+    + '<div style="overflow-y:auto;overflow-x:auto;flex:1;min-height:0">'
+    +   '<table style="width:100%;border-collapse:collapse;background:#fff">'
+    +   '<thead><tr style="background:var(--bg)">'
     +     '<th style="text-align:left;'  + TH + '">Moment</th>'
     +     '<th style="text-align:left;'  + TH + '">Channels</th>'
     +     '<th style="text-align:left;'  + TH + '">Type</th>'
     +     '<th style="text-align:right;' + TH + '">PODs</th>'
     +     '<th style="text-align:right;' + TH + '">Est. CPM</th>'
     +     '<th style="text-align:right;' + TH + '">Est. Impr.</th>'
-    +     '<th style="' + TH + 'width:32px"></th>'
+    +     '<th style="text-align:right;' + TH + '">Est. $ Value</th>'
+    +     '<th style="' + TH + ';width:32px"></th>'
     +   '</tr></thead>'
     +   '<tbody>'
     +   sugg.map(function(s, idx) {
-          var chansHtml = (s.channels || []).map(function(c) {
-            return '<span style="font-size:10px;font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap">' + c + '</span>';
-          }).join(' ');
+          var chans = s.channels || [];
+          var chCount = chans.length;
+          var chTooltipLines = chans.join('<br>');
+          var chBadge = chCount === 0 ? '—'
+            : '<span style="position:relative;display:inline-block"'
+            +   ' onmouseenter="var t=this.querySelector(\'.ai-ch-tt\');if(t)t.style.display=\'block\'"'
+            +   ' onmouseleave="var t=this.querySelector(\'.ai-ch-tt\');if(t)t.style.display=\'none\'">'
+            +   '<span style="display:inline-flex;align-items:center;font-size:10px;font-weight:500;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 9px;cursor:default;white-space:nowrap">'
+            +     chCount + ' channel' + (chCount !== 1 ? 's' : '')
+            +   '</span>'
+            +   '<div class="ai-ch-tt" style="display:none;position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:10px;line-height:1.6;border-radius:7px;padding:6px 10px;white-space:nowrap;z-index:200;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.2)">'
+            +     chTooltipLines
+            +   '</div>'
+            + '</span>';
+          var rawDollar = s.est_dollar_value || 0;
+          var estDollar = rawDollar ? '$' + (rawDollar >= 1000 ? Math.round(rawDollar/1000) + 'K' : rawDollar) : '—';
           var rowType = s.type || 'ads';
           var typeBadge = rowType === 'live'
             ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:2px 8px;color:#dc2626;white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 4px #ef4444"></span>Live</span>'
             : rowType === 'organic'
             ? '<span style="font-size:10px;font-weight:600;background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:2px 8px;color:#0f766e;white-space:nowrap">Organic Pause</span>'
             : '<span style="font-size:10px;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:2px 8px;color:#1d4ed8;white-space:nowrap">VoD</span>';
-          return '<tr style="border-bottom:1px solid var(--border)">'
-            + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text)">' + s.moment + '</td>'
-            + '<td style="padding:10px 12px"><div style="display:flex;flex-wrap:wrap;gap:4px">' + chansHtml + '</div></td>'
-            + '<td style="padding:10px 12px">' + typeBadge + '</td>'
-            + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + (s.pods || '—') + '</td>'
-            + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.cpm + '</td>'
-            + '<td style="padding:10px 12px;font-size:12px;font-weight:500;color:var(--text);text-align:right">' + s.impressions + '</td>'
-            + '<td style="padding:6px 8px;text-align:center">'
+          var TD = 'padding:10px 10px;font-size:12px;font-weight:500;color:var(--text);border-bottom:1px solid var(--border)';
+          return '<tr onmouseenter="this.querySelectorAll(\'td\').forEach(function(td){td.style.background=\'#FAFAF8\'})" onmouseleave="this.querySelectorAll(\'td\').forEach(function(td){td.style.background=\'\'})"> '
+            + '<td style="' + TD + ';white-space:nowrap">' + s.moment + '</td>'
+            + '<td style="' + TD + '">' + chBadge + '</td>'
+            + '<td style="' + TD + '">' + typeBadge + '</td>'
+            + '<td style="' + TD + ';text-align:right">' + (s.pods || '—') + '</td>'
+            + '<td style="' + TD + ';text-align:right">' + s.cpm + '</td>'
+            + '<td style="' + TD + ';text-align:right">' + s.impressions + '</td>'
+            + '<td style="' + TD + ';text-align:right">' + estDollar + '</td>'
+            + '<td style="padding:6px 6px;border-bottom:1px solid var(--border);text-align:center">'
             +   '<button style="' + DELBTN + '" onclick="aiDeleteSuggestion(' + idx + ')" onmouseenter="this.style.color=\'#e11d8f\'" onmouseleave="this.style.color=\'var(--faint)\'">×</button>'
             + '</td>'
             + '</tr>';
@@ -4207,18 +4845,37 @@ function aiRenderResultsPanel() {
     +       '<td style="' + TOT + '"></td>'
     +       '<td style="' + TOT + ';text-align:right">Avg $' + avgCpm + '</td>'
     +       '<td style="' + TOT + ';text-align:right">' + fmtImpr + '</td>'
+    +       '<td style="' + TOT + ';text-align:right">' + fmtDollar + '</td>'
     +       '<td style="' + TOT + '"></td>'
     +     '</tr>'
     +   '</tfoot>'
     +   '</table>'
     + '</div>'
-    + '<div style="padding-top:12px;flex-shrink:0;display:flex;flex-direction:column;gap:8px">'
-    +   '<div style="display:flex;gap:8px;align-items:center">'
-    +     '<input id="ai-plan-name" class="ai-input" placeholder="Media plan name…" style="flex:1;height:38px">'
-    +     '<button onclick="aiSaveAIMediaPlan()" style="height:38px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">'
-    +       '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#fff" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>'
-    +       'Save as Media Plan'
-    +     '</button>'
+    + '</div>'  // card
+    + '<div style="padding-top:12px;flex-shrink:0;display:flex;align-items:center;gap:8px">'
+
+    // ── Add to Plan Builder — standalone secondary button ──
+    +   (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="aiAddToPlanBuilder()" style="flex-shrink:0;height:36px;padding:0 13px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-md);border-radius:9px;background:transparent;color:' + (_lk ? 'var(--faint)' : 'var(--text)') + ';font-size:12px;font-weight:500;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';font-family:inherit;white-space:nowrap;opacity:' + (_lk ? '.4' : '1') + ';transition:background .13s,border-color .13s"' + (_lk ? '' : ' onmouseenter="this.style.background=\'var(--bg)\';this.style.borderColor=\'var(--border-md)\'" onmouseleave="this.style.background=\'transparent\';this.style.borderColor=\'var(--border-md)\'"') + '><svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>Add to Plan Builder</button>'; })()
+
+    // ── Vertical divider ──
+    +   '<div style="width:1px;height:22px;background:var(--border-md);flex-shrink:0"></div>'
+
+    // ── Input + Save as Media Plan in a pill ──
+    +   '<div style="flex:1;display:flex;align-items:center;border:1px solid var(--border-md);border-radius:9px;overflow:hidden;background:#fff;height:36px">'
+
+    // Input with grey pencil icon on the right
+    +     '<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center">'
+    +       '<input id="ai-plan-name" class="ai-input" placeholder="Name this media plan…" style="flex:1;height:36px;border:none;border-radius:0;padding:0 28px 0 10px;background:transparent;outline:none;font-size:12px;transition:border-color .15s,box-shadow .15s">'
+    +       '<span id="ai-plan-name-err" style="display:none;position:absolute;bottom:calc(100% + 4px);left:10px;font-size:10px;color:#ef4444;background:#fff;border:1px solid #fca5a5;border-radius:5px;padding:3px 8px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 6px rgba(239,68,68,.12)"></span>'
+    +       '<button onclick="aiGeneratePlanName()" title="Generate name with AI" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--faint);transition:color .13s" onmouseover="this.style.color=\'var(--text)\'" onmouseout="this.style.color=\'var(--faint)\'"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z"/></svg></button>'
+    +     '</div>'
+
+    // Vertical divider
+    +     '<div style="width:1px;height:22px;background:var(--border-md);flex-shrink:0"></div>'
+
+    // Save as Media Plan
+    +     (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="aiSaveAIMediaPlan()" style="flex-shrink:0;height:100%;padding:0 13px;display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:' + (_lk ? 'var(--faint)' : 'var(--text)') + ';font-size:12px;font-weight:500;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';font-family:inherit;white-space:nowrap;opacity:' + (_lk ? '.4' : '1') + ';transition:background .13s"' + (_lk ? '' : ' onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'"') + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Save as Media Plan</button>'; })()
+
     +   '</div>'
     + '</div>'
     + '</div>'  // right column
@@ -4232,18 +4889,125 @@ function aiDeleteSuggestion(idx) {
   aiRenderResultsPanel();
 }
 
+function aiAddToPlanBuilder() {
+  // mp2SelectedMoments is keyed by moment name (value = true)
+  _aiSuggestions.forEach(function(s) {
+    if (s.moment) mp2SelectedMoments[s.moment] = true;
+  });
+  // Open the Build Media Plan sidebar and re-render it
+  var strip = document.getElementById('mp2-asset-strip');
+  if (!strip || strip.style.display !== 'flex') mp2ToggleSidebar('plan');
+  else {
+    var zonePlan = document.getElementById('mp2-strip-plan');
+    var zoneList = document.getElementById('mp2-strip-list');
+    if (zonePlan) zonePlan.style.display = 'flex';
+    if (zoneList) zoneList.style.display = 'none';
+    mp2SidebarMode = 'plan';
+    var btnPlan = document.getElementById('mp2-asset-toggle');
+    var btnList = document.getElementById('mp2-list-toggle');
+    if (btnPlan) { btnPlan.dataset.act = '1'; btnPlan.style.background = 'var(--bg)'; btnPlan.style.color = 'var(--text)'; }
+    if (btnList) { btnList.dataset.act = ''; btnList.style.background = 'transparent'; btnList.style.color = 'var(--muted)'; }
+  }
+  mp2RenderMomentsMediaPlan();
+}
+
+function aiGeneratePlanName() {
+  var names = _aiSuggestions.map(function(s) { return s.moment; });
+  var camp  = (mp2SelectedCampaign && mp2SelectedCampaign.name) ? mp2SelectedCampaign.name : '';
+  var month = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+  var momentPart = names.length === 1 ? names[0]
+    : names.length === 2 ? names[0] + ' & ' + names[1]
+    : names.length > 2   ? names[0] + ' +' + (names.length - 1) + ' moments'
+    : 'AI Moments Plan';
+  var generated = (camp ? camp + ' — ' : '') + momentPart + ' · ' + month;
+  var input = document.getElementById('ai-plan-name');
+  if (input) {
+    input.value = generated;
+    input.focus();
+    input.style.color = 'var(--accent)';
+    setTimeout(function() { input.style.color = ''; }, 800);
+  }
+}
+
+// ── Shared DB persistence helper ─────────────────────────────────────────────
+function mp2SavePlanToDB(planId, planName, moments, onDone) {
+  if (!_mp2LastAnalysisId) { if (onDone) onDone(null); return; }
+  fetch('/api/media-plans-add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      analysis_id:    _mp2LastAnalysisId,
+      media_plan_id:  planId,
+      media_plan_name: planName,
+      moments:        moments,
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) { if (onDone) onDone(data); })
+  .catch(function(err) { console.warn('mp2SavePlanToDB error:', err); if (onDone) onDone(null); });
+}
+
+// ── Inline validation helper ──────────────────────────────────────────────────
+function mp2ShowInputError(inputEl, msgEl, message) {
+  if (!inputEl) return;
+  inputEl.style.borderColor = '#ef4444';
+  inputEl.style.boxShadow   = '0 0 0 2px rgba(239,68,68,.15)';
+  if (msgEl) { msgEl.textContent = message; msgEl.style.display = 'block'; }
+  // Clear on next keystroke
+  function clear() {
+    inputEl.style.borderColor = '';
+    inputEl.style.boxShadow   = '';
+    if (msgEl) msgEl.style.display = 'none';
+    inputEl.removeEventListener('input', clear);
+  }
+  inputEl.addEventListener('input', clear);
+  inputEl.focus();
+}
+
 function aiSaveAIMediaPlan() {
   var nameInput = document.getElementById('ai-plan-name');
-  var planName  = (nameInput && nameInput.value.trim()) || ('AI Media Plan ' + (savedMediaPlansV2.length + 1));
-  var now       = new Date();
-  var dateStr   = now.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + ' ' + now.getFullYear();
-  var AUTHORS   = ['Bruna', 'Marika', 'Ryan'];
-  var author    = AUTHORS[Math.floor(Math.random() * AUTHORS.length)];
+  var errEl     = document.getElementById('ai-plan-name-err');
+  var planName  = nameInput ? nameInput.value.trim() : '';
+
+  // ── Validation ──
+  if (!planName) {
+    mp2ShowInputError(nameInput, errEl, 'Please enter a name for this media plan');
+    return;
+  }
+
+  var now     = new Date();
+  var dateStr = now.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + ' ' + now.getFullYear();
+  var unEl    = document.getElementById('un');
+  var author  = (unEl && unEl.textContent.trim()) || 'Bruna';
   var totalImpr = _aiSuggestions.reduce(function(s, r) { return s + parseFloat(r.impressions) * (r.impressions.indexOf('M') >= 0 ? 1000000 : 1000); }, 0);
   var fmtImpr   = totalImpr >= 1000000 ? (totalImpr/1000000).toFixed(1) + 'M' : Math.round(totalImpr/1000) + 'K';
   var avgCpm    = Math.round(_aiSuggestions.reduce(function(s, r) { return s + parseInt(r.cpm.replace(/[^0-9]/g,'')); }, 0) / (_aiSuggestions.length || 1));
 
-  savedMediaPlansV2.push({
+  // ── Build DB payload ──
+  var _momSrc = mp2AnalysisMoments || MOCK_MOMENTS_API || [];
+  var dbMoments = _aiSuggestions.map(function(s) {
+    var mockM  = _momSrc.find(function(x) { return x.moment_name === s.moment; }) || {};
+    var impNum = parseFloat(s.impressions) * (s.impressions.indexOf('M') >= 0 ? 1000000 : 1000);
+    var cpmNum = parseFloat(s.cpm.replace(/[^0-9.]/g, ''));
+    var typeMap = { 'live': 'Live', 'organic': 'Organic Pause', 'ads': 'VoD' };
+    return {
+      moment_id:               mockM.moment_id  || null,
+      moment_name:             s.moment,
+      moment_type:             typeMap[s.type]  || 'VoD',
+      moment_est_impr:         impNum           || null,
+      moment_est_cpm:          cpmNum           || null,
+      moment_est_dollar_value: s.est_dollar_value || Math.round(impNum * cpmNum / 1000),
+      moment_pods:             s.pods           || null,
+      moment_channels:         s.channels       || [],
+      moment_taxonomies:       mockM.taxonomies || null,
+    };
+  });
+
+  var planId = 'MP-' + Date.now();
+
+  // ── Push to current analysis in-memory list ──
+  _mp2CurrentAnalysisPlans.push({
+    id:          planId,
     name:        planName,
     date:        dateStr,
     author:      author,
@@ -4253,29 +5017,335 @@ function aiSaveAIMediaPlan() {
     impressions: fmtImpr,
     avgCpm:      '$' + avgCpm,
     programs:    [],
-    episodes:    []
+    episodes:    [],
+    _dbRaw:      { media_plan_id: planId, media_plan_name: planName, moments: dbMoments }
   });
 
-  var newIdx = savedMediaPlansV2.length - 1;
+  var newIdx = _mp2CurrentAnalysisPlans.length - 1;
 
-  // Go home, then switch to plans tab and highlight the new item
-  mp2SwitchHomeTab('plans');
-  setTimeout(function() {
-    mp2RenderAIPlansPanel(newIdx);
-    // Temporary counter badge on the Media Plans tab
-    var tabBtn = document.querySelector('#mp2-pills button[onclick*="\'plans\'"]');
-    if (tabBtn) {
-      var badge = document.createElement('span');
-      badge.id = 'tx2-plans-tab-badge';
-      badge.style.cssText = 'font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 6px;margin-left:5px;transition:opacity .4s';
-      badge.textContent = savedMediaPlansV2.length;
-      tabBtn.appendChild(badge);
-      setTimeout(function() {
-        badge.style.opacity = '0';
-        setTimeout(function() { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 400);
-      }, 3000);
+  // ── Persist to DB ──
+  mp2SavePlanToDB(planId, planName, dbMoments, function(res) {
+    if (res && res.ok) {
+      console.log('Media plan saved to DB:', planId);
+    } else {
+      console.warn('Media plan DB save failed (kept in memory)');
     }
-  }, 60);
+  });
+
+  // ── UI feedback: always open list panel ──
+  mp2OpenSidebarList(newIdx);
+  if (nameInput) nameInput.value = '';
+}
+
+// ── Save from Build Media Plan sidebar ───────────────────────────────────────
+function mp2SaveBuilderMediaPlan() {
+  var nameInput = document.getElementById('mp2-plan-name-input');
+  var errEl     = document.getElementById('mp2-plan-name-err');
+  var planName  = nameInput ? nameInput.value.trim() : '';
+
+  // ── Validation ──
+  if (!planName) {
+    mp2ShowInputError(nameInput, errEl, 'Please enter a name for this media plan');
+    return;
+  }
+
+  var names = Object.keys(mp2SelectedMoments).filter(function(n) { return mp2SelectedMoments[n]; });
+  if (!names.length) return;
+
+  var now     = new Date();
+  var dateStr = now.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + ' ' + now.getFullYear();
+  var unEl    = document.getElementById('un');
+  var author  = (unEl && unEl.textContent.trim()) || 'Bruna';
+
+  var _momSrc = mp2AnalysisMoments || MOCK_MOMENTS_API || [];
+  var dbMoments = names.map(function(name) {
+    var m = _momSrc.find(function(x) { return x.moment_name === name; }) || {};
+    return {
+      moment_id:               m.moment_id         || null,
+      moment_name:             name,
+      moment_type:             m.moment_type        || null,
+      moment_est_impr:         m.est_impressions    || null,
+      moment_est_cpm:          m.est_cpm            || null,
+      moment_est_dollar_value: m.est_dollar_value   || null,
+      moment_pods:             m.pods               || null,
+      moment_channels:         m.channels           || [],
+      moment_taxonomies:       m.taxonomies         || null,
+    };
+  });
+
+  var totalImpM = dbMoments.reduce(function(s, m) { return s + (m.moment_est_impr || 0); }, 0) / 1000000;
+  var fmtImpr   = totalImpM >= 1 ? totalImpM.toFixed(1) + 'M' : Math.round(totalImpM * 1000) + 'K';
+  var planId    = 'MP-' + Date.now();
+
+  // ── Push to current analysis in-memory list ──
+  _mp2CurrentAnalysisPlans.push({
+    id:          planId,
+    name:        planName,
+    date:        dateStr,
+    author:      author,
+    source:      'builder',
+    inputType:   'text',
+    moments:     dbMoments,
+    impressions: fmtImpr,
+    programs:    [],
+    episodes:    [],
+    _dbRaw:      { media_plan_id: planId, media_plan_name: planName, moments: dbMoments }
+  });
+
+  var newIdx = _mp2CurrentAnalysisPlans.length - 1;
+
+  // ── Persist to DB ──
+  mp2SavePlanToDB(planId, planName, dbMoments, function(res) {
+    if (res && res.ok) {
+      console.log('Builder media plan saved to DB:', planId);
+    } else {
+      console.warn('Builder media plan DB save failed (kept in memory)');
+    }
+  });
+
+  // ── UI feedback ──
+  if (nameInput) nameInput.value = '';
+  var btn = document.querySelector('#mp2-strip-plan button[onclick="mp2SaveBuilderMediaPlan()"]');
+  if (btn) {
+    var orig = btn.textContent;
+    btn.textContent = '✓ Saved';
+    btn.style.background = '#16a34a';
+    setTimeout(function() { btn.textContent = orig; btn.style.background = 'var(--accent)'; }, 1800);
+  }
+  // Always open the list sidebar to show the new card
+  setTimeout(function() { mp2OpenSidebarList(newIdx); }, 400);
+}
+
+function mp2ShowConfirmModal(title, message, onConfirm) {
+  var existing = document.getElementById('mp2-confirm-modal');
+  if (existing) existing.remove();
+  var modal = document.createElement('div');
+  modal.id = 'mp2-confirm-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;animation:mp2FadeIn .12s ease';
+  modal.innerHTML =
+    '<style>@keyframes mp2FadeIn{from{opacity:0}to{opacity:1}}</style>'
+    + '<div onclick="event.stopPropagation()" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:24px 24px 20px;width:360px;max-width:calc(100vw - 32px)">'
+    +   '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">' + title + '</div>'
+    +   '<div style="font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:20px">' + message + '</div>'
+    +   '<div style="display:flex;gap:8px;justify-content:flex-end">'
+    +     '<button onclick="document.getElementById(\'mp2-confirm-modal\').remove()" style="height:34px;padding:0 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .12s" onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'">Cancel</button>'
+    +     '<button id="mp2-confirm-ok-btn" style="height:34px;padding:0 14px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .12s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Delete</button>'
+    +   '</div>'
+    + '</div>';
+  modal.addEventListener('click', function() { modal.remove(); });
+  document.body.appendChild(modal);
+  document.getElementById('mp2-confirm-ok-btn').addEventListener('click', function() {
+    modal.remove();
+    onConfirm();
+  });
+}
+
+function mp2DeleteAnalysisPlan(idx, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  var plan = _mp2CurrentAnalysisPlans[idx];
+  if (!plan) return;
+  mp2ShowConfirmModal(
+    'Delete media plan?',
+    'Are you sure you want to delete <strong>' + plan.name.replace(/</g,'&lt;') + '</strong>? This cannot be undone.',
+    function() {
+      _mp2CurrentAnalysisPlans.splice(idx, 1);
+      mp2RenderStripList();
+      // PATCH DB with remaining plans
+      if (_mp2LastAnalysisId) {
+        var remaining = _mp2CurrentAnalysisPlans.map(function(p) {
+          return p._dbRaw || { media_plan_id: p.id, media_plan_name: p.name, moments: [] };
+        });
+        fetch('/api/moments-match?analysis_id=' + _mp2LastAnalysisId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ media_plans: remaining })
+        }).catch(function(err) { console.warn('mp2DeleteAnalysisPlan DB error:', err); });
+      }
+    }
+  );
+}
+
+// ── Plan detail modal (eye icon) ─────────────────────────────────────────────
+function mp2OpenPlanDetailModal(idx, event) {
+  if (event) event.stopPropagation();
+  var mp = _mp2CurrentAnalysisPlans[idx];
+  if (!mp) return;
+
+  var srcMoments = (mp._dbRaw && mp._dbRaw.moments) ? mp._dbRaw.moments : (mp.moments || []);
+  var momCount   = srcMoments.length;
+  var totalImpr  = srcMoments.reduce(function(s, m) { return s + (Number(m.moment_est_impr) || 0); }, 0);
+  var totalDollar= srcMoments.reduce(function(s, m) { return s + (Number(m.moment_est_dollar_value) || 0); }, 0);
+  var fmtImpr    = totalImpr >= 1000000 ? (totalImpr/1000000).toFixed(1)+'M imp.' : totalImpr >= 1000 ? Math.round(totalImpr/1000)+'K imp.' : '';
+  var fmtDollar  = totalDollar >= 1000000 ? '$'+(totalDollar/1000000).toFixed(1)+'M' : totalDollar >= 1000 ? '$'+Math.round(totalDollar/1000)+'K' : totalDollar ? '$'+totalDollar : '';
+  var flightStr  = (mp.flightStart && mp.flightEnd) ? mp.flightStart + ' → ' + mp.flightEnd : '';
+
+  var MERGE_ICO = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'mp2-plan-detail-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center';
+
+  var momRows = srcMoments.slice(0, 6).map(function(m) {
+    var impr = Number(m.moment_est_impr) || 0;
+    var fmt  = impr >= 1000000 ? (impr/1000000).toFixed(1)+'M' : impr >= 1000 ? Math.round(impr/1000)+'K' : impr || '—';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">'
+      + '<div style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (m.moment_name || m.show || '—').replace(/</g,'&lt;') + '</div>'
+      + '<div style="font-size:11px;color:var(--faint);flex-shrink:0">' + fmt + ' imp.</div>'
+      + '</div>';
+  }).join('');
+
+  if (srcMoments.length > 6) {
+    momRows += '<div style="font-size:11px;color:var(--faint);padding-top:6px;text-align:center">+ ' + (srcMoments.length - 6) + ' more moments</div>';
+  }
+
+  overlay.innerHTML =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:420px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 36px rgba(0,0,0,.2);font-family:inherit;overflow:hidden">'
+    // header
+    + '<div style="display:flex;align-items:flex-start;padding:20px 20px 14px;gap:10px;border-bottom:1px solid var(--border)">'
+    +   '<div style="flex:1;min-width:0">'
+    +     '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + mp.name.replace(/</g,'&lt;') + '</div>'
+    +     '<div style="font-size:11px;color:var(--faint)">'
+    +       momCount + ' moment' + (momCount !== 1 ? 's' : '')
+    +       (fmtImpr   ? ' · ' + fmtImpr   : '')
+    +       (fmtDollar ? ' · ' + fmtDollar : '')
+    +       (flightStr ? ' · ' + flightStr  : '')
+    +     '</div>'
+    +   '</div>'
+    +   '<button onclick="document.getElementById(\'mp2-plan-detail-overlay\').remove()" style="flex-shrink:0;border:none;background:none;cursor:pointer;color:var(--faint);font-size:17px;line-height:1;padding:1px 3px;margin-top:-2px" onmouseover="this.style.color=\'var(--text)\'" onmouseout="this.style.color=\'var(--faint)\'">×</button>'
+    + '</div>'
+    // body
+    + '<div style="flex:1;overflow-y:auto;padding:14px 20px">'
+    +   (srcMoments.length
+        ? '<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Moments</div>' + momRows
+        : '<div style="padding:20px 0;text-align:center;color:var(--faint);font-size:12px">No moments in this plan.</div>')
+    + '</div>'
+    // footer CTA
+    + '<div style="padding:14px 20px;border-top:1px solid var(--border)">'
+    +   '<button onclick="mp2SelectDistributePlan(' + idx + ')" style="width:100%;height:38px;display:flex;align-items:center;justify-content:center;gap:8px;background:#0f172a;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .13s" onmouseover="this.style.opacity=\'.88\'" onmouseout="this.style.opacity=\'1\'">'
+    +     MERGE_ICO
+    +     'Select this Media Plan and Distribute to DSP'
+    +   '</button>'
+    + '</div>'
+    + '</div>';
+
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function mp2SelectDistributePlan(idx) {
+  _mp2DistributePlanIdx = (_mp2DistributePlanIdx === idx) ? null : idx; // toggle
+  var overlay = document.getElementById('mp2-plan-detail-overlay');
+  if (overlay) overlay.remove();
+  mp2RenderStripList();
+}
+
+function mp2SaveAndDistribute() {
+  if (_mp2DistributePlanIdx === null) return;
+  mp2ActivateDSP(_mp2DistributePlanIdx);
+}
+
+function mp2RenderStripList(highlightIdx) {
+  var zone = document.getElementById('mp2-strip-list');
+  if (!zone) return;
+
+  // Auto-select first plan if nothing is selected yet and plans exist
+  if (_mp2DistributePlanIdx === null && _mp2CurrentAnalysisPlans.length > 0) {
+    _mp2DistributePlanIdx = 0;
+  }
+
+  var EYE_ICO = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var CHECK_ICO = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var MERGE_ICO = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>';
+
+  var _noCampaign = !mp2SelectedCampaign;
+  var hasSelected = (_mp2DistributePlanIdx !== null) && !_mp2IsLocked() && !_noCampaign;
+
+  var distributeBtn = '<div style="flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border)">'
+    + '<button onclick="mp2SaveAndDistribute()" '
+    + (hasSelected ? '' : 'disabled ')
+    + 'style="width:100%;height:36px;display:flex;align-items:center;justify-content:center;gap:7px;background:' + (hasSelected ? '#0f172a' : 'var(--bg)') + ';color:' + (hasSelected ? '#fff' : 'var(--faint)') + ';border:1px solid ' + (hasSelected ? '#0f172a' : 'var(--border)') + ';border-radius:8px;font-size:12px;font-weight:600;cursor:' + (hasSelected ? 'pointer' : 'not-allowed') + ';font-family:inherit;transition:opacity .13s" '
+    + (hasSelected ? 'onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'"' : '')
+    + '>'
+    + MERGE_ICO
+    + 'Save and Distribute'
+    + '</button>'
+    + (_noCampaign ? '<div style="text-align:center;font-size:9px;color:var(--faint);margin-top:5px;line-height:1.3">No campaign associated to this analysis yet</div>' : '')
+    + '</div>';
+
+  var header = '<div style="flex-shrink:0;padding:16px 16px 10px"><div style="font-size:12px;font-weight:600;color:var(--text)">Saved Media Plans</div></div>';
+
+  if (_mp2CurrentAnalysisPlans.length === 0) {
+    zone.innerHTML = header
+      + '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet</div>'
+      + distributeBtn;
+    return;
+  }
+
+  zone.innerHTML = header
+    + '<div style="flex:1;overflow-y:auto;padding:0 12px 8px;display:flex;flex-direction:column;gap:6px">'
+    + _mp2CurrentAnalysisPlans.map(function(mp, i) {
+        var isNew      = (i === highlightIdx);
+        var isSelected = (i === _mp2DistributePlanIdx);
+        var bgNew      = isNew ? 'var(--accent-light)' : 'var(--bg)';
+        var borderNew  = isNew ? 'var(--accent)' : (isSelected ? '#0f172a' : 'var(--border)');
+
+        // Use _dbRaw moments for accurate stats (UI format loses some fields)
+        var srcMoments = (mp._dbRaw && mp._dbRaw.moments) ? mp._dbRaw.moments : (mp.moments || []);
+        var momCount = srcMoments.length;
+        var totalImpr = srcMoments.reduce(function(s, m) { return s + (Number(m.moment_est_impr) || 0); }, 0);
+        var totalDollar = srcMoments.reduce(function(s, m) { return s + (Number(m.moment_est_dollar_value) || 0); }, 0);
+        var fmtImprCard = totalImpr >= 1000000 ? (totalImpr / 1000000).toFixed(1) + 'M'
+          : totalImpr >= 1000 ? Math.round(totalImpr / 1000) + 'K' : '';
+        var fmtDollar = totalDollar >= 1000000 ? '$' + (totalDollar / 1000000).toFixed(1) + 'M'
+          : totalDollar >= 1000 ? '$' + Math.round(totalDollar / 1000) + 'K'
+          : totalDollar ? '$' + totalDollar : '';
+        var statsStr = momCount + ' moment' + (momCount !== 1 ? 's' : '')
+          + (fmtImprCard ? ' · ' + fmtImprCard + ' imp.' : '')
+          + (fmtDollar   ? ' · ' + fmtDollar : '');
+
+        return '<div'
+          + ' id="mp2-strip-plan-' + i + '"'
+          + (isNew ? ' data-new="1"' : '')
+          + ' style="position:relative;padding:9px 10px;background:' + bgNew + ';border:1px solid ' + borderNew + ';border-radius:8px;cursor:pointer;transition:background .13s,border-color .13s"'
+          + ' onclick="mp2SelectDistributePlan(' + i + ')"'
+          + ' onmouseenter="this.style.background=\'var(--surface)\';this.querySelectorAll(\'.mp2-hover-btn\').forEach(function(b){b.style.opacity=\'1\'})" onmouseleave="this.style.background=\'' + bgNew + '\';this.querySelectorAll(\'.mp2-hover-btn\').forEach(function(b){b.style.opacity=\'0\'})">'
+
+          // × delete button (rightmost)
+          + '<button class="mp2-hover-btn mp2-x-btn" onclick="mp2DeleteAnalysisPlan(' + i + ',event)" title="Delete"'
+          +   ' style="position:absolute;top:5px;right:5px;border:none;background:none;cursor:pointer;color:var(--faint);font-size:14px;line-height:1;padding:1px 3px;opacity:0;transition:opacity .12s,color .12s;font-family:inherit"'
+          +   ' onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--faint)\'">×</button>'
+
+          // 👁 eye button (left of ×)
+          + '<button class="mp2-hover-btn mp2-eye-btn" onclick="mp2OpenPlanDetailModal(' + i + ',event)" title="View details"'
+          +   ' style="position:absolute;top:5px;right:24px;border:none;background:none;cursor:pointer;color:var(--faint);display:flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;opacity:0;transition:opacity .12s,color .12s"'
+          +   ' onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--faint)\'">'+EYE_ICO+'</button>'
+
+          // plan name
+          + '<div style="font-size:11px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:40px;margin-bottom:3px">' + mp.name + '</div>'
+          // stats
+          + '<div style="font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + statsStr + '</div>'
+          // badges row
+          + '<div style="display:flex;align-items:center;gap:5px;margin-top:4px">'
+          +   (isNew ? '<span style="font-size:9px;font-weight:600;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent-muted);border-radius:20px;padding:1px 6px">New</span>' : '')
+          +   (isSelected ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:600;color:#fff;background:#0f172a;border-radius:20px;padding:2px 6px">' + CHECK_ICO + 'Selected</span>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('')
+    + '</div>'
+    + distributeBtn;
+
+  // Fade highlight after 2s
+  if (highlightIdx !== undefined) {
+    setTimeout(function() {
+      var card = document.getElementById('mp2-strip-plan-' + highlightIdx);
+      if (card && card.dataset.new) {
+        card.style.background   = _mp2DistributePlanIdx === highlightIdx ? 'var(--bg)' : 'var(--bg)';
+        card.style.borderColor  = _mp2DistributePlanIdx === highlightIdx ? '#0f172a' : 'var(--border)';
+        var newBadge = card.querySelector('span[style*="accent"]');
+        if (newBadge) newBadge.style.opacity = '0';
+      }
+    }, 2000);
+  }
 }
 
 function mp2RenderAIPlansPanel(highlightIdx) {
@@ -4327,6 +5397,7 @@ function mp2RenderAIPlansPanel(highlightIdx) {
       }
     }, 1800);
   }
+  mp2FixAiPanelHeight();
 }
 
 function aiAddMoreFromInventory() {
@@ -4354,13 +5425,7 @@ function csTx2GenerateAIMediaPlan() {
     + '</div>'
     + '</div>';
   setTimeout(function() {
-    _aiSuggestions = [
-      { moment:'Family Dinner Time',   channels:['NBC', 'Fox', 'ABC'],       pods:312, cpm:'$28',  impressions:'3.2M', type:'ads'     },
-      { moment:'Grocery Shopping',     channels:['Food Network', 'NBC'],     pods:278, cpm:'$22',  impressions:'2.8M', type:'organic' },
-      { moment:'Healthy Eating',       channels:['CBS', 'Fox', 'Discovery'], pods:241, cpm:'$19',  impressions:'2.1M', type:'live'    },
-      { moment:'Meal Prep & Cooking',  channels:['Food Network', 'PBS'],     pods:198, cpm:'$24',  impressions:'1.9M', type:'ads'     },
-      { moment:'Weekend BBQ',          channels:['Fox', 'ABC', 'NBC'],       pods:143, cpm:'$31',  impressions:'2.8M', type:'organic' },
-    ];
+    aiInitPlanVariantsFromAPI();   // load/refresh from MOCK_AI_MEDIA_PLANS
     aiRenderResultsPanel();
   }, 1800);
 }
@@ -4759,7 +5824,7 @@ function inv2SaveMediaPlan() {
   var selEpKeys   = Object.keys(invSelectedEpisodes);
   var totalItems  = selPrograms.length + selEpKeys.length;
   if (totalItems === 0) return;
-  var nameInput = document.getElementById('inv-mp-save-name');
+  var nameInput = document.getElementById('mp2-plan-name-input') || document.getElementById('inv-mp-save-name');
   var planName  = (nameInput && nameInput.value.trim()) || ('Media Plan ' + (savedMediaPlansV2.length + 1));
   var now       = new Date();
   var dateStr   = now.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + ' ' + now.getFullYear();
@@ -5025,22 +6090,41 @@ function mp2RenderMoments() {
   momPanel.innerHTML = headerHtml + '<div id="mp2-moments-scroll" style="overflow-y:auto;flex:1;min-height:0"></div>';
   var scrollWrap = document.getElementById('mp2-moments-scroll');
 
-  // Base pool by type: Live = top 6 (score ≥ 87), Ads = 10 (score ≥ 80), Organic = all 16
-  var typeMinScore = mp2MomentType === 'live' ? 87 : mp2MomentType === 'ads' ? 80 : 0;
-  var cats = TX_CATEGORIES.filter(function(c) {
-    if (c.score < typeMinScore) return false;
+  // Base pool: use DB snapshot if available, otherwise live MOCK_MOMENTS_API
+  var _momentsSource = mp2AnalysisMoments || MOCK_MOMENTS_API || [];
+  var typeFilter = mp2MomentType === 'live' ? 'Live' : mp2MomentType === 'organic' ? 'Organic Pause' : 'VoD';
+  var cats = _momentsSource.map(function(m) {
+    return { name: m.moment_name, score: m.moment_score || 0, assets: m.pods || 0 };
+  }).filter(function(c) {
+    var m = _momentsSource.find(function(x) { return x.moment_name === c.name; }) || {};
+    if (m.moment_type !== typeFilter) return false;
     var a = mp2MomentCardAttrs(c);
-    if (mp2MfScore === 'high'     && c.score <  80) return false;
-    if (mp2MfScore === 'standard' && c.score >= 80) return false;
-    if (mp2MfChannels.length > 0 && !mp2MfChannels.some(function(ch){ return a.channels.indexOf(ch) >= 0; })) return false;
-    if (mp2MfCpmMin > 0  && a.cpm < mp2MfCpmMin)  return false;
-    if (mp2MfCpmMax < 50 && a.cpm > mp2MfCpmMax)  return false;
+    if (mp2MfScore === 'high'     && c.score <  75) return false;
+    if (mp2MfScore === 'standard' && c.score >= 75) return false;
+    if (mp2MfChannels.length > 0 && !(m.channels || []).some(function(ch){ return mp2MfChannels.indexOf(ch) >= 0; })) return false;
+    if (mp2MfCpmMin > 0  && (m.est_cpm || 0) < mp2MfCpmMin)  return false;
+    if (mp2MfCpmMax < 50 && (m.est_cpm || 0) > mp2MfCpmMax)  return false;
     if (mp2MfTypes.length     > 0 && mp2MfTypes.indexOf(a.type) < 0)     return false;
     if (mp2MfPlatforms.length > 0 && mp2MfPlatforms.indexOf(a.platform) < 0) return false;
     return true;
   });
 
   var GRID = 'display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-bottom:16px';
+
+  // Pre-compute which moments are in the selected plan (used when analysis is locked)
+  var _locked = _mp2IsLocked();
+  var _lockedPlanMoments = {};
+  if (_locked && _mp2CurrentAnalysisPlans && _mp2CurrentAnalysisPlans.length) {
+    var _selIdx = (_mp2DistributePlanIdx !== null && _mp2DistributePlanIdx >= 0)
+      ? _mp2DistributePlanIdx
+      : 0;
+    var _selPlan = _mp2CurrentAnalysisPlans[_selIdx] || _mp2CurrentAnalysisPlans[0];
+    if (_selPlan) {
+      (_selPlan.moments || []).forEach(function(m) {
+        if (m.moment) _lockedPlanMoments[m.moment] = true;
+      });
+    }
+  }
 
   var renderCard = function(c) {
     var safeN    = c.name.replace(/'/g, "\\'");
@@ -5049,29 +6133,38 @@ function mp2RenderMoments() {
     var attrs    = mp2MomentCardAttrs(c);
     var seed     = attrs.seed;
     var refined  = mp2RefinedStats[c.name];
-    var dispInv  = refined ? refined.pods : c.assets;
-    // Type-specific CPM & impression multipliers
-    var cpmMult  = mp2MomentType === 'live' ? 1.55 : mp2MomentType === 'organic' ? 0.68 : 1.0;
-    var impMult  = mp2MomentType === 'live' ? 0.55 : mp2MomentType === 'organic' ? 1.45 : 1.0;
-    var rawCpm   = attrs.cpm;
-    var rawImpM  = 1.5 + ((seed * 3 + c.score * 7) % 85) / 10;
-    var dispCpm  = refined ? refined.cpm  : Math.round(rawCpm * cpmMult);
-    var dispImpM = refined ? refined.impM : (rawImpM * impMult).toFixed(1);
-    var isHigh   = c.score >= 80;
-    var badgeCol = isHigh ? '#16a34a' : '#d97706';
-    var badgeBg  = isHigh ? '#f0fdf4' : '#fffbeb';
+    var isHigh   = mockIsHigh;
+    var badgeCol = isHigh ? '#166534' : '#92400e';
+    var badgeBg  = isHigh ? '#dcfce7' : '#fef9c3';
     var badgeBd  = isHigh ? '#bbf7d0' : '#fde68a';
-    // Supply type badge
-    var supplyBadge = mp2MomentType === 'live'
+    // All stats from moments source (DB snapshot if loaded, else MOCK_MOMENTS_API)
+    var mockM      = _momentsSource.find(function(x) { return x.moment_name === c.name; }) || {};
+    var mockScore  = (mockM.moment_score !== undefined && mockM.moment_score !== null) ? mockM.moment_score : null;
+    var mockIsHigh = mockScore !== null && mockScore >= 75;
+    var dispImpM   = mockM.est_impressions ? (mockM.est_impressions / 1000000).toFixed(1) : '—';
+    var dispImpStr = mockM.est_impressions ? dispImpM + 'M' : '—';
+    var dispCpm    = mockM.est_cpm         ? '$' + mockM.est_cpm.toFixed(2) : '—';
+    var dispPods   = mockM.pods            ? mockM.pods.toLocaleString()     : '—';
+    var mockChannels = Array.isArray(mockM.channels) ? mockM.channels : [];
+    var inlineBadge = mockScore !== null
+      ? '<span style="display:inline-block;font-size:9px;font-weight:600;letter-spacing:.3px;border-radius:20px;padding:1px 6px;margin-left:5px;flex-shrink:0;vertical-align:middle;'
+        + (mockIsHigh ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280')
+        + '">' + (mockIsHigh ? 'High' : 'Standard') + '</span>'
+      : '';
+    // Supply type badge from MOCK_MOMENTS_API
+    var mType = mockM.moment_type || '';
+    var supplyBadge = mType === 'Live'
       ? '<span style="background:#fef2f2;border:1px solid #fecaca;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#dc2626;display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:#ef4444;flex-shrink:0;box-shadow:0 0 4px #ef4444"></span>Live</span>'
-      : mp2MomentType === 'organic'
+      : mType === 'Organic Pause'
       ? '<span style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#0f766e">Organic Pause</span>'
-      : '<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#1d4ed8">VoD</span>';
+      : mType === 'VoD'
+      ? '<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700;color:#1d4ed8">VoD</span>'
+      : '';
     var LABEL = 'font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);margin-bottom:2px';
     var VALUE = 'font-size:12px;font-weight:700;color:var(--text)';
 
-    // Deterministic channels per card (from shared attrs)
-    var cardCh = attrs.channels;
+    // Channels from MOCK_MOMENTS_API (fallback to deterministic attrs)
+    var cardCh    = mockChannels.length ? mockChannels : attrs.channels;
     var visibleCh = cardCh.slice(0, 3);
     var extraCh   = cardCh.slice(3);
     var chHtml = visibleCh.map(function(ch){
@@ -5088,14 +6181,24 @@ function mp2RenderMoments() {
         + '</span>';
     }
 
-    var isSel = !!mp2SelectedMoments[c.name];
-    return '<div id="mp2-mcard-' + safeId + '" class="mp2-mcard' + (isSel ? ' mp2-mcard--sel' : '') + '" onclick="mp2ToggleMomentCard(\'' + safeN + '\')" style="cursor:pointer">'
+    var isSel = _locked ? !!_lockedPlanMoments[c.name] : !!mp2SelectedMoments[c.name];
+    return '<div id="mp2-mcard-' + safeId + '" class="mp2-mcard' + (isSel ? ' mp2-mcard--sel' : '') + '" ' + (!_locked ? 'onclick="mp2ToggleMomentCard(\'' + safeN + '\')"' : '') + ' style="cursor:' + (_locked ? 'default' : 'pointer') + '">'
       // thumbnail
       + '<div style="position:relative;width:100%;padding-top:44%">'
-      +   '<div id="' + imgId + '" style="position:absolute;inset:0;width:100%;height:100%;background-color:var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" style="opacity:.25;flex-shrink:0"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></div>'
-      +   '<label onclick="event.stopPropagation()" style="position:absolute;top:6px;left:6px;z-index:2;cursor:pointer;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.88);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)">'
-      +     '<input type="checkbox" id="mp2-cb-' + safeId + '"' + (isSel ? ' checked' : '') + ' onchange="mp2ToggleMomentCard(\'' + safeN + '\')" style="width:11px;height:11px;accent-color:var(--accent);cursor:pointer;margin:0">'
-      +   '</label>'
+      +   '<div id="' + imgId + '" style="position:absolute;inset:0;width:100%;height:100%;background-color:var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden">'
+      +     (mockM.img_url
+              ? '<img src="' + mockM.img_url + '" style="width:100%;height:100%;object-fit:cover;display:block" />'
+              : '<svg width="20" height="20" viewBox="0 0 16 16" fill="none" style="opacity:.25;flex-shrink:0"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>')
+      +   '</div>'
+      +   (_locked
+            ? (isSel
+                ? '<label style="position:absolute;top:6px;left:6px;z-index:2;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.88);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)">'
+                  + '<input type="checkbox" checked disabled style="width:11px;height:11px;accent-color:var(--accent);margin:0">'
+                  + '</label>'
+                : '')  // no checkbox for locked moments not in any plan
+            : '<label onclick="event.stopPropagation()" style="position:absolute;top:6px;left:6px;z-index:2;cursor:pointer;width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.88);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)">'
+              + '<input type="checkbox" id="mp2-cb-' + safeId + '"' + (isSel ? ' checked' : '') + ' onchange="mp2ToggleMomentCard(\'' + safeN + '\')" style="width:11px;height:11px;accent-color:var(--accent);cursor:pointer;margin:0">'
+              + '</label>')
       +   '<div style="position:absolute;top:6px;right:6px;display:flex;align-items:center;gap:3px">'
       +     (refined ? '<span style="background:rgba(237,0,94,.9);color:#fff;border-radius:20px;padding:1px 7px;font-size:9px;font-weight:700">Refined</span>' : '')
       +     supplyBadge
@@ -5108,9 +6211,9 @@ function mp2RenderMoments() {
       +   '<div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:8px;line-height:1.3">' + c.name + '</div>'
       +   '<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">'
       +     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'
-      +       '<div><div style="' + LABEL + '">Est. Impr.</div><div id="mp2-kv-imp-' + safeId + '" style="' + VALUE + '">' + dispImpM + 'M</div></div>'
-      +       '<div><div style="' + LABEL + '">CPM</div><div id="mp2-kv-cpm-' + safeId + '" style="' + VALUE + '">$' + dispCpm + '</div></div>'
-      +       '<div><div style="' + LABEL + '">PODs</div><div id="mp2-kv-inv-' + safeId + '" style="' + VALUE + '">' + dispInv.toLocaleString() + '</div></div>'
+      +       '<div><div style="' + LABEL + '">Est. Impr.</div><div id="mp2-kv-imp-' + safeId + '" style="' + VALUE + '">' + dispImpStr + '</div></div>'
+      +       '<div><div style="' + LABEL + '">CPM</div><div id="mp2-kv-cpm-' + safeId + '" style="' + VALUE + '">' + dispCpm + '</div></div>'
+      +       '<div><div style="' + LABEL + '">PODs</div><div id="mp2-kv-inv-' + safeId + '" style="' + VALUE + '">' + dispPods + '</div></div>'
       +     '</div>'
       +     '<div>'
       +       '<div style="' + LABEL + '">Channels</div>'
@@ -5138,26 +6241,56 @@ function mp2RenderMoments() {
 }
 
 function mp2FetchMomentImages(categories) {
+  var TV_QUERIES = {
+    'Sports Comeback Moment':       'stadium crowd sports celebration game',
+    'Morning Coffee Ritual':        'coffee cup morning lifestyle cozy',
+    'Family Movie Night':           'family couch living room watching tv popcorn',
+    'Holiday Shopping Rush':        'shopping mall christmas gifts festive crowd',
+    'Outdoor Adventure Escape':     'hiking nature mountain outdoor adventure',
+    'Tech Unboxing Reveal':         'technology gadget unboxing modern device',
+    'Cooking Competition Finals':   'cooking competition chef kitchen contest',
+    'Late Night Comedy Punchline':  'comedy stage microphone audience laughing',
+    'Pet Rescue Heartwarming':      'dog cat rescue animal shelter adoption',
+    'Thriller Chase Scene':         'city night chase dramatic action scene',
+    'Fitness & Workout Grind':      'gym workout fitness training exercise',
+    'Breaking News Alert':          'news broadcast television studio anchor',
+    'Kids Birthday Celebration':    'kids birthday party balloons cake celebration',
+    'Luxury Car Commercial':        'luxury car driving highway elegant',
+    'Nature Documentary Sunrise':   'sunrise nature wildlife landscape documentary',
+    'Wedding Day Ceremony':         'wedding ceremony bride groom romantic',
+    'College Game Day':             'college football stadium crowd game day',
+    'Real Estate House Tour':       'modern house interior real estate home',
+    'Music Award Show':             'music award show stage performer spotlight',
+    'Beach Summer Vacation':        'beach summer ocean sunset vacation',
+    'Hospital Drama Cliffhanger':   'hospital emergency room drama medical',
+    'Grocery Store Discovery':      'grocery store supermarket fresh food aisle',
+    'Travel Airport Departure':     'airport travel departure gate adventure',
+    'Political Debate Showdown':    'political debate stage microphone podium',
+    'Wine & Dining Experience':     'wine restaurant fine dining elegant table',
+    'Newborn Baby Arrival':         'newborn baby hospital family tender moment',
+    'Superhero Action Sequence':    'action hero dramatic explosion cityscape',
+    'Back to School Season':        'school backpack students classroom autumn',
+    'Crime Investigation Reveal':   'detective mystery crime scene investigation',
+    'Graduation Day Celebration':   'graduation cap gown diploma celebration'
+  };
+
+  // Source array we can mutate in memory (to add img_url)
+  var source = mp2AnalysisMoments || MOCK_MOMENTS_API || [];
+  var pending = [];   // categories that still need a fetch
+  var newlyFetched = 0;
+
   categories.forEach(function(c) {
+    var srcEntry = source.find(function(x) { return x.moment_name === c.name; });
+    // If img_url already cached in DB snapshot, image is already rendered — skip fetch
+    if (srcEntry && srcEntry.img_url) return;
+    pending.push(c);
+  });
+
+  if (!pending.length) return; // all images already cached
+
+  var settled = 0;
+  pending.forEach(function(c) {
     var imgId = 'mp2-img-' + c.name.replace(/[^a-zA-Z0-9]/g, '-');
-    var TV_QUERIES = {
-      'Family Dinner Time':    'family dinner tv show scene',
-      'Grocery Shopping':      'cooking show food network television host',
-      'Healthy Eating':        'cooking show kitchen television chef healthy',
-      'Meal Prep & Cooking':   'cooking show chef kitchen television',
-      'Fresh Produce':         'cooking show vegetables chef television',
-      'Weekend BBQ':           'outdoor cooking show bbq television',
-      'Quick & Easy Meals':    'cooking show recipe television host',
-      'Home Cooking':          'home cooking television show chef',
-      'Family Life':           'family television sitcom show scene',
-      'Snack & Entertaining':  'television show party entertaining scene',
-      'Budget Living':         'reality tv show home lifestyle',
-      'Lifestyle & Wellness':  'wellness lifestyle television show host',
-      'Food Discovery':        'food travel television show chef',
-      'Kids & Family':         'kids family television show scene',
-      'Community & Local':     'community television show neighborhood',
-      'Seasonal Celebrations': 'holiday television show celebration family'
-    };
     var query = (TV_QUERIES[c.name] || c.name + ' television show scene');
     fetch('/api/unsplash?q=' + encodeURIComponent(query))
       .then(function(r) {
@@ -5165,17 +6298,34 @@ function mp2FetchMomentImages(categories) {
         return r.json();
       })
       .then(function(data) {
-        if (!data.thumb) return;
-        var el = document.getElementById(imgId);
-        if (!el) return;
-        var img = new Image();
-        img.onload = function() {
-          el.innerHTML = '<img src="' + data.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block" />';
-        };
-        img.onerror = function() { /* keep placeholder */ };
-        img.src = data.thumb;
+        if (data.thumb) {
+          // Render into DOM
+          var el = document.getElementById(imgId);
+          if (el) {
+            var img = new Image();
+            img.onload = function() {
+              el.innerHTML = '<img src="' + data.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block" />';
+            };
+            img.onerror = function() {};
+            img.src = data.thumb;
+          }
+          // Cache img_url in memory
+          var srcEntry = source.find(function(x) { return x.moment_name === c.name; });
+          if (srcEntry) { srcEntry.img_url = data.thumb; newlyFetched++; }
+        }
       })
-      .catch(function(e) { console.warn('mp2 img fetch failed for "' + c.name + '":', e); });
+      .catch(function(e) { console.warn('mp2 img fetch failed for "' + c.name + '":', e); })
+      .finally(function() {
+        settled++;
+        // Once all pending fetches settle, PATCH the DB with updated img_url values
+        if (settled === pending.length && newlyFetched > 0 && _mp2LastAnalysisId) {
+          fetch('/api/moments-match?analysis_id=' + _mp2LastAnalysisId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ moments: source })
+          }).catch(function(e) { console.warn('mp2 img PATCH failed:', e); });
+        }
+      });
   });
 }
 
@@ -5242,13 +6392,16 @@ function mp2ShowExamples(momentName, score, assets, btn) {
           + '<span style="font-size:11px;font-weight:600;padding:1px 7px;border-radius:20px;background:' + ttBg(p.score) + ';color:' + ttColor(p.score) + ';border:1px solid ' + ttBd(p.score) + ';flex-shrink:0">' + ttLabel(p.score) + '</span>'
           + '</div>';
       }).join('')
-    + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'
-    +   '<button onclick="this.closest(\'.mp2-examples-tt\').remove();txShowAssetsView(\'' + momentName.replace(/'/g, "\\'") + '\',' + score + ',' + assets + ')" style="width:100%;padding:7px 10px;font-size:11px;font-weight:500;font-family:inherit;border:1px solid var(--border-md);border-radius:7px;background:var(--bg);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .12s" onmouseenter="this.style.background=\'var(--surface)\'" onmouseleave="this.style.background=\'var(--bg)\'">'
-    +     '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 12.5v1M10.5 12.5v1M3.5 13.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M4.5 7.5h7M4.5 5.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>'
-    +     'See full pods'
-    +   '</button>'
-    +   '<div style="margin-top:8px;font-size:9px;color:var(--faint);text-align:center;line-height:1.4">Example shows, not guaranteed</div>'
-    + '</div>';
+    + (function() {
+        var _ot = typeof _appCurrentOrgType === 'function' ? _appCurrentOrgType() : null;
+        var _hidePodsBtn = (_ot === 'Brand' || _ot === 'Agency');
+        return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'
+          + (!_hidePodsBtn
+              ? '<button onclick="this.closest(\'.mp2-examples-tt\').remove();txShowAssetsView(\'' + momentName.replace(/'/g, "\\'") + '\',' + score + ',' + assets + ')" style="width:100%;padding:7px 10px;font-size:11px;font-weight:500;font-family:inherit;border:1px solid var(--border-md);border-radius:7px;background:var(--bg);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .12s;margin-bottom:8px" onmouseenter="this.style.background=\'var(--surface)\'" onmouseleave="this.style.background=\'var(--bg)\'"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 12.5v1M10.5 12.5v1M3.5 13.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M4.5 7.5h7M4.5 5.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>See full pods</button>'
+              : '')
+          + '<div style="font-size:9px;color:var(--faint);text-align:center;line-height:1.4">Example shows, not guaranteed</div>'
+          + '</div>';
+      })()
 
   var r = btn.getBoundingClientRect();
   // Append first (hidden) so we can measure height
@@ -6017,6 +7170,7 @@ function mp2GetMomentTaxonomy(momentName, tab) {
 // ── Refined stats store ───────────────────────────────────────────────────────
 var mp2RefinedStats    = {}; // { momentName: { pods, cpm, impM } }
 var mp2SelectedMoments = {}; // { momentName: true }
+var mp2AnalysisMoments = null; // moments snapshot loaded from DB (array); null = use MOCK_MOMENTS_API
 var mp2MomentType      = 'ads';  // 'ads' | 'organic'
 
 // ── Moments filter state ──────────────────────────────────────────────────────
@@ -6561,6 +7715,7 @@ function mp2MfClearAll() {
 }
 
 function mp2ToggleMomentCard(name) {
+  if (_mp2IsLocked()) return;
   if (mp2SelectedMoments[name]) {
     delete mp2SelectedMoments[name];
   } else {
@@ -6589,87 +7744,140 @@ function mp2ToggleMomentMediaPlan() {
 }
 
 function mp2RenderMomentsMediaPlan() {
-  var panel = document.getElementById('mp2-asset-strip');
-  if (!panel) return;
+  var body = document.getElementById('mp2-strip-plan-body');
+  if (!body) return;
   mp2UpdateMomentMpBadge();
   var names = Object.keys(mp2SelectedMoments).filter(function(n) { return mp2SelectedMoments[n]; });
+
   if (names.length === 0) {
-    panel.innerHTML =
-      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;flex-shrink:0">Media Plan</div>'
-      + '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px">Click a moment card to add it to your media plan</div>';
+    body.innerHTML =
+      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Media Plan</div>'
+      + '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your media plan</div>';
+    var totalsEl = document.getElementById('mp2-strip-plan-totals');
+    if (totalsEl) totalsEl.style.display = 'none';
     return;
   }
-  var totalInv = 0; var totalImpM = 0;
-  names.forEach(function(n) {
-    var cat = TX_CATEGORIES.filter(function(c) { return c.name === n; })[0];
-    if (!cat) return;
-    var refined = mp2RefinedStats[n];
-    var seed = n.split('').reduce(function(a, ch) { return a + ch.charCodeAt(0); }, 0);
-    totalInv  += refined ? refined.pods : cat.assets;
-    totalImpM += refined ? parseFloat(refined.impM) : (1.5 + ((seed * 3 + cat.score * 7) % 85) / 10);
+
+  // ── Look up all moments from DB snapshot (or MOCK_MOMENTS_API if not loaded) ──
+  var _mSrc = mp2AnalysisMoments || MOCK_MOMENTS_API || [];
+  var momentData = names.map(function(n) {
+    var m = _mSrc.find(function(x) { return x.moment_name === n; }) || {};
+    var score = (m.moment_score !== undefined && m.moment_score !== null) ? m.moment_score : null;
+    var isHigh = score !== null && score >= 75;
+    return {
+      name:     m.moment_name || n,
+      score:    score,
+      isHigh:   isHigh,
+      impM:     m.est_impressions ? (m.est_impressions / 1000000).toFixed(1) + 'M' : '—',
+      cpm:      m.est_cpm        ? '$' + m.est_cpm.toFixed(2)                       : '—',
+      pods:     m.pods           ? m.pods.toLocaleString()                           : '—',
+      totalImp: m.est_impressions || 0,
+    };
   });
-  panel.innerHTML =
-    '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
-    + '<span>Media Plan <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + names.length + '</span></span>'
+
+  var totalImpM = momentData.reduce(function(s, d) { return s + d.totalImp; }, 0) / 1000000;
+
+  function statCell(label, val) {
+    return '<div>'
+      + '<div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);margin-bottom:1px">' + label + '</div>'
+      + '<div style="font-size:11px;font-weight:600;color:var(--text)">' + val + '</div>'
+      + '</div>';
+  }
+
+  // ── Render moment cards in body ──
+  body.innerHTML =
+    '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">'
+    + '<span>Build Media Plan <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + names.length + '</span></span>'
     + '<span style="font-size:10px;color:var(--faint);cursor:pointer;font-weight:400" onclick="mp2ClearMomentSelection()">Clear all</span>'
     + '</div>'
-    + '<div style="flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column;gap:7px">'
-    + names.map(function(n) {
-        var planImgId = 'mp2-plan-img-' + n.replace(/[^a-zA-Z0-9]/g, '-');
-        var cat = TX_CATEGORIES.filter(function(c) { return c.name === n; })[0] || {};
-        var refined = mp2RefinedStats[n];
-        var seed = n.split('').reduce(function(a, ch) { return a + ch.charCodeAt(0); }, 0);
-        var inv  = refined ? refined.pods : (cat.assets || 0);
-        var impM = refined ? refined.impM : (1.5 + ((seed * 3 + (cat.score || 0) * 7) % 85) / 10).toFixed(1);
-        return '<div style="display:flex;gap:8px;align-items:center;padding:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">'
-          + '<div id="' + planImgId + '" style="width:38px;height:22px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--border);display:flex;align-items:center;justify-content:center">'
-          +   '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" style="opacity:.3"><rect x="1" y="4" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 7l4-2v6l-4-2V7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
+    + '<div style="display:flex;flex-direction:column;gap:7px">'
+    + momentData.map(function(d) {
+        var scoreBadge = d.score !== null
+          ? '<span style="display:inline-block;font-size:9px;font-weight:600;letter-spacing:.3px;border-radius:20px;padding:1px 5px;margin-left:5px;flex-shrink:0;'
+            + (d.isHigh
+                ? 'background:#dcfce7;color:#166534'
+                : 'background:var(--border);color:var(--faint)')
+            + '">' + (d.isHigh ? 'High' : 'Standard') + '</span>'
+          : '';
+        return '<div style="padding:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">'
+          + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'
+          +   '<div style="display:flex;align-items:center;flex:1;min-width:0;gap:0;overflow:hidden">'
+          +     '<span style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + d.name + '</span>'
+          +     scoreBadge
+          +   '</div>'
+          +   '<span style="font-size:14px;color:var(--faint);cursor:pointer;flex-shrink:0;line-height:1;margin-left:6px" onclick="mp2ToggleMomentCard(\'' + d.name.replace(/'/g, "\\'") + '\')">×</span>'
           + '</div>'
-          + '<div style="flex:1;min-width:0">'
-          +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + n + '</div>'
-          +   '<div style="font-size:10px;color:var(--faint);margin-top:1px">' + inv.toLocaleString() + ' inv · ' + impM + 'M imp</div>'
+          + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">'
+          +   statCell('Impr.', d.impM)
+          +   statCell('CPM',   d.cpm)
+          +   statCell('Pods',  d.pods)
           + '</div>'
-          + '<span style="font-size:14px;color:var(--faint);cursor:pointer;flex-shrink:0;line-height:1" onclick="mp2ToggleMomentCard(\'' + n.replace(/'/g, "\\'") + '\')">×</span>'
           + '</div>';
       }).join('')
-    + '</div>'
-    + '<div style="border-top:1px solid var(--border);padding-top:11px;margin-top:8px;flex-shrink:0">'
-    + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
-    +   '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)">Total Moments</span>'
-    +   '<span style="font-size:13px;font-weight:700;color:var(--text)">' + names.length + '</span>'
-    + '</div>'
-    + '<div style="display:flex;justify-content:space-between;margin-bottom:10px">'
-    +   '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)">Est. Impressions</span>'
-    +   '<span style="font-size:12px;font-weight:700;color:var(--text)">' + totalImpM.toFixed(1) + 'M</span>'
-    + '</div>'
-    + '<input id="inv-mp-save-name" type="text" placeholder="Media plan name…" style="width:100%;box-sizing:border-box;height:32px;padding:0 10px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--bg);margin-bottom:8px;outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
-    + '<button onclick="inv2SaveMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'">Save Media Plan</button>'
     + '</div>';
-  // Fetch thumbnails for plan items async
-  names.forEach(function(n) {
-    var imgDiv = document.getElementById('mp2-plan-img-' + n.replace(/[^a-zA-Z0-9]/g, '-'));
-    if (!imgDiv) return;
-    fetch('/api/unsplash?q=' + encodeURIComponent(n + ' tv show'))
-      .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
-      .then(function(data) {
-        if (!data.thumb) return;
-        var imgDiv2 = document.getElementById('mp2-plan-img-' + n.replace(/[^a-zA-Z0-9]/g, '-'));
-        if (!imgDiv2) return;
-        var img = new Image();
-        img.onload = function() {
-          imgDiv2.innerHTML = '';
-          var el = document.createElement('img');
-          el.src = data.thumb; el.style.cssText = 'width:100%;height:100%;object-fit:cover';
-          imgDiv2.appendChild(el);
-        };
-        img.src = data.thumb;
-      }).catch(function() {});
+
+  // ── Totals in sticky footer slot ──
+  var totalsEl = document.getElementById('mp2-strip-plan-totals');
+  if (totalsEl) {
+    totalsEl.style.display = 'block';
+    totalsEl.innerHTML =
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+      +   '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)">Total Moments</span>'
+      +   '<span style="font-size:12px;font-weight:700;color:var(--text)">' + names.length + '</span>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between">'
+      +   '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)">Est. Impressions</span>'
+      +   '<span style="font-size:12px;font-weight:700;color:var(--text)">' + totalImpM.toFixed(1) + 'M</span>'
+      + '</div>';
+  }
+
+  // ── Unsplash thumbnails (background fetch, stored for future use) ──
+  momentData.forEach(function(d) {
+    fetch('/api/unsplash?q=' + encodeURIComponent(d.name + ' tv moment'))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .catch(function() { return null; });
   });
+}
+
+function mp2GeneratePlanName() {
+  var names  = Object.keys(mp2SelectedMoments).filter(function(n) { return mp2SelectedMoments[n]; });
+  var camp   = (mp2SelectedCampaign && mp2SelectedCampaign.name) ? mp2SelectedCampaign.name : '';
+  var month  = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+
+  var momentPart = '';
+  if (names.length === 1) {
+    momentPart = names[0];
+  } else if (names.length === 2) {
+    momentPart = names[0] + ' & ' + names[1];
+  } else if (names.length > 2) {
+    momentPart = names[0] + ' +' + (names.length - 1) + ' moments';
+  } else {
+    momentPart = 'Moments Plan';
+  }
+
+  var generated = (camp ? camp + ' — ' : '') + momentPart + ' · ' + month;
+
+  var input = document.getElementById('mp2-plan-name-input');
+  if (input) {
+    input.value = generated;
+    input.focus();
+    // Brief flash to signal it was filled
+    input.style.borderColor = 'var(--accent)';
+    setTimeout(function() { input.style.borderColor = 'var(--border-md)'; }, 800);
+  }
 }
 
 function mp2ClearMomentSelection() {
   mp2SelectedMoments = {};
-  mp2RenderMoments();
+  // Re-render only the Plan Builder sidebar, not the whole Moments panel
+  mp2RenderMomentsMediaPlan();
+  // Also update any visible moment card selection states without a full re-render
+  document.querySelectorAll('.mp2-mcard--sel').forEach(function(el) {
+    el.classList.remove('mp2-mcard--sel');
+  });
+  document.querySelectorAll('.mp2-mcard-cb').forEach(function(cb) {
+    cb.checked = false;
+  });
 }
 
 function mp2ResetCard(name) {

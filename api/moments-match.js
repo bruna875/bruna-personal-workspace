@@ -43,7 +43,8 @@ export default async function handler(req, res) {
           mm.created_by,
           mm.created_at,
           c.campaign_name,
-          o.client_name,
+          c.status AS campaign_status,
+          COALESCE(o.client_name,  o2.client_name)      AS client_name,
           COALESCE(a.advertiser_name, a2.advertiser_name) AS advertiser_name,
           cr.creative_name
         FROM moments_match mm
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
         LEFT JOIN advertisers          a  ON mm.advertiser_id = a.advertiser_id
         LEFT JOIN advertisers          a2 ON c.advertiser_id  = a2.advertiser_id
         LEFT JOIN client_organizations o  ON mm.client_org_id = o.client_org_id
+        LEFT JOIN client_organizations o2 ON c.client_org_id  = o2.client_org_id
         LEFT JOIN creatives            cr ON mm.creative_id   = cr.creative_id
         ${where}
         ORDER BY mm.created_at DESC

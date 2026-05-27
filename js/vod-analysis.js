@@ -702,6 +702,7 @@ var vodActivePanels      = []; // keys of currently open panels (ordered)
 var vodDetailTab         = 'content'; // 'content' | 'brand' | 'test'
 var vodCurrentShow       = null;
 var vodEnrichmentTier    = 'advanced'; // 'basic' | 'advanced' | 'exact'
+var vodTestAdCreative    = null;  // { id, name, advertiser, template } — currently selected
 var vodFilterOpen        = false;
 var vodFilterAccOpen     = { period: true, publisher: false, channel: false, category: false };
 var vodActivePeriod      = 'all';
@@ -1120,9 +1121,10 @@ function vodStopAllPanelScans() {
 
 function vodSubNavHtml() {
   var tabs = [
-    { id: 'content', label: 'Content Analysis' },
-    { id: 'brand',   label: 'Brand Safety Analysis' },
-    { id: 'test',    label: 'Test an Ad', dividerBefore: true }
+    { id: 'content',     label: 'Content Analysis' },
+    { id: 'brand',       label: 'Brand Safety Analysis' },
+    { id: 'viewership',  label: 'Viewership Analysis' },
+    { id: 'test',        label: 'Test an Ad', dividerBefore: true }
   ];
   return '<div id="vod-subnav" style="margin-bottom:16px">'
     + UI.tabNav(tabs, vodDetailTab, 'vodSetDetailTab')
@@ -1140,6 +1142,11 @@ function vodDetailCardHtml(show) {
         + '<span style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap">Enrichment Tier</span>'
         + '<div style="width:190px">' + UI.customSelect('vod-tier', tierOptions, vodEnrichmentTier, 'vodSetEnrichmentTier') + '</div>'
       + '</div>'
+    : vodDetailTab === 'test'
+    ? '<div style="display:flex;align-items:center;gap:8px">'
+        + '<span style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap">Creative</span>'
+        + '<div style="width:280px" id="vod-test-creative-wrap">' + _vodTestCreativeSelectHtml() + '</div>'
+      + '</div>'
     : '';
   var hdr = '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:0">'
     + '<div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">'
@@ -1154,6 +1161,147 @@ function vodDetailCardHtml(show) {
     +   vodDetailInnerHtml(show)
     + '</div>'
     + '</div>';
+}
+
+// ── Test an Ad — Creative selector ───────────────────────────────────────────
+
+function _vodTestCreativeSelectHtml() {
+  var label = vodTestAdCreative
+    ? (vodTestAdCreative.name
+        + (vodTestAdCreative.advertiser ? ' (' + vodTestAdCreative.advertiser + ')' : '')
+        + ' — ' + vodTestAdCreative.template)
+    : 'Select a Creative…';
+  var isMuted = !vodTestAdCreative;
+  return '<button id="vod-test-cr-btn" onclick="_vodTestCreativeDdOpen(event)"'
+    + ' style="width:100%;height:32px;display:flex;align-items:center;justify-content:space-between;gap:6px;'
+    +         'padding:0 10px;border:1px solid var(--border-md);border-radius:8px;background:var(--surface);'
+    +         'cursor:pointer;font-family:inherit;font-size:12px;color:' + (isMuted ? 'var(--faint)' : 'var(--text)') + ';'
+    +         'transition:border-color .12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"'
+    + ' onmouseover="this.style.borderColor=\'var(--text)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'">'
+    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:left">' + label + '</span>'
+    + '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    + '</button>';
+}
+
+function _vodTestCreativeDdOpen(e) {
+  e.stopPropagation();
+  // Remove any existing dropdown
+  var old = document.getElementById('vod-test-cr-dd');
+  if (old) { old.remove(); return; }
+
+  // Fetch options then build dropdown
+  _vodFetchCreativeOpts(function(opts) {
+    var btn = document.getElementById('vod-test-cr-btn');
+    if (!btn) return;
+    var rect = btn.getBoundingClientRect();
+
+    var dd = document.createElement('div');
+    dd.id = 'vod-test-cr-dd';
+    dd.style.cssText = 'position:fixed;top:' + (rect.bottom + 4) + 'px;left:' + rect.left + 'px;'
+      + 'width:' + Math.max(rect.width, 320) + 'px;max-height:280px;display:flex;flex-direction:column;'
+      + 'background:var(--surface);border:1px solid var(--border-md);border-radius:10px;'
+      + 'box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:9999;overflow:hidden';
+
+    // Search input
+    var searchRow = '<div style="padding:8px 8px 6px;border-bottom:1px solid var(--border);flex-shrink:0">'
+      + '<div style="display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:1px solid var(--border-md);border-radius:7px;background:var(--bg)">'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="color:var(--faint);flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>'
+      + '<input id="vod-test-cr-search" type="text" placeholder="Search creatives…"'
+      +   ' style="flex:1;border:none;background:transparent;font-size:12px;color:var(--text);outline:none;font-family:inherit"'
+      +   ' oninput="_vodTestCreativeFilter(this.value)">'
+      + '</div></div>';
+
+    // Options list
+    var listHtml = '<div id="vod-test-cr-list" style="overflow-y:auto;flex:1">'
+      + _vodTestCreativeListHtml(opts, '')
+      + '</div>';
+
+    dd.innerHTML = searchRow + listHtml;
+    dd._opts = opts;
+    document.body.appendChild(dd);
+    setTimeout(function() { var s = document.getElementById('vod-test-cr-search'); if(s) s.focus(); }, 0);
+
+    // Close on outside click
+    function onOutside(ev) {
+      if (!dd.contains(ev.target) && ev.target !== btn) {
+        dd.remove(); document.removeEventListener('mousedown', onOutside);
+      }
+    }
+    setTimeout(function() { document.addEventListener('mousedown', onOutside); }, 0);
+  });
+}
+
+function _vodTestCreativeListHtml(opts, query) {
+  var q = (query || '').toLowerCase().trim();
+  var filtered = q
+    ? opts.filter(function(o) { return o.label.toLowerCase().indexOf(q) > -1; })
+    : opts;
+
+  if (!filtered.length) {
+    return '<div style="padding:16px;text-align:center;font-size:12px;color:var(--faint)">No results</div>';
+  }
+  return filtered.map(function(o, i) {
+    var isSelected = vodTestAdCreative && vodTestAdCreative.id === o.id && vodTestAdCreative.template === o.template;
+    return '<div onclick="_vodTestCreativePick(' + JSON.stringify(o).replace(/"/g,'&quot;') + ')"'
+      + ' style="padding:8px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;'
+      +         'background:' + (isSelected ? 'var(--subtle)' : 'transparent') + ';'
+      +         'color:' + (isSelected ? 'var(--accent)' : 'var(--text)') + ';transition:background .1s"'
+      + ' onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'' + (isSelected?'var(--subtle)':'transparent') + '\'">'
+      + '<div style="min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'
+      +   '<span style="font-weight:500">' + o.name + '</span>'
+      +   (o.advertiser ? ' <span style="font-weight:400;color:var(--muted)">(' + o.advertiser + ')</span>' : '')
+      +   (o.template && o.template !== '—' ? ' <span style="font-size:10px;color:var(--faint);margin-left:4px">— ' + o.template + '</span>' : '')
+      + '</div>'
+      + (isSelected ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function _vodTestCreativeFilter(val) {
+  var dd = document.getElementById('vod-test-cr-dd');
+  if (!dd) return;
+  var list = document.getElementById('vod-test-cr-list');
+  if (list) list.innerHTML = _vodTestCreativeListHtml(dd._opts, val);
+}
+
+function _vodTestCreativePick(opt) {
+  vodTestAdCreative = opt;
+  // Update button label
+  var wrap = document.getElementById('vod-test-creative-wrap');
+  if (wrap) wrap.innerHTML = _vodTestCreativeSelectHtml();
+  // Close dropdown
+  var dd = document.getElementById('vod-test-cr-dd');
+  if (dd) dd.remove();
+}
+
+function _vodFetchCreativeOpts(cb) {
+  var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
+  function buildOpts(arr) {
+    var opts = [];
+    arr.forEach(function(cr) {
+      var rawTpls = (cr.templates && cr.templates.length) ? cr.templates : [null];
+      rawTpls.forEach(function(t) {
+        var tName = t === null ? '—' : (typeof t === 'object' ? (t.name || '—') : String(t));
+        opts.push({
+          id: cr.id,
+          name: cr.name || '—',
+          advertiser: cr.advertiser || '',
+          template: tName,
+          label: (cr.name || '—') + (cr.advertiser ? ' (' + cr.advertiser + ')' : '') + ' — ' + tName
+        });
+      });
+    });
+    return opts;
+  }
+  if (lib.length) { cb(buildOpts(lib)); return; }
+  fetch('/api/creatives')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var crs = data.creatives || [];
+      if (crs.length && typeof CS_LIBRARY !== 'undefined') CS_LIBRARY = crs;
+      cb(buildOpts(crs));
+    })
+    .catch(function() { cb([]); });
 }
 
 function vodSetDetailTab(tab) {
@@ -1176,9 +1324,18 @@ function vodSetEnrichmentTier(tier) {
 }
 
 function vodDetailInnerHtml(show) {
-  if (vodDetailTab === 'brand') return vodBrandSafetyHtml(show);
-  if (vodDetailTab === 'test')  return vodTestAdHtml(show);
+  if (vodDetailTab === 'brand')       return vodBrandSafetyHtml(show);
+  if (vodDetailTab === 'viewership')  return vodViewershipHtml(show);
+  if (vodDetailTab === 'test')        return vodTestAdHtml(show);
   return vodContentAnalysisHtml(show);
+}
+
+function vodViewershipHtml(show) {
+  return '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:var(--faint)">'
+    + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+    + '<div style="font-size:13px;font-weight:500;color:var(--muted)">Viewership Analysis</div>'
+    + '<div style="font-size:12px;color:var(--faint);text-align:center;max-width:320px">Audience data and viewership metrics for this content will appear here.</div>'
+    + '</div>';
 }
 
 function vodContentAnalysisHtml(show) {
@@ -1247,13 +1404,29 @@ function vodTestAdHtml(show) {
       +   '</div>'
       + '</div>';
 
-  var playerHtml = '<div style="flex:0 0 50%;display:flex;align-items:center;justify-content:center;background:#000;border-right:1px solid var(--border)">'
+  // ── Player — takes all remaining width, vertically centered ──
+  var playerHtml = '<div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;background:#000;border-right:1px solid #1e2a3a">'
     + '<div style="width:100%;aspect-ratio:16/9;position:relative;overflow:hidden">'
     +   playerInner2
     + '</div>'
     + '</div>';
-  var rightPanel = '<div style="flex:0 0 50%;overflow-y:auto;padding:20px;background:var(--surface)"></div>';
-  return '<div style="display:flex;flex:1;min-height:0;overflow:hidden">' + playerHtml + rightPanel + '</div>';
+
+  // ── JSON panel — dark, fixed width, open by default ──
+  var JSON_W = 280;
+  var jsonPanel = '<div style="flex:0 0 ' + JSON_W + 'px;width:' + JSON_W + 'px;display:flex;flex-direction:column;height:100%;background:#0f1623">'
+    + '<div style="display:flex;align-items:center;gap:6px;padding:9px 12px;background:#0f1623;border-bottom:1px solid #1e2a3a;flex-shrink:0">'
+    +   '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="color:#94a3b8"><path d="M4 5c-1 0-2 .5-2 1.5v1c0 .8-.5 1.5-.5 1.5s.5.7.5 1.5v1C2 12.5 3 13 4 13M12 5c1 0 2 .5 2 1.5v1c0 .8.5 1.5.5 1.5s-.5.7-.5 1.5v1C14 12.5 13 13 12 13M9 4l-2 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+    +   '<span style="font-size:11px;font-weight:600;color:#e2e8f0;flex:1">{} JSON</span>'
+    + '</div>'
+    + '<div id="vod-panel-body-json" style="flex:1;overflow-y:auto;padding:0 12px;background:#0f1623">'
+    +   '<div style="padding:32px 0;text-align:center"><div style="font-size:11px;color:#475569;font-style:italic;line-height:1.6">Generating JSON output when video plays…</div></div>'
+    + '</div>'
+    + '</div>';
+
+  // Start JSON reveal after render
+  setTimeout(function() { vodStartPanelScan('json'); }, 0);
+
+  return '<div style="display:flex;flex:1;min-height:0;overflow:hidden">' + playerHtml + jsonPanel + '</div>';
 }
 
 function vodBrandSafetyHtml(show) {
@@ -3096,4 +3269,24 @@ function sdtInjectStyles() {
     @keyframes cs-spin { to { transform: rotate(360deg); } }
   `;
   document.head.appendChild(s);
+}
+
+// ── OLV Analysis — placeholder ────────────────────────────────────────────────
+function renderOlvAnalysis() {
+  var ca = document.getElementById('content-area');
+  if (!ca) return;
+  ca.innerHTML = '<div class="page-header"><div>'
+    + '<div class="ptitle">OLV Analysis</div>'
+    + '<div class="psub">Online Video analysis and inventory intelligence — coming soon.</div>'
+    + '</div></div>'
+    + '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
+    + 'min-height:320px;gap:16px;color:var(--faint)">'
+    + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">'
+    + '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'
+    + '</svg>'
+    + '<div style="font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.2px">OLV Analysis</div>'
+    + '<div style="font-size:13px;color:var(--faint);text-align:center;max-width:340px;line-height:1.6">'
+    + 'Online Video inventory analysis and moment detection will be available here.'
+    + '</div>'
+    + '</div>';
 }

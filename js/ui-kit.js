@@ -22,7 +22,7 @@ var UI = (function () {
   // Base input / select / textarea style
   var IF = [
     'width:100%','box-sizing:border-box','padding:8px 11px','font-size:12px',
-    'border:1px solid var(--border-md)','border-radius:7px',
+    'border:1px solid var(--border-md)','border-radius:5px',
     'background:var(--surface)','color:var(--text)',
     'outline:none','font-family:inherit','transition:border-color .15s'
   ].join(';');
@@ -144,7 +144,7 @@ var UI = (function () {
 
     var trigStyle = [
       'width:100%', 'box-sizing:border-box', 'padding:0 36px 0 11px',
-      'font-size:12px', 'border:1px solid var(--border-md)', 'border-radius:7px',
+      'font-size:12px', 'border:1px solid var(--border-md)', 'border-radius:5px',
       'background-color:var(--surface)',
       'color:var(--text)', 'outline:none', 'font-family:inherit',
       'transition:border-color .15s', 'height:36px', 'display:flex',
@@ -304,7 +304,7 @@ var UI = (function () {
   function btnPrimary(label, onclick, id) {
     return '<button' + (id ? ' id="' + esc(id) + '"' : '') + ' onclick="' + onclick + '" '
       + 'style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;background:var(--accent);color:#fff;border:none;'
-      + 'border-radius:7px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;transition:opacity .15s" '
+      + 'border-radius:5px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;transition:opacity .15s" '
       + 'onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">'
       + label + '</button>';
   }
@@ -313,7 +313,7 @@ var UI = (function () {
   function btnCancel(label, onclick) {
     return '<button onclick="' + onclick + '" '
       + 'style="height:34px;padding:0 16px;background:none;border:1px solid var(--border-md);'
-      + 'border-radius:7px;font-size:13px;font-family:inherit;color:var(--muted);cursor:pointer;transition:border-color .15s">'
+      + 'border-radius:5px;font-size:13px;font-family:inherit;color:var(--muted);cursor:pointer;transition:border-color .15s">'
       + label + '</button>';
   }
 
@@ -321,7 +321,7 @@ var UI = (function () {
   function btnDanger(label, onclick) {
     return '<button onclick="' + onclick + '" '
       + 'style="height:34px;padding:0 14px;background:none;border:1px solid #E5243B;'
-      + 'border-radius:7px;font-size:13px;font-family:inherit;color:#E5243B;cursor:pointer;transition:opacity .15s" '
+      + 'border-radius:5px;font-size:13px;font-family:inherit;color:#E5243B;cursor:pointer;transition:opacity .15s" '
       + 'onmouseenter="this.style.opacity=\'.75\'" onmouseleave="this.style.opacity=\'1\'">'
       + label + '</button>';
   }
@@ -352,7 +352,7 @@ var UI = (function () {
     var sz = (size || 34) + 'px';
     return '<button onclick="' + onclick + '" title="' + esc(title) + '" '
       + 'style="width:' + sz + ';height:' + sz + ';border:1px solid var(--border-md);'
-      + 'border-radius:8px;background:var(--surface);color:var(--muted);cursor:pointer;'
+      + 'border-radius:5px;background:var(--surface);color:var(--muted);cursor:pointer;'
       + 'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;'
       + 'transition:border-color .12s,color .12s,background .12s" '
       + 'onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\';this.style.background=\'rgba(237,0,94,.04)\'" '
@@ -368,7 +368,7 @@ var UI = (function () {
     return '<button' + (id ? ' id="' + esc(id) + '"' : '') + ' onclick="' + onclick + '" '
       + 'style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;'
       + 'background:var(--surface);color:var(--muted);border:1px solid var(--border-md);'
-      + 'border-radius:7px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;'
+      + 'border-radius:5px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;'
       + 'transition:border-color .15s,color .15s" '
       + 'onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" '
       + 'onmouseleave="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
@@ -384,7 +384,7 @@ var UI = (function () {
     return '<button' + (id ? ' id="' + esc(id) + '"' : '') + ' onclick="' + onclick + '" '
       + 'style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;'
       + 'padding:5px 12px;font-size:11px;font-weight:500;font-family:inherit;'
-      + 'border:1px solid var(--border-md);border-radius:7px;background:var(--surface);'
+      + 'border:1px solid var(--border-md);border-radius:5px;background:var(--surface);'
       + 'color:var(--text);cursor:pointer;transition:background .12s" '
       + 'onmouseenter="this.style.background=\'var(--subtle)\'" '
       + 'onmouseleave="this.style.background=\'var(--surface)\'">'
@@ -455,12 +455,14 @@ var UI = (function () {
   // ─────────────────────────────────────────────────────────────────────────
 
   var _STATUS_DEFS = {
-    'not-started': { label: 'Not Started', cls: 'ds-gray'   },
-    'on-track':    { label: 'On Track',    cls: 'ds-blue'   },
-    'at-risk':     { label: 'At Risk',     cls: 'ds-yellow' },
-    'delayed':     { label: 'Delayed',     cls: 'ds-red'    },
-    'on-hold':     { label: 'On Hold',     cls: 'ds-orange' },
-    'delivered':   { label: 'Delivered',   cls: 'ds-green'  }
+    'draft':       { label: 'Draft',       cls: 'ds-gray'   },
+    'planned':     { label: 'Planned',     cls: 'ds-blue'   },
+    'pacing':      { label: 'Pacing',      cls: 'ds-green'  },
+    'underpacing': { label: 'Underpacing', cls: 'ds-yellow' },
+    'error':       { label: 'Error',       cls: 'ds-red'    },
+    'completed':   { label: 'Completed',   cls: 'ds-indigo' },
+    'complete':    { label: 'Complete',    cls: 'ds-green'  },
+    'incomplete':  { label: 'Incomplete',  cls: 'ds-pink'   },
   };
 
   /**
@@ -665,7 +667,7 @@ var UI = (function () {
   function _closeBtn(closeFn) {
     return '<button onclick="' + closeFn + '()" '
       + 'style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;'
-      + 'border:1px solid var(--border-md);border-radius:8px;background:none;cursor:pointer;'
+      + 'border:1px solid var(--border-md);border-radius:5px;background:none;cursor:pointer;'
       + 'color:var(--muted);transition:border-color .15s,color .15s;flex-shrink:0" '
       + 'onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" '
       + 'onmouseleave="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
@@ -800,7 +802,7 @@ var UI = (function () {
     box.style.cssText = [
       'background:var(--surface)',
       'border:1px solid var(--border)',
-      'border-radius:14px',
+      'border-radius:10px',
       'width:' + (opts.width || '480px'),
       'max-width:95vw',
       'max-height:90vh',
@@ -832,7 +834,7 @@ var UI = (function () {
     var ftr = document.createElement('div');
     ftr.style.cssText = 'padding:14px 24px;border-top:1px solid var(--border);'
       + 'display:flex;justify-content:space-between;align-items:center;flex-shrink:0;'
-      + 'background:var(--surface);border-radius:0 0 14px 14px';
+      + 'background:var(--surface);border-radius:0 0 10px 10px';
     ftr.innerHTML = (opts.footerLeft || '<span></span>')
       + '<div style="display:flex;gap:8px">' + (opts.footerRight || '') + '</div>';
 

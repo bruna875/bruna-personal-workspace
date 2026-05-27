@@ -86,8 +86,8 @@ function renderDspSsp() {
     var advData = results[1];
     _dspClients     = orgData.orgs || [];
     _dspAdvertisers = advData.advertisers || [];
-    // If not super org, lock to the selected client org
-    if (!_appIsSuperOrg() && selectedClientOrgId) {
+    // Pre-populate with topbar selected client (lock for non-super, pre-select for super)
+    if (selectedClientOrgId) {
       _dspClientId = selectedClientOrgId;
     }
     _dspRefreshFilters();

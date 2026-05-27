@@ -16,6 +16,15 @@ export default async function handler(req, res) {
     const campaignId = parseInt(body.campaign_id || body.id);
     if (!campaignId) return res.status(400).json({ error: 'Missing campaign id' });
 
+    // ── Assign analysis_id to campaign ─────────────────────────────────────
+    if (body.analysis_id !== undefined) {
+      // Ensure column exists (safe no-op after first run)
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS analysis_id INTEGER`;
+      const aid = body.analysis_id ? parseInt(body.analysis_id) : null;
+      await sql`UPDATE campaigns SET analysis_id = ${aid} WHERE campaign_id = ${campaignId}`;
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Update details (name, client, advertiser) ───────────────────────────
     if (body.campaign_name !== undefined || body.client_name !== undefined || body.advertiser_name !== undefined) {
       let client_org_id = null;
