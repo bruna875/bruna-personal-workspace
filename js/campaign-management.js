@@ -3574,7 +3574,7 @@ function _cmSummaryHtml(c) {
   var stepLabels = [
     { label: 'Campaign Details' },
     { label: 'Creatives'       },
-    { label: 'Moments / Media Plan' },
+    { label: 'Moments Match' },
     { label: 'Partner'         },
   ];
 
