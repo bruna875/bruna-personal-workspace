@@ -3102,6 +3102,9 @@ function _mp2DoAnalyze() {
                : mp2TaxInputType === 'doc'   ? 'document'
                : 'text input';
 
+  var ca = document.getElementById('tx2-content-area');
+  if (!ca) return;
+
   var progressSteps = ['Analyzing metadata…','Detecting scenes & objects…','Classifying moments…','Building taxonomy map…','Matching episodes & shows…'];
   var frames = [
     'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=640&h=360&fit=crop&q=80',
