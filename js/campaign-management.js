@@ -1111,9 +1111,10 @@ function _cmAnalysisFilteredRows() {
   var q   = (_cmMpLibSearch || '').toLowerCase();
   var lib = _cmMpLibrary || [];
   return lib.filter(function(a) {
+    // Only show analyses not yet linked to a campaign
+    if (a.campaign_id) return false;
     return !q
       || (a.analysis_name   || '').toLowerCase().indexOf(q) >= 0
-      || (a.campaign_name   || '').toLowerCase().indexOf(q) >= 0
       || (a.advertiser_name || '').toLowerCase().indexOf(q) >= 0;
   });
 }
