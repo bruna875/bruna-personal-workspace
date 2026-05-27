@@ -96,7 +96,8 @@ var _cmDraftCreatives   = [];
 var _cmLibSearch        = '';
 
 // ── Moments Match panel state (Campaign Setup step) ───────────────────────────
-var _cmSelectedAnalysis = null; // single selected analysis
+var _cmSelectedAnalysis = null; // single selected analysis (col 1)
+var _cmSelectedMp       = null; // selected media plan within analysis (col 2)
 var _cmMpLibrary        = null; // null = not loaded, [] = loaded
 var _cmMpLibSearch      = '';
 var _cmOpenDetailId     = null; // tracks which campaign detail is open
@@ -1182,15 +1183,86 @@ function _cmMpSelColHtml() {
     + '</div>';
 }
 
+function _cmThreeColEmpty(msg) {
+  return '<div style="border:1.5px dashed var(--border-md);border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;min-height:80px;padding:16px">'
+    + '<div style="font-size:12px;color:var(--faint);text-align:center">' + msg + '</div>'
+    + '</div>';
+}
+
+function _cmParseMpPlans() {
+  if (!_cmSelectedAnalysis) return [];
+  try {
+    var raw = _cmSelectedAnalysis.media_plans;
+    return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+  } catch(e) { return []; }
+}
+
+function _cmMpPlansColHtml() {
+  if (!_cmSelectedAnalysis) return _cmThreeColEmpty('Select an analysis');
+  var plans = _cmParseMpPlans();
+  if (!plans.length) return _cmThreeColEmpty('No media plans in this analysis');
+  var rows = plans.map(function(p, i) {
+    var isSel = _cmSelectedMp && _cmSelectedMp._idx === i;
+    var planName  = p.name || ('Media Plan ' + (i + 1));
+    var itemCount = Array.isArray(p.items) ? p.items.length : 0;
+    var selStyle  = isSel ? 'background:rgba(237,0,94,.04);border-left:2px solid var(--accent);' : 'border-left:2px solid transparent;';
+    return '<div onclick="cmSelectMediaPlan(' + i + ')" style="' + selStyle + 'padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'' + (isSel ? 'rgba(237,0,94,.04)' : '') + '\'">'
+      + '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + planName + '</div>'
+      + '<span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0">' + itemCount + ' mom.</span>'
+      + '</div>';
+  }).join('');
+  return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">' + rows + '</div>';
+}
+
+function _cmMpMomentsColHtml() {
+  if (!_cmSelectedMp) return _cmThreeColEmpty('Select a media plan');
+  var items = _cmSelectedMp.items || [];
+  if (!items.length) return _cmThreeColEmpty('No moments in this plan');
+  var TD = 'padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle';
+  var rows = items.map(function(item) {
+    var typeRaw = (item.type || '').toLowerCase();
+    var badge;
+    if (typeRaw === 'live') {
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">Live</span>';
+    } else if (typeRaw === 'vod' || typeRaw === 'ads') {
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe">VoD</span>';
+    } else {
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">' + (item.type || 'OLV') + '</span>';
+    }
+    var chCount = Array.isArray(item.channels) ? item.channels.length : 0;
+    var chHtml  = chCount ? '<span style="font-size:10px;color:var(--muted);margin-left:4px">' + chCount + ' ch.</span>' : '';
+    return '<tr onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+      + '<td style="' + TD + '">'
+      +   '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">' + (item.name || '—') + '</div>'
+      +   '<div style="display:flex;align-items:center;margin-top:2px">' + badge + chHtml + '</div>'
+      + '</td>'
+      + '<td style="' + TD + ';text-align:right;font-size:12px;color:var(--text);white-space:nowrap;width:80px">' + (item.impressionsLabel || '—') + '</td>'
+      + '</tr>';
+  }).join('');
+  return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
+    + '<table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr>'
+    +   '<th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Moment</th>'
+    +   '<th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);width:80px">Est. Impr.</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>'
+    + '</div>';
+}
+
 function _cmMpPanelInnerHtml() {
-  return '<div style="display:flex;align-items:stretch">'
-    + '<div style="flex:65;min-width:0;padding:20px 24px;border-right:1px solid var(--border);display:flex;flex-direction:column">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">Saved Analyses</div>'
+  return '<div style="display:flex;align-items:stretch;min-height:280px">'
+    + '<div style="flex:33;min-width:0;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Analyses</div>'
     +   '<div id="cm-mp-lib-col">' + _cmMpLibColHtml() + '</div>'
     + '</div>'
-    + '<div style="flex:35;min-width:0;padding:20px 24px;display:flex;flex-direction:column;gap:12px">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Selected Analysis</div>'
-    +   '<div id="cm-mp-sel-col">' + _cmMpSelColHtml() + '</div>'
+    + '<div style="flex:30;min-width:0;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Media Plans</div>'
+    +   '<div id="cm-mp-plans-col">' + _cmMpPlansColHtml() + '</div>'
+    + '</div>'
+    + '<div style="flex:37;min-width:0;padding:16px 20px;display:flex;flex-direction:column;gap:10px">'
+    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments</div>'
+    +   '<div id="cm-mp-moments-col">' + _cmMpMomentsColHtml() + '</div>'
     + '</div>'
     + '</div>'
     + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
@@ -1226,22 +1298,40 @@ function cmMpLibSearch(q) {
   if (el) el.innerHTML = _cmMpLibColHtml();
 }
 
+function cmSelectMediaPlan(planIdx) {
+  if (!_cmSelectedAnalysis) return;
+  var plans = _cmParseMpPlans();
+  var plan = plans[planIdx];
+  if (!plan) return;
+  _cmSelectedMp = (_cmSelectedMp && _cmSelectedMp._idx === planIdx) ? null : Object.assign({}, plan, { _idx: planIdx });
+  var plansEl   = document.getElementById('cm-mp-plans-col');
+  var momentsEl = document.getElementById('cm-mp-moments-col');
+  if (plansEl)   plansEl.innerHTML   = _cmMpPlansColHtml();
+  if (momentsEl) momentsEl.innerHTML = _cmMpMomentsColHtml();
+}
+
 function cmAnalysisLibToggle(analysisId) {
   var a = (_cmMpLibrary || []).find(function(x) { return x.analysis_id === analysisId; });
   if (!a) return;
   _cmSelectedAnalysis = (_cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === analysisId) ? null : a;
-  var libEl = document.getElementById('cm-mp-lib-col');
-  var selEl = document.getElementById('cm-mp-sel-col');
-  if (libEl) libEl.innerHTML = _cmMpLibColHtml();
-  if (selEl) selEl.innerHTML = _cmMpSelColHtml();
+  _cmSelectedMp = null;
+  var libEl     = document.getElementById('cm-mp-lib-col');
+  var plansEl   = document.getElementById('cm-mp-plans-col');
+  var momentsEl = document.getElementById('cm-mp-moments-col');
+  if (libEl)     libEl.innerHTML     = _cmMpLibColHtml();
+  if (plansEl)   plansEl.innerHTML   = _cmMpPlansColHtml();
+  if (momentsEl) momentsEl.innerHTML = _cmMpMomentsColHtml();
 }
 
 function cmAnalysisDeselect() {
   _cmSelectedAnalysis = null;
-  var libEl = document.getElementById('cm-mp-lib-col');
-  var selEl = document.getElementById('cm-mp-sel-col');
-  if (libEl) libEl.innerHTML = _cmMpLibColHtml();
-  if (selEl) selEl.innerHTML = _cmMpSelColHtml();
+  _cmSelectedMp = null;
+  var libEl     = document.getElementById('cm-mp-lib-col');
+  var plansEl   = document.getElementById('cm-mp-plans-col');
+  var momentsEl = document.getElementById('cm-mp-moments-col');
+  if (libEl)     libEl.innerHTML     = _cmMpLibColHtml();
+  if (plansEl)   plansEl.innerHTML   = _cmMpPlansColHtml();
+  if (momentsEl) momentsEl.innerHTML = _cmMpMomentsColHtml();
 }
 
 function cmSaveAnalysis() {
@@ -1935,6 +2025,7 @@ function cmCreateNewCampaign() {
   _cmDraftAdv = '';
   _cmDraftCampaignName = '';
   _cmSelectedAnalysis = null;
+  _cmSelectedMp = null;
   _cmMpLibrary = null;
   _cmMpLibSearch = '';
   cmOpenDetail(tempId);
