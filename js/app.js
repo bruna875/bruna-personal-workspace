@@ -112,7 +112,7 @@ var NAV_CONFIG = [
     section: 'Integrations',
     dividerBefore: true,
     items: [
-      { id: 'vod-livestream-feeds',      label: 'VoD/Live/OLV Feed',        icon: ico.castconn },
+      { id: 'vod-livestream-feeds',      label: 'VoD/Live/OLV Stream',        icon: ico.castconn },
       { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.merge    },
       { id: 'api-docs',                  label: 'API Documentation',        icon: ico.api      }
     ]
@@ -284,7 +284,7 @@ function pageFromPath() {
     'creative-studio':       'Creative Studio',
     'measurement':           'Measurement',
     'dsp-ssp':                   'DSP / SSP Connections',
-    'vod-livestream-feeds':      'VoD/Live/OLV Feed',
+    'vod-livestream-feeds':      'VoD/Live/OLV Stream',
     'api-docs':                  'API Documentation',
     'moments-match':             'Moments Match'
   };
@@ -774,7 +774,7 @@ function selectOrg(id) {
       'media-planner-v2':      'Moments Match',
       'measurement':           'Measurement',
       'dsp-ssp':               'DSP / SSP Connections',
-      'vod-livestream-feeds':  'VoD/Live/OLV Feed',
+      'vod-livestream-feeds':  'VoD/Live/OLV Stream',
       'api-docs':              'API Documentation',
       'org-management':        'Organization',
     };

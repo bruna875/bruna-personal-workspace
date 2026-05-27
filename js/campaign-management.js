@@ -3379,15 +3379,25 @@ function _cmSetupChecklist(c, opts) {
   var steps = [
     { label:'Campaign Details', done: _cmStepDone(0, c), desc:'Name, advertiser, geography, flight dates and budget.' },
     { label:'Creatives',        done: _cmStepDone(1, c), desc:'Video or image assets attached to the campaign.' },
-    { label:'Moments / Media Plan', done: _cmStepDone(2, c), desc:'Audience moments targeted for delivery.' },
+    { label:'Moments Match',    done: _cmStepDone(2, c), desc:'Audience moments targeted for delivery.' },
     { label:'Partner',          done: _cmStepDone(3, c), desc:'DSP / SSP connected for delivery.' },
   ];
 
   var chevSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .2s"><path d="M6 9l6 6 6-6"/></svg>';
 
+  // Lucide icons: text-quote, pen-tool, combine, split
+  var stepIconPaths = [
+    '<path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>',
+    '<path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/>',
+    '<rect x="8" y="8" width="8" height="8" rx="2"/><path d="M4 10a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/><path d="M14 20a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/>',
+    '<path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/>',
+  ];
+
   var stepsHtml = steps.map(function(s, i) {
-    var openByDefault = isNew && i === 0;
-    var icon = '<div style="width:22px;height:22px;border-radius:99px;border:2px solid var(--border-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--faint);font-size:10px;font-weight:700">' + (i+1) + '</div>';
+    var openByDefault = false;
+    var icon = '<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)">' + stepIconPaths[i] + '</svg>'
+      + '</div>';
     var chevRotated = openByDefault ? 'transform:rotate(180deg)' : '';
     var hdr = '<div id="cm-draft-hd-' + i + '" onclick="_cmDraftToggle(' + i + ')" '
       + 'style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s' + (openByDefault ? ';background:var(--bg)' : '') + '" '
