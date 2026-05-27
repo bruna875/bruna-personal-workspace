@@ -1101,10 +1101,9 @@ function bmpSelectAnalysis(id) {
 
 // ── Media Plan panel — two-col (library + selected) ───────────────────────────
 var _cmAnalysisCols = [
-  { label: '',          width: '32px'  },
-  { label: 'Analysis'                  },
-  { label: 'Campaign',  width: '150px' },
-  { label: 'Date',      width: '100px' },
+  { label: '',       width: '32px'  },
+  { label: 'Analysis'               },
+  { label: 'Date',   width: '100px' },
 ];
 
 function _cmAnalysisFilteredRows() {
@@ -1132,7 +1131,6 @@ function _cmAnalysisRowsHtml(filtered) {
     return '<tr style="cursor:pointer" onclick="cmAnalysisLibToggle(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="' + TD + ';width:32px" onclick="event.stopPropagation()">' + cb + '</td>'
       + '<td style="' + TD + '">' + nameCell + '</td>'
-      + '<td style="' + TD + ';width:150px">' + campCell + '</td>'
       + '<td style="' + TD + ';width:100px;font-size:11px;color:var(--muted)">' + date + '</td>'
       + '</tr>';
   }).join('');
