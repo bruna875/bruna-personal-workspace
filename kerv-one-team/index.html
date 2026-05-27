@@ -152,6 +152,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .fmem-item:hover { background: var(--bg); }
 .fmem-item input[type=checkbox] { accent-color: var(--accent); flex-shrink: 0; }
 .fmem-empty { padding: 14px 12px; font-size: 12px; color: var(--faint); text-align: center; }
+
+/* ── Product Lead card (inside domain group) ── */
+.node-lead    { width: 210px; border-color: var(--bmd); border-width: 1.5px; }
+.lead-badge   { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 6px; }
+.lead-name    { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.lead-title   { font-size: 11px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -239,18 +245,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <input type="text" class="finp" id="mm-name" placeholder="e.g. Alex Johnson">
     </div>
     <div class="fg">
-      <label class="flbl">Team</label>
-      <select class="fsel" id="mm-team">
-        <option value="">— no team (head node) —</option>
-      </select>
-    </div>
-    <div class="fg">
       <label class="flbl">Role</label>
-      <select class="fsel" id="mm-role">
+      <select class="fsel" id="mm-role" onchange="mmRoleChange(this.value)">
         <option value="">— select role —</option>
+        <option value="product_lead">Product Lead</option>
+        <option value="engineering_lead">Engineering Lead</option>
         <option value="product">Product</option>
         <option value="tech">Tech</option>
         <option value="design">Design</option>
+      </select>
+    </div>
+    <div class="fg" id="mm-domain-group" style="display:none">
+      <label class="flbl">Domain</label>
+      <select class="fsel" id="mm-domain">
+        <option value="">— no domain —</option>
+      </select>
+    </div>
+    <div class="fg" id="mm-reporting-group" style="display:none">
+      <label class="flbl">Reporting to</label>
+      <select class="fsel" id="mm-reporting">
+        <option value="">— no lead —</option>
+      </select>
+    </div>
+    <div class="fg" id="mm-team-group">
+      <label class="flbl">Team</label>
+      <select class="fsel" id="mm-team">
+        <option value="">— no team (head node) —</option>
       </select>
     </div>
     <div class="fg">
@@ -276,6 +296,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <div class="fg">
       <label class="flbl">Domain Name *</label>
       <input type="text" class="finp" id="dm-name" placeholder="e.g. Growth">
+    </div>
+    <div class="fg">
+      <label class="flbl">Reporting to</label>
+      <select class="fsel" id="dm-lead">
+        <option value="">— no lead —</option>
+      </select>
     </div>
     <div class="fg">
       <label class="flbl">Teams</label>
@@ -310,84 +336,124 @@ function loadData() {
     });
 }
 
+// helper: is this role a "lead" role?
+function isLeadRole(role) {
+  return role === 'product_lead' || role === 'engineering_lead';
+}
+
 // ── Render ───────────────────────────────────────────────────────────────────
 function renderChart() {
   var layout = document.getElementById('org-layout');
 
-  var assignedIds = new Set();
+  // Members assigned to a team
+  var assignedInTeams = new Set();
   _teams.forEach(function(t) {
-    (t.team_member_ids || []).forEach(function(id) { assignedIds.add(Number(id)); });
+    (t.team_member_ids || []).forEach(function(id) { assignedInTeams.add(Number(id)); });
   });
 
-  var head = _members.find(function(m) { return !assignedIds.has(m.team_member_id); }) || null;
+  var leads   = _members.filter(function(m) { return isLeadRole(m.team_member_role); });
+  var leadIds = new Set(leads.map(function(m) { return m.team_member_id; }));
 
-  if (!head && !_teams.length) {
+  // Head = not in any team, not a lead, not a direct report of a lead
+  var head = _members.find(function(m) {
+    return !assignedInTeams.has(m.team_member_id)
+      && !leadIds.has(m.team_member_id)
+      && !m.reporting_to_lead_id;
+  }) || null;
+
+  if (!head && !_teams.length && !leads.length) {
     layout.innerHTML = '<div class="empty"><h3>No team data yet</h3><p>Start by adding a member — the first unassigned member becomes the head node.</p></div>';
     document.getElementById('org-svg').innerHTML = '';
     return;
   }
 
+  // Build domain → lead map  (domain.reporting_to_lead_id)
+  // Build domain → teams map
+  var domainLeadMap = {};  // domain_id → lead member (or null)
+  var domainTeamMap = {};  // domain_id → [team]
+  var teamDomainMap = {};  // team_id   → domain_id
+  _domains.forEach(function(d) {
+    domainTeamMap[d.domain_id] = [];
+    domainLeadMap[d.domain_id] = d.reporting_to_lead_id
+      ? _members.find(function(m) { return m.team_member_id === Number(d.reporting_to_lead_id); }) || null
+      : null;
+    (d.team_ids || []).forEach(function(tid) {
+      var t = _teams.find(function(x) { return x.team_id === Number(tid); });
+      if (t) { domainTeamMap[d.domain_id].push(t); teamDomainMap[t.team_id] = d.domain_id; }
+    });
+  });
+
   var html = '';
+  if (head) html += '<div class="head-row">' + headCard(head) + '</div>';
 
-  if (head) {
-    html += '<div class="head-row">' + headCard(head) + '</div>';
-  }
-
-  if (_teams.length) {
-    html += '<div class="teams-row" id="teams-row">';
-
-    // Build domain → teams map, preserving domain order
-    var domainTeamMap = {}; // domain_id -> [team]
-    var teamDomainMap = {}; // team_id -> domain_id
-    _domains.forEach(function(d) {
-      domainTeamMap[d.domain_id] = [];
-      (d.team_ids || []).forEach(function(tid) {
-        var t = _teams.find(function(x) { return x.team_id === Number(tid); });
-        if (t) {
-          domainTeamMap[d.domain_id].push(t);
-          teamDomainMap[t.team_id] = d.domain_id;
-        }
-      });
-    });
-
-    // Render domain groups first (in domain order)
-    _domains.forEach(function(d) {
-      var dTeams = domainTeamMap[d.domain_id] || [];
-      if (!dTeams.length) return;
-      html += '<div class="domain-group">';
-      html += '<div class="domain-bar">'
-        + '<span class="domain-bar-name">' + esc(d.domain_name) + '</span>'
-        + '<div class="dom-act">'
-        +   '<button class="dom-ab" onclick="editDomain(' + d.domain_id + ')" title="Edit">' + icoEdit + '</button>'
-        +   '<button class="dom-ab del" onclick="deleteDomain(' + d.domain_id + ')" title="Delete">' + icoDel + '</button>'
-        + '</div>'
-        + '</div>';
-      html += '<div class="domain-teams">';
-      dTeams.forEach(function(team) {
-        html += renderTeamCol(team);
-      });
-      html += '</div>';
-      html += '</div>';
-    });
-
-    // Render ungrouped teams
-    _teams.forEach(function(team) {
-      if (!teamDomainMap[team.team_id]) {
-        html += renderTeamCol(team);
-      }
-    });
-
-    html += '</div>';
-  }
+  // Flat teams-row — each domain is a column group: domain-bar → lead col → (team cols)
+  html += '<div class="teams-row" id="teams-row">';
+  _domains.forEach(function(d) {
+    html += renderDomainGroup(d, domainTeamMap, domainLeadMap);
+  });
+  // Leads not assigned to any domain (orphan leads)
+  leads.forEach(function(lead) {
+    var inDomain = _domains.some(function(d) { return Number(d.reporting_to_lead_id) === lead.team_member_id; });
+    if (!inDomain) html += renderOrphanLead(lead);
+  });
+  // Teams not assigned to any domain
+  _teams.forEach(function(team) {
+    if (!teamDomainMap[team.team_id]) html += renderTeamCol(team);
+  });
+  html += '</div>';
 
   layout.innerHTML = html;
   setTimeout(drawLines, 60);
+}
+
+function renderDomainGroup(d, domainTeamMap, domainLeadMap) {
+  var lead   = domainLeadMap[d.domain_id] || null;
+  var dTeams = domainTeamMap[d.domain_id] || [];
+  if (!lead && !dTeams.length) return '';
+
+  var html = '<div class="domain-group">';
+  html += '<div class="domain-bar">'
+    + '<span class="domain-bar-name">' + esc(d.domain_name) + '</span>'
+    + '<div class="dom-act">'
+    +   '<button class="dom-ab" onclick="editDomain(' + d.domain_id + ')" title="Edit">' + icoEdit + '</button>'
+    +   '<button class="dom-ab del" onclick="deleteDomain(' + d.domain_id + ')" title="Delete">' + icoDel + '</button>'
+    + '</div>'
+    + '</div>'; // domain-bar
+
+  html += '<div class="domain-teams">';
+  // Lead column: lead card + direct reports
+  if (lead) {
+    var directReports = _members.filter(function(m) {
+      return Number(m.reporting_to_lead_id) === Number(lead.team_member_id);
+    });
+    html += '<div class="team-col" data-lid="' + lead.team_member_id + '">';
+    html += leadCard(lead);
+    directReports.forEach(function(m) { html += memberCard(m); });
+    html += '</div>';
+  }
+  // Team columns
+  dTeams.forEach(function(team) { html += renderTeamCol(team); });
+  html += '</div>'; // domain-teams
+  html += '</div>'; // domain-group
+  return html;
+}
+
+function renderOrphanLead(lead) {
+  var directReports = _members.filter(function(m) {
+    return Number(m.reporting_to_lead_id) === Number(lead.team_member_id);
+  });
+  var html = '<div class="team-col" data-lid="' + lead.team_member_id + '">';
+  html += leadCard(lead);
+  directReports.forEach(function(m) { html += memberCard(m); });
+  html += '</div>';
+  return html;
 }
 
 function renderTeamCol(team) {
   var mems = (team.team_member_ids || [])
     .map(function(id) { return _members.find(function(m) { return m.team_member_id === Number(id); }); })
     .filter(Boolean)
+    .filter(function(m) { return !m.reporting_to_lead_id; }) // skip direct reports of leads (shown in lead column)
     .sort(function(a, b) {
       var ap = a.team_member_role === 'product' ? 0 : 1;
       var bp = b.team_member_role === 'product' ? 0 : 1;
@@ -401,12 +467,25 @@ function renderTeamCol(team) {
 }
 
 function headCard(m) {
+  var badge = m.team_member_title || 'Head';
   return '<div class="node node-head" id="head-node">'
-    + '<div class="head-badge">Head of Product</div>'
+    + '<div class="head-badge">' + esc(badge) + '</div>'
     + '<div class="head-name">' + esc(m.team_member_name) + '</div>'
-    + (m.team_member_title ? '<div class="head-title">' + esc(m.team_member_title) + '</div>' : '')
     + (m.team_member_description ? '<div class="head-desc">' + esc(m.team_member_description) + '</div>' : '')
     + '<div class="nact"><button class="nab" onclick="editMember(' + m.team_member_id + ')" title="Edit">' + icoEdit + '</button></div>'
+    + '</div>';
+}
+
+function leadCard(m) {
+  var badge = m.team_member_role === 'engineering_lead' ? 'Engineering Lead' : 'Product Lead';
+  return '<div class="node node-lead" id="lead-node-' + m.team_member_id + '">'
+    + '<div class="lead-badge">' + badge + '</div>'
+    + '<div class="lead-name">' + esc(m.team_member_name) + '</div>'
+    + (m.team_member_title ? '<div class="lead-title">' + esc(m.team_member_title) + '</div>' : '')
+    + '<div class="nact">'
+    +   '<button class="nab" onclick="editMember(' + m.team_member_id + ')" title="Edit">' + icoEdit + '</button>'
+    +   '<button class="nab del" onclick="deleteMember(' + m.team_member_id + ')" title="Delete">' + icoDel + '</button>'
+    + '</div>'
     + '</div>';
 }
 
@@ -436,8 +515,8 @@ function memberCard(m) {
 
 // ── SVG connector lines ───────────────────────────────────────────────────────
 function drawLines() {
-  var wrap   = document.getElementById('org-wrap');
-  var svg    = document.getElementById('org-svg');
+  var wrap = document.getElementById('org-wrap');
+  var svg  = document.getElementById('org-svg');
   if (!svg || !wrap) return;
 
   svg.setAttribute('width',  wrap.scrollWidth);
@@ -450,11 +529,8 @@ function drawLines() {
     var sl = wrap.scrollLeft, st = wrap.scrollTop;
     return {
       cx:     r.left - wr.left + sl + r.width  / 2,
-      cy:     r.top  - wr.top  + st + r.height / 2,
       top:    r.top  - wr.top  + st,
       bottom: r.bottom - wr.top + st,
-      left:   r.left - wr.left + sl,
-      right:  r.right - wr.left + sl,
     };
   }
 
@@ -475,26 +551,27 @@ function drawLines() {
     path('M' + x1 + ',' + y1 + ' L' + x1 + ',' + my + ' L' + x2 + ',' + my + ' L' + x2 + ',' + y2);
   }
 
-  var headEl   = document.getElementById('head-node');
+  var headEl  = document.getElementById('head-node');
   var teamCols = document.querySelectorAll('.team-col');
-  if (!teamCols.length) return;
 
+  // head → first node of each top-level team-col (lead card or team card)
   if (headEl) {
     var h = pos(headEl);
     teamCols.forEach(function(col) {
-      var tEl = col.querySelector('.node-team');
-      if (!tEl) return;
-      var t = pos(tEl);
-      elbow(h.cx, h.bottom, t.cx, t.top);
+      var firstNode = col.querySelector('.node-lead, .node-team');
+      if (!firstNode) return;
+      var n = pos(firstNode);
+      elbow(h.cx, h.bottom, n.cx, n.top);
     });
   }
 
+  // Within each team-col: top node → member nodes below (vertical stack)
   teamCols.forEach(function(col) {
-    var tEl  = col.querySelector('.node-team');
-    var mEls = col.querySelectorAll('.node-member');
-    if (!tEl || !mEls.length) return;
-    var prev = pos(tEl);
-    mEls.forEach(function(mEl) {
+    var topNode = col.querySelector('.node-lead, .node-team');
+    var memNodes = col.querySelectorAll('.node-member');
+    if (!topNode || !memNodes.length) return;
+    var prev = pos(topNode);
+    memNodes.forEach(function(mEl) {
       var mp = pos(mEl);
       vline(mp.cx, prev.bottom, mp.top);
       prev = mp;
@@ -580,28 +657,65 @@ function deleteTeam(id) {
 }
 
 // ── Member modal ──────────────────────────────────────────────────────────────
+function mmRoleChange(role) {
+  var isLead = isLeadRole(role);
+  document.getElementById('mm-domain-group').style.display    = isLead ? ''     : 'none';
+  document.getElementById('mm-reporting-group').style.display = isLead ? 'none' : '';
+  document.getElementById('mm-team-group').style.display      = 'none'; // team assignment done from Team modal
+}
+
 function openMemberModal(memberId) {
   var m = memberId ? _members.find(function(x) { return x.team_member_id === memberId; }) : null;
   document.getElementById('mm-title').textContent = m ? 'Edit Member' : 'New Member';
   document.getElementById('mm-id').value         = m ? m.team_member_id : '';
   document.getElementById('mm-name').value       = m ? m.team_member_name : '';
-  document.getElementById('mm-role').value       = m ? (m.team_member_role || '') : '';
   document.getElementById('mm-title-inp').value  = m ? (m.team_member_title || '') : '';
   document.getElementById('mm-desc').value       = m ? (m.team_member_description || '') : '';
 
+  var currentRole = m ? (m.team_member_role || '') : '';
+  document.getElementById('mm-role').value = currentRole;
+
+  // Domain select — for leads: find domain where reporting_to_lead_id = this member
+  var currentDomainId = null;
+  if (m && isLeadRole(m.team_member_role)) {
+    var myDomain = _domains.find(function(d) { return Number(d.reporting_to_lead_id) === m.team_member_id; });
+    if (myDomain) currentDomainId = myDomain.domain_id;
+  }
+  var domSel = document.getElementById('mm-domain');
+  domSel.innerHTML = '<option value="">— no domain —</option>'
+    + _domains.map(function(d) {
+        var sel = currentDomainId && d.domain_id === currentDomainId ? ' selected' : '';
+        return '<option value="' + d.domain_id + '"' + sel + '>' + esc(d.domain_name) + '</option>';
+      }).join('');
+
+  // Reporting-to select — all leads, excluding current member
+  var allLeads = _members.filter(function(x) {
+    return isLeadRole(x.team_member_role) && (!m || x.team_member_id !== m.team_member_id);
+  });
+  var currentLeadId = m ? (m.reporting_to_lead_id || '') : '';
+  var repSel = document.getElementById('mm-reporting');
+  repSel.innerHTML = '<option value="">— no lead —</option>'
+    + allLeads.map(function(l) {
+        var sel = currentLeadId && Number(currentLeadId) === l.team_member_id ? ' selected' : '';
+        return '<option value="' + l.team_member_id + '"' + sel + '>' + esc(l.team_member_name) + '</option>';
+      }).join('');
+
+  // Populate team select (hidden — team assignment managed from Team modal)
   var currentTeamId = m ? (m.team_id || null) : null;
   var teamSel = document.getElementById('mm-team');
-  teamSel.innerHTML = '<option value="">— no team (head node) —</option>'
+  teamSel.innerHTML = '<option value="">— no team —</option>'
     + _teams.map(function(t) {
         var sel = currentTeamId && Number(currentTeamId) === t.team_id ? ' selected' : '';
         return '<option value="' + t.team_id + '"' + sel + '>' + esc(t.team_name) + '</option>';
       }).join('');
 
-  var noTeams = _teams.length === 0 && !m;
-  var banner  = document.getElementById('mm-no-teams-banner');
+  // Hide banner, enable save
+  var banner = document.getElementById('mm-no-teams-banner');
+  if (banner) banner.style.display = 'none';
   var saveBtn = document.getElementById('mm-save-btn');
-  if (banner)  banner.style.display  = noTeams ? '' : 'none';
-  if (saveBtn) { saveBtn.disabled = noTeams; saveBtn.style.opacity = noTeams ? '.4' : ''; saveBtn.style.cursor = noTeams ? 'not-allowed' : ''; }
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; saveBtn.style.cursor = ''; }
+
+  mmRoleChange(currentRole);
 
   document.getElementById('mem-modal').style.display = 'flex';
   setTimeout(function() { document.getElementById('mm-name').focus(); }, 50);
@@ -614,14 +728,29 @@ function saveMember() {
   var name = document.getElementById('mm-name').value.trim();
   if (!name) { alert('Name is required'); return; }
   var id   = document.getElementById('mm-id').value;
-  var teamVal = document.getElementById('mm-team').value;
+  var role = document.getElementById('mm-role').value;
+
   var body = {
     team_member_name:        name,
-    team_member_role:        document.getElementById('mm-role').value      || null,
+    team_member_role:        role || null,
     team_member_title:       document.getElementById('mm-title-inp').value.trim() || null,
     team_member_description: document.getElementById('mm-desc').value.trim()      || null,
-    team_id:                 teamVal ? parseInt(teamVal) : null,
   };
+
+  if (isLeadRole(role)) {
+    // Lead: assign domain, clear reporting_to_lead_id
+    var domainVal = document.getElementById('mm-domain').value;
+    body.domain_id           = domainVal ? parseInt(domainVal) : null;
+    body.reporting_to_lead_id = null;
+    body.team_id              = null;
+  } else {
+    // Non-lead: assign reporting_to_lead_id, preserve team_id
+    var reportingVal = document.getElementById('mm-reporting').value;
+    body.reporting_to_lead_id = reportingVal ? parseInt(reportingVal) : null;
+    var teamVal = document.getElementById('mm-team').value;
+    body.team_id = teamVal ? parseInt(teamVal) : null;
+  }
+
   var method = id ? 'PUT' : 'POST';
   if (id) body.team_member_id = parseInt(id);
 
@@ -669,6 +798,17 @@ function openDomainModal(domainId) {
     : '<div class="fmem-empty">No teams yet. Create teams first.</div>';
 
   document.getElementById('dm-teams-list').innerHTML = html;
+
+  // Populate "Reporting to" with Product Leads
+  var leads = _members.filter(function(m) { return m.team_member_role === 'product_lead'; });
+  var currentLeadId = d ? (d.reporting_to_lead_id || '') : '';
+  var leadSel = document.getElementById('dm-lead');
+  leadSel.innerHTML = '<option value="">— no lead —</option>'
+    + leads.map(function(l) {
+        var sel = currentLeadId && Number(currentLeadId) === l.team_member_id ? ' selected' : '';
+        return '<option value="' + l.team_member_id + '"' + sel + '>' + esc(l.team_member_name) + '</option>';
+      }).join('');
+
   document.getElementById('domain-modal').style.display = 'flex';
   setTimeout(function() { document.getElementById('dm-name').focus(); }, 50);
 }
@@ -683,7 +823,8 @@ function saveDomain() {
   var teamIds = Array.from(document.querySelectorAll('#dm-teams-list input[type=checkbox]:checked'))
     .map(function(cb) { return parseInt(cb.value); });
 
-  var body   = { domain_name: name, team_ids: teamIds };
+  var leadVal = document.getElementById('dm-lead').value;
+  var body   = { domain_name: name, team_ids: teamIds, reporting_to_lead_id: leadVal ? parseInt(leadVal) : null };
   var method = id ? 'PUT' : 'POST';
   if (id) body.domain_id = parseInt(id);
 

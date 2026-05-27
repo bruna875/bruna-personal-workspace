@@ -15,8 +15,8 @@ async function ensureTables(sql) {
     team_description TEXT,
     team_member_ids  INTEGER[]   DEFAULT '{}'
   )`;
-  // Add team_id column to existing tables that predate this field
   await sql`ALTER TABLE kervone_team_member ADD COLUMN IF NOT EXISTS team_id INTEGER`;
+  await sql`ALTER TABLE kervone_team_member ADD COLUMN IF NOT EXISTS reporting_to_lead_id INTEGER`;
 }
 
 // Sync team_member_ids array on the team after a member's team_id changes
@@ -49,25 +49,30 @@ export default async function handler(req, res) {
     await ensureTables(sql);
 
     if (req.method === 'POST') {
-      const { team_member_name, team_member_role, team_member_title, team_member_description, team_id } = req.body || {};
+      const { team_member_name, team_member_role, team_member_title, team_member_description, team_id, reporting_to_lead_id, domain_id } = req.body || {};
       if (!team_member_name) return res.status(400).json({ error: 'team_member_name required' });
-      const tid = team_id ? parseInt(team_id) : null;
+      const tid    = team_id              ? parseInt(team_id)              : null;
+      const leadId = reporting_to_lead_id ? parseInt(reporting_to_lead_id) : null;
       const rows = await sql`
-        INSERT INTO kervone_team_member (team_member_name, team_member_role, team_member_title, team_member_description, team_id)
-        VALUES (${team_member_name}, ${team_member_role || null}, ${team_member_title || null}, ${team_member_description || null}, ${tid})
+        INSERT INTO kervone_team_member (team_member_name, team_member_role, team_member_title, team_member_description, team_id, reporting_to_lead_id)
+        VALUES (${team_member_name}, ${team_member_role || null}, ${team_member_title || null}, ${team_member_description || null}, ${tid}, ${leadId})
         RETURNING *`;
       const member = rows[0];
       if (tid) await syncTeamArrays(sql, member.team_member_id, null, tid);
+      if (team_member_role === 'product_lead' || team_member_role === 'engineering_lead') {
+        await sql`UPDATE kervone_domain SET reporting_to_lead_id = NULL WHERE reporting_to_lead_id = ${member.team_member_id}`;
+        if (domain_id) await sql`UPDATE kervone_domain SET reporting_to_lead_id = ${member.team_member_id} WHERE domain_id = ${parseInt(domain_id)}`;
+      }
       return res.status(200).json({ member });
     }
 
     if (req.method === 'PUT') {
-      const { team_member_id, team_member_name, team_member_role, team_member_title, team_member_description, team_id } = req.body || {};
+      const { team_member_id, team_member_name, team_member_role, team_member_title, team_member_description, team_id, reporting_to_lead_id, domain_id } = req.body || {};
       if (!team_member_id) return res.status(400).json({ error: 'team_member_id required' });
-      const mid = parseInt(team_member_id);
-      const newTid = team_id ? parseInt(team_id) : null;
+      const mid    = parseInt(team_member_id);
+      const newTid = team_id              ? parseInt(team_id)              : null;
+      const leadId = reporting_to_lead_id ? parseInt(reporting_to_lead_id) : null;
 
-      // Get current team_id before updating
       const prev = await sql`SELECT team_id FROM kervone_team_member WHERE team_member_id = ${mid}`;
       const oldTid = prev[0] ? prev[0].team_id : null;
 
@@ -77,11 +82,16 @@ export default async function handler(req, res) {
             team_member_role        = ${team_member_role || null},
             team_member_title       = ${team_member_title || null},
             team_member_description = ${team_member_description || null},
-            team_id                 = ${newTid}
+            team_id                 = ${newTid},
+            reporting_to_lead_id    = ${leadId}
         WHERE team_member_id = ${mid}
         RETURNING *`;
 
       await syncTeamArrays(sql, mid, oldTid, newTid);
+      if (team_member_role === 'product_lead' || team_member_role === 'engineering_lead') {
+        await sql`UPDATE kervone_domain SET reporting_to_lead_id = NULL WHERE reporting_to_lead_id = ${mid}`;
+        if (domain_id) await sql`UPDATE kervone_domain SET reporting_to_lead_id = ${mid} WHERE domain_id = ${parseInt(domain_id)}`;
+      }
       return res.status(200).json({ member: rows[0] });
     }
 
