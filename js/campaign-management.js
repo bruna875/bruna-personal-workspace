@@ -1223,52 +1223,74 @@ function _cmMpPlansColHtml() {
 
 function _cmMpMomentsColHtml() {
   if (!_cmSelectedMp) return _cmThreeColEmpty('Select a media plan');
-  // DB structure: { moments: [{ moment_name, moment_type, moment_channels, moment_est_impr }] }
+  // DB structure: { moments: [{ moment_name, moment_type, moment_channels, moment_est_impr, moment_est_cpm, moment_est_dollar_value }] }
   // Fall back to legacy: { items: [{ name, type, channels, impressionsLabel }] }
   var items = Array.isArray(_cmSelectedMp.moments) ? _cmSelectedMp.moments
             : Array.isArray(_cmSelectedMp.items)   ? _cmSelectedMp.items
             : [];
   if (!items.length) return _cmThreeColEmpty('No moments in this plan');
-  var TD = 'padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle';
+
+  var totalImpr = 0; var totalVal = 0;
+  var TH = 'padding:6px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap';
+  var TD = 'padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle';
+
   var rows = items.map(function(item) {
-    // Support both DB field names and legacy field names
     var name     = item.moment_name    || item.name    || '—';
     var typeRaw  = (item.moment_type   || item.type    || '').toLowerCase();
     var channels = item.moment_channels || item.channels || [];
-    // Format impressions: DB stores raw numbers, legacy stores formatted strings
-    var imprNum  = item.moment_est_impr;
+    var imprNum  = Number(item.moment_est_impr) || 0;
+    var cpmNum   = Number(item.moment_est_cpm)  || 0;
+    var valNum   = Number(item.moment_est_dollar_value) || (imprNum && cpmNum ? Math.round(imprNum * cpmNum / 1000) : 0);
+    totalImpr += imprNum; totalVal += valNum;
+
     var imprLabel = item.impressionsLabel
       || (imprNum >= 1000000 ? (imprNum / 1000000).toFixed(1) + 'M'
           : imprNum >= 1000  ? Math.round(imprNum / 1000) + 'K'
-          : imprNum          ? String(imprNum)
-          : '—');
+          : imprNum          ? String(imprNum) : '—');
+    var cpmLabel  = cpmNum  ? '$' + cpmNum.toFixed(2)  : '—';
+    var valLabel  = valNum  ? '$' + (valNum >= 1000 ? Math.round(valNum / 1000) + 'K' : valNum) : '—';
+
     var badge;
     if (typeRaw === 'live') {
-      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">Live</span>';
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca">Live</span>';
     } else if (typeRaw === 'vod' || typeRaw === 'ads') {
-      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe">VoD</span>';
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe">VoD</span>';
     } else {
-      badge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">' + (typeRaw || 'OLV') + '</span>';
+      badge = '<span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">' + (typeRaw || 'OLV') + '</span>';
     }
     var chCount = Array.isArray(channels) ? channels.length : 0;
-    var chHtml  = chCount ? '<span style="font-size:10px;color:var(--muted);margin-left:4px">' + chCount + ' ch.</span>' : '';
+    var chHtml  = chCount ? '<span style="font-size:9px;color:var(--faint);margin-left:4px">' + chCount + ' ch.</span>' : '';
     return '<tr onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="' + TD + '">'
-      +   '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">' + name + '</div>'
+      +   '<div style="font-size:11px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + name + '</div>'
       +   '<div style="display:flex;align-items:center;margin-top:2px">' + badge + chHtml + '</div>'
       + '</td>'
-      + '<td style="' + TD + ';text-align:right;font-size:12px;color:var(--text);white-space:nowrap;width:80px">' + imprLabel + '</td>'
+      + '<td style="' + TD + ';text-align:right;font-size:11px;color:var(--text);white-space:nowrap">' + imprLabel + '</td>'
+      + '<td style="' + TD + ';text-align:right;font-size:11px;color:var(--text);white-space:nowrap">' + cpmLabel  + '</td>'
+      + '<td style="' + TD + ';text-align:right;font-size:11px;color:var(--text);white-space:nowrap">' + valLabel  + '</td>'
       + '</tr>';
   }).join('');
-  return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
-    + '<table style="width:100%;border-collapse:collapse">'
+
+  var totImprLabel = totalImpr >= 1000000 ? (totalImpr / 1000000).toFixed(1) + 'M' : totalImpr >= 1000 ? Math.round(totalImpr / 1000) + 'K' : totalImpr ? String(totalImpr) : '—';
+  var totValLabel  = totalVal  ? '$' + (totalVal  >= 1000 ? Math.round(totalVal  / 1000) + 'K' : totalVal)  : '—';
+  var TOT = 'padding:7px 10px;font-size:11px;font-weight:700;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg);white-space:nowrap';
+  var totRow = '<tr>'
+    + '<td style="' + TOT + '">Total</td>'
+    + '<td style="' + TOT + ';text-align:right">' + totImprLabel + '</td>'
+    + '<td style="' + TOT + ';text-align:right">—</td>'
+    + '<td style="' + TOT + ';text-align:right">' + totValLabel  + '</td>'
+    + '</tr>';
+
+  return '<table style="width:100%;border-collapse:collapse">'
     + '<thead><tr>'
-    +   '<th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Moment</th>'
-    +   '<th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);width:80px">Est. Impr.</th>'
+    +   '<th style="' + TH + ';text-align:left">Moment</th>'
+    +   '<th style="' + TH + ';text-align:right;width:64px">Impr.</th>'
+    +   '<th style="' + TH + ';text-align:right;width:56px">CPM</th>'
+    +   '<th style="' + TH + ';text-align:right;width:60px">$ Value</th>'
     + '</tr></thead>'
     + '<tbody>' + rows + '</tbody>'
-    + '</table>'
-    + '</div>';
+    + '<tfoot>' + totRow + '</tfoot>'
+    + '</table>';
 }
 
 function _cmMpPanelInnerHtml() {
@@ -1281,9 +1303,9 @@ function _cmMpPanelInnerHtml() {
     +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Media Plans</div>'
     +   '<div id="cm-mp-plans-col">' + _cmMpPlansColHtml() + '</div>'
     + '</div>'
-    + '<div style="flex:37;min-width:0;padding:16px 20px;display:flex;flex-direction:column;gap:10px">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments</div>'
-    +   '<div id="cm-mp-moments-col">' + _cmMpMomentsColHtml() + '</div>'
+    + '<div style="flex:40;min-width:0;display:flex;flex-direction:column;overflow:hidden">'
+    +   '<div style="padding:16px 20px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments</div>'
+    +   '<div id="cm-mp-moments-col" style="flex:1;overflow-y:auto">' + _cmMpMomentsColHtml() + '</div>'
     + '</div>'
     + '</div>'
     + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
