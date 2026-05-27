@@ -146,8 +146,8 @@ function _cmTplIcon(name) {
 function _cmDraftCreativesInnerHtml() {
   return '<div style="display:flex;align-items:stretch">'
     // ── Left: Add From Library ──
-    + '<div style="flex:65;min-width:0;padding:20px 24px;border-right:1px solid var(--border);display:flex;flex-direction:column">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">Add From Library</div>'
+    + '<div style="flex:65;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column">'
+    +   '<div style="padding:20px 20px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Add From Library</div>'
     +   _cmLibColHtml()
     + '</div>'
     // ── Right: Upload New Asset ──
@@ -193,7 +193,7 @@ function _cmLibFilteredRows() {
 }
 
 function _cmLibRowsHtml(filtered) {
-  var TD = 'padding:5px 12px;border-bottom:1px solid var(--border);vertical-align:middle';
+  var TD = 'padding:5px 20px;border-bottom:1px solid var(--border);vertical-align:middle';
   return filtered.map(function(cr) {
     var isAdded = _cmDraftCreatives.some(function(d){ return d.libId === cr.id; });
     var cb = '<input type="checkbox"' + (isAdded ? ' checked' : '') + ' onchange="cmLibToggleCreative(\'' + cr.id + '\')" '
@@ -209,28 +209,28 @@ function _cmLibRowsHtml(filtered) {
         }).join('') + '</div>'
       : '<span style="font-size:11px;color:var(--faint)">—</span>';
     return '<tr style="cursor:pointer" onclick="cmLibToggleCreative(\'' + cr.id + '\')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TD + ';width:32px" onclick="event.stopPropagation()">' + cb + '</td>'
-      + '<td style="' + TD + ';width:52px">' + thumb + '</td>'
-      + '<td style="' + TD + '">' + nameCell + '</td>'
+      + '<td style="' + TD + ';width:32px;padding-left:20px;padding-right:8px" onclick="event.stopPropagation()">' + cb + '</td>'
+      + '<td style="' + TD + ';width:52px;padding-left:0">' + thumb + '</td>'
+      + '<td style="' + TD + ';padding-left:10px">' + nameCell + '</td>'
       + '<td style="' + TD + ';width:100px">' + advCell + '</td>'
-      + '<td style="' + TD + ';width:130px">' + tplCell + '</td>'
+      + '<td style="' + TD + ';width:130px;padding-right:20px">' + tplCell + '</td>'
       + '</tr>';
   }).join('');
 }
 
 function _cmLibColHtml() {
   var filtered = _cmLibFilteredRows();
-  var search = '<div style="padding:8px 12px;border-bottom:1px solid var(--border)">'
+  var search = '<div style="padding:8px 20px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('cm-lib-search', 'Search library…', 'cmLibSearch(this.value)', _cmLibSearch||'')
     + '</div>';
   var body = filtered.length
     ? '<div id="cm-lib-table-wrap" style="max-height:277px;overflow-y:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
-      + '<th style="width:32px"></th>'
-      + '<th style="width:52px"></th>'
-      + '<th style="padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Creative</th>'
-      + '<th style="width:100px;padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Advertiser</th>'
-      + '<th style="width:130px;padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Template</th>'
+      + '<th style="width:32px;padding-left:20px;padding-right:8px"></th>'
+      + '<th style="width:52px;padding-left:0"></th>'
+      + '<th style="padding:5px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Creative</th>'
+      + '<th style="width:100px;padding:5px 20px 5px 20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Advertiser</th>'
+      + '<th style="width:130px;padding:5px 20px 5px 20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Template</th>'
       + '</tr></thead>'
       + '<tbody>' + _cmLibRowsHtml(filtered) + '</tbody>'
       + '</table></div>'
