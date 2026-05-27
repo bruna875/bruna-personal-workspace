@@ -192,53 +192,41 @@ function _cmLibFilteredRows() {
   });
 }
 
-function _cmLibRowsHtml(filtered) {
-  var BADGE = 'font-size:9px;font-weight:600;border-radius:4px;padding:2px 6px;border:1px solid;white-space:nowrap';
-  return filtered.map(function(cr) {
-    var isAdded = _cmDraftCreatives.some(function(d){ return d.libId === cr.id; });
-    var mtStyle = cr.mediaType === 'CTV' ? 'color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe'
-                : cr.mediaType === 'Web' ? 'color:#7c3aed;background:#f5f3ff;border-color:#ddd6fe'
-                :                          'color:#0369a1;background:#f0f9ff;border-color:#bae6fd';
-    var TD = 'padding:5px 12px;border-bottom:1px solid var(--border);vertical-align:middle';
-    var cb = '<input type="checkbox"' + (isAdded ? ' checked' : '') + ' onchange="cmLibToggleCreative(\'' + cr.id + '\')" '
-      + 'style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">';
-    var thumb = '<div style="width:44px;height:24px;border-radius:3px;overflow:hidden;background:#e5e7eb">'
-      + '<img src="' + (cr.thumb||'') + '" style="width:100%;height:100%;object-fit:cover;display:block"></div>';
-    var nameCell = '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (cr.name||'—') + '</div>';
-    var advCell  = '<div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (cr.advertiser||'—') + '</div>';
-    var tplsArr  = cr.templates || [];
-    var tplCell  = tplsArr.length
-      ? '<div style="display:flex;flex-wrap:nowrap;gap:3px;overflow:hidden">' + tplsArr.map(function(t) {
-          return '<span style="font-size:9px;font-weight:600;padding:2px 5px;border-radius:4px;background:var(--subtle);color:var(--muted);border:1px solid var(--border);white-space:nowrap;flex-shrink:0">' + t + '</span>';
-        }).join('') + '</div>'
-      : '<span style="font-size:11px;color:var(--faint)">—</span>';
-    return '<tr onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TD + ';width:32px">' + cb + '</td>'
-      + '<td style="' + TD + ';width:52px">' + thumb + '</td>'
-      + '<td style="' + TD + '">' + nameCell + '</td>'
-      + '<td style="' + TD + ';width:100px">' + advCell + '</td>'
-      + '<td style="' + TD + ';width:130px">' + tplCell + '</td>'
-      + '</tr>';
-  }).join('');
-}
-
-function _cmLibTableWrapHtml(filtered) {
-  var rows = _cmLibRowsHtml(filtered);
-  var tableHtml = rows
-    ? UI.tableScroll(_cmLibCols, rows, 'cm-lib-tbody', 0, null, { inCard: true })
-    : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">No results</div>';
-  // Constrain to 5 rows (~44px each) with vertical scroll
-  return tableHtml;
-}
-
 function _cmLibColHtml() {
   var filtered = _cmLibFilteredRows();
-  var search = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+  var search = '<div style="padding:8px 12px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('cm-lib-search', 'Search library…', 'cmLibSearch(this.value)', _cmLibSearch||'')
     + '</div>';
+  var tiles = filtered.length
+    ? filtered.map(function(cr) {
+        var isAdded = _cmDraftCreatives.some(function(d){ return d.libId === cr.id; });
+        var checkIcon = isAdded
+          ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" fill="var(--accent)"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : '<div style="width:14px;height:14px;flex-shrink:0;margin-top:1px"></div>';
+        var thumb = cr.thumb
+          ? '<div style="width:40px;height:24px;border-radius:3px;overflow:hidden;flex-shrink:0;background:#e5e7eb"><img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block"></div>'
+          : '<div style="width:40px;height:24px;border-radius:3px;background:#e5e7eb;flex-shrink:0"></div>';
+        var tplsArr = cr.templates || [];
+        var tplChips = tplsArr.length
+          ? '<span style="color:var(--border-md)">·</span>' + tplsArr.slice(0,2).map(function(t) {
+              return '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:var(--subtle);color:var(--muted);border:1px solid var(--border)">' + t + '</span>';
+            }).join(' ')
+          : '';
+        return '<div onclick="cmLibToggleCreative(\'' + cr.id + '\')" style="background:#fff;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'#fff\'">'
+          + checkIcon
+          + thumb
+          + '<div style="min-width:0;flex:1">'
+          +   '<div style="font-size:12px;font-weight:' + (isAdded ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (cr.name||'—') + '</div>'
+          +   '<div style="font-size:10px;color:var(--muted);margin-top:1px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
+          +     '<span>' + (cr.advertiser||'—') + '</span>' + tplChips
+          +   '</div>'
+          + '</div>'
+          + '</div>';
+      }).join('')
+    : '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">No results</div>';
   return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
     + search
-    + '<div id="cm-lib-table-wrap" style="max-height:277px;overflow-y:auto;overflow-x:auto">' + _cmLibTableWrapHtml(filtered) + '</div>'
+    + '<div id="cm-lib-table-wrap" style="max-height:277px;overflow-y:auto">' + tiles + '</div>'
     + '</div>';
 }
 
@@ -1119,36 +1107,34 @@ function _cmAnalysisFilteredRows() {
   });
 }
 
-function _cmAnalysisRowsHtml(filtered) {
-  var TD = 'padding:5px 12px;border-bottom:1px solid var(--border);vertical-align:middle';
-  return filtered.map(function(a) {
-    var isSel = _cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === a.analysis_id;
-    var cb = '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="cmAnalysisLibToggle(' + a.analysis_id + ')" '
-      + 'style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">';
-    var nameCell = '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.analysis_name || 'Untitled Analysis') + '</div>'
-      + (a.advertiser_name ? '<div style="font-size:10px;color:var(--faint)">' + a.advertiser_name + '</div>' : '');
-    var campCell = '<div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.campaign_name || '—') + '</div>';
-    var date = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—';
-    return '<tr style="cursor:pointer" onclick="cmAnalysisLibToggle(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
-      + '<td style="' + TD + ';width:32px" onclick="event.stopPropagation()">' + cb + '</td>'
-      + '<td style="' + TD + '">' + nameCell + '</td>'
-      + '<td style="' + TD + ';width:100px;font-size:11px;color:var(--muted)">' + date + '</td>'
-      + '</tr>';
-  }).join('');
-}
-
 function _cmMpLibColHtml() {
   var filtered = _cmAnalysisFilteredRows();
-  var search = '<div style="padding:10px 16px;border-bottom:1px solid var(--border)">'
+  var search = '<div style="padding:8px 12px;border-bottom:1px solid var(--border)">'
     + UI.searchBar('cm-mp-lib-search', 'Search analyses…', 'cmMpLibSearch(this.value)', _cmMpLibSearch || '')
     + '</div>';
-  var tableHtml = filtered.length
-    ? UI.tableScroll(_cmAnalysisCols, _cmAnalysisRowsHtml(filtered), 'cm-mp-lib-tbody', 0, null, { inCard: true })
-    : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">No analyses found</div>';
-  return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">'
-    + search
-    + '<div style="max-height:277px;overflow-y:auto;overflow-x:auto">' + tableHtml + '</div>'
-    + '</div>';
+  var tiles = filtered.length
+    ? filtered.map(function(a) {
+        var isSel = _cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === a.analysis_id;
+        var date  = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—';
+        var mpCount = 0;
+        try { var _mp = typeof a.media_plans === 'string' ? JSON.parse(a.media_plans) : a.media_plans; mpCount = Array.isArray(_mp) ? _mp.length : 0; } catch(e){}
+        var checkIcon = isSel
+          ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" fill="var(--accent)"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : '<div style="width:14px;height:14px;flex-shrink:0;margin-top:1px"></div>';
+        return '<div onclick="cmAnalysisLibToggle(' + a.analysis_id + ')" style="background:#fff;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'#fff\'">'
+          + checkIcon
+          + '<div style="min-width:0;flex:1">'
+          +   '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.analysis_name || 'Untitled Analysis') + '</div>'
+          +   '<div style="font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px">'
+          +     (a.advertiser_name ? '<span>' + a.advertiser_name + '</span><span style="color:var(--border-md)">·</span>' : '')
+          +     '<span>' + mpCount + ' plan' + (mpCount !== 1 ? 's' : '') + '</span>'
+          +     '<span style="color:var(--border-md)">·</span><span style="color:var(--faint)">' + date + '</span>'
+          +   '</div>'
+          + '</div>'
+          + '</div>';
+      }).join('')
+    : '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">No analyses found</div>';
+  return search + '<div style="overflow-y:auto;max-height:260px">' + tiles + '</div>';
 }
 
 function _cmMpSelColHtml() {
@@ -1295,13 +1281,13 @@ function _cmMpMomentsColHtml() {
 
 function _cmMpPanelInnerHtml() {
   return '<div style="display:flex;align-items:stretch;min-height:280px">'
-    + '<div style="flex:33;min-width:0;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Analyses</div>'
-    +   '<div id="cm-mp-lib-col">' + _cmMpLibColHtml() + '</div>'
+    + '<div style="flex:33;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">'
+    +   '<div style="padding:12px 16px 0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Analyses</div>'
+    +   '<div id="cm-mp-lib-col" style="flex:1;overflow:hidden">' + _cmMpLibColHtml() + '</div>'
     + '</div>'
-    + '<div style="flex:30;min-width:0;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px">'
-    +   '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Media Plans</div>'
-    +   '<div id="cm-mp-plans-col">' + _cmMpPlansColHtml() + '</div>'
+    + '<div style="flex:30;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">'
+    +   '<div style="padding:12px 16px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Media Plans</div>'
+    +   '<div id="cm-mp-plans-col" style="overflow-y:auto">' + _cmMpPlansColHtml() + '</div>'
     + '</div>'
     + '<div style="flex:40;min-width:0;display:flex;flex-direction:column;overflow:hidden">'
     +   '<div style="padding:16px 20px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments</div>'
