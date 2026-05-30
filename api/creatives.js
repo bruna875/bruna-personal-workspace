@@ -14,6 +14,7 @@ function thumbFromLink(link, type) {
     var m = link.match(/(?:youtube\.com\/embed\/|youtu\.be\/|v=)([A-Za-z0-9_-]{11})/);
     return m ? 'https://img.youtube.com/vi/' + m[1] + '/mqdefault.jpg' : '';
   }
+  if (type === 'radius') return ''; // radius.video has no public thumbnail endpoint
   return '';
 }
 
@@ -52,7 +53,7 @@ export default async function handler(req, res) {
         cr.creative_asset_link,
         cr.creative_asset_type,
         cr.creative_name,
-        cr.template_ids,
+        cr.ad_types_id,
         cr.created_at,
         o.client_name,
         a.advertiser_name,
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
         cr.creative_asset_link,
         cr.creative_asset_type,
         cr.creative_name,
-        cr.template_ids,
+        cr.ad_types_id,
         cr.created_at,
         o.client_name,
         a.advertiser_name,
@@ -96,7 +97,7 @@ export default async function handler(req, res) {
         cr.creative_asset_link,
         cr.creative_asset_type,
         cr.creative_name,
-        cr.template_ids,
+        cr.ad_types_id,
         cr.created_at,
         o.client_name,
         a.advertiser_name,
@@ -108,16 +109,16 @@ export default async function handler(req, res) {
       ORDER BY cr.creative_id
     `;
 
-    // Resolve template names from creative_template_library
-    const allTplIds = [...new Set(rows.flatMap(r => r.template_ids || []))];
-    let tplMap = {}; // template_id → template_name
+    // Resolve ad type names from ad_types (replaces the old creative_template_library)
+    const allTplIds = [...new Set(rows.flatMap(r => r.ad_types_id || []))];
+    let tplMap = {}; // ad_type_id → ad_type_name
     if (allTplIds.length) {
       const tplRows = await sql`
-        SELECT template_id, template_name
-        FROM creative_template_library
-        WHERE template_id = ANY(${allTplIds})
+        SELECT ad_type_id, ad_type_name
+        FROM ad_types
+        WHERE ad_type_id = ANY(${allTplIds})
       `;
-      tplRows.forEach(t => { tplMap[t.template_id] = t.template_name; });
+      tplRows.forEach(t => { tplMap[t.ad_type_id] = t.ad_type_name; });
     }
 
     const creatives = rows.map(r => ({
@@ -131,10 +132,11 @@ export default async function handler(req, res) {
       campaign:    r.campaign_name   || null,
       campaignId:  r.campaign_id    || null,
       fileType:    r.creative_asset_type === 'youtube' ? 'MP4'
+                 : r.creative_asset_type === 'radius'  ? 'MP4'
                  : r.creative_asset_type === 'image'   ? (r.creative_asset_link && r.creative_asset_link.split('?')[0].split('.').pop().toUpperCase()) || 'IMG'
                  : '—',
       mediaType:   r.media_type || null,
-      templates:   (r.template_ids || []).map(id => ({ id, name: tplMap[id] || String(id) })),
+      templates:   (r.ad_types_id || []).map(id => ({ id, name: tplMap[id] || String(id) })),
       date:        fmtDate(r.created_at),
       thumb:       r.creative_preview
                      || thumbFromLink(r.creative_asset_link, r.creative_asset_type)

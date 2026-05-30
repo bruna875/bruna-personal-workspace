@@ -55,6 +55,7 @@ var APP_USERS = [
 var selectedOrgId       = 'kerv';
 var selectedClientOrgId = null;   // numeric DB id of selected client org
 var _appDbOrgs          = [];     // [{dbId, name, type}] loaded from /api/organizations
+var _appDbAdvertisers   = [];     // [{advertiser_id, advertiser_name, client_org_id}] loaded from /api/advertisers
 var selectedAdvId       = 'walmart-adv';
 
 // ── Client org helpers (used by all pages with a Client select) ───────────────
@@ -113,7 +114,7 @@ var NAV_CONFIG = [
     dividerBefore: true,
     items: [
       { id: 'vod-livestream-feeds',      label: 'VoD/Live/OLV Stream',        icon: ico.castconn },
-      { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.merge    },
+      { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.split    },
       { id: 'api-docs',                  label: 'API Documentation',        icon: ico.api      }
     ]
   }
@@ -130,7 +131,7 @@ var PAGES = {
   'media-planner-v2':      renderMediaPlannerV2,
   'moments-builder':       renderMomentsBuilder,
   'campaign-management':   renderCampaignManagement,
-  'build-media-plan':      renderBuildMediaPlan,
+  'build-ad-group':      renderBuildAdGroup,
   'creative-assets':       renderCreativeManagement,
   'creative-studio':       renderCreativeStudio,
   'measurement':           renderMeasurement,
@@ -143,7 +144,9 @@ var PAGES = {
   // ── WIP ──
   'sdt-content-form':      renderSdtContentForm,
   'taxonomy-showcase':     renderTaxonomyShowcase,
-  'media-planner':         renderInventoryExplorerV2
+  'media-planner':         renderInventoryExplorerV2,
+  // ── Experimental ──
+  'campaign-setup-v2':     renderCampaignSetupV2
 };
 
 // ── Nav section collapse state — both sections open by default ──
@@ -221,8 +224,8 @@ function setPage(id, label, noPush) {
         })()
       : id === 'org-management'
         ? '/organization'
-        : id === 'build-media-plan'
-          ? '/campaign-management/draft-campaign/build-media-plan'
+        : id === 'build-ad-group'
+          ? '/campaign-management/draft-campaign/build-ad-group'
           : id === 'media-planner-v2'
             ? '/moments-match'
             : '/' + id;
@@ -239,13 +242,13 @@ function pageFromPath() {
   if (csBuildMatch) return { id: 'creative-studio', label: 'Creative Studio', openEditor: true, csAssetId: csBuildMatch[1] };
   if (path === 'creative-studio/build-template') return { id: 'creative-studio', label: 'Creative Studio', openEditor: true };
   if (path === 'creative-studio/creative-library') return { id: 'creative-studio', label: 'Creative Studio', openLibrary: true };
-  if (path === 'campaign-management/draft-campaign/build-media-plan') return { id: 'build-media-plan', label: 'Build Media Plan' };
+  if (path === 'campaign-management/draft-campaign/build-ad-group') return { id: 'build-ad-group', label: 'Build Moments Group' };
   var cmDetailMatch = path.match(/^campaign-management\/(draft-campaign|pacing-campaign)\/(.+)$/);
   if (cmDetailMatch) return { id: 'campaign-management', label: 'Campaign Management', cmCampaignId: cmDetailMatch[2] };
   if (path === 'campaign-management/draft-campaign' || path === 'campaign-management/pacing-campaign') return { id: 'campaign-management', label: 'Campaign Management' };
-  var mp2PlanMatch = path.match(/^media-planner-v2\/media-plans\/(.+)$/);
-  if (mp2PlanMatch) return { id: 'media-planner-v2', label: 'Moments Match', mp2PlanId: mp2PlanMatch[1] };
-  if (path === 'media-planner-v2/media-plans')       return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'plans' };
+  var mp2PlanMatch = path.match(/^media-planner-v2\/ad-groups\/(.+)$/);
+  if (mp2PlanMatch) return { id: 'media-planner-v2', label: 'Moments Match', mp2AdGroupId: mp2PlanMatch[1] };
+  if (path === 'media-planner-v2/ad-groups')       return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'plans' };
   if (path === 'media-planner-v2/previous-analysis') return { id: 'media-planner-v2', label: 'Moments Match', mp2Tab: 'analyses' };
   if (path === 'media-planner-v2/analysis') return { id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis' };
   // ── moments-match URL patterns ──
@@ -278,7 +281,7 @@ function pageFromPath() {
     'olv-analysis':          'OLV Analysis',
     'pods-explorer':    'Inventory Explorer',
     'campaign-management':   'Campaign Management',
-    'build-media-plan':      'Build Media Plan',
+    'build-ad-group':      'Build Moments Group',
     'moments-builder':       'Custom Moments Builder',
     'creative-assets':       'Creative Management',
     'creative-studio':       'Creative Studio',
@@ -286,7 +289,8 @@ function pageFromPath() {
     'dsp-ssp':                   'DSP / SSP Connections',
     'vod-livestream-feeds':      'VoD/Live/OLV Stream',
     'api-docs':                  'API Documentation',
-    'moments-match':             'Moments Match'
+    'moments-match':             'Moments Match',
+    'campaign-setup-v2':         'Campaign Setup V2'
   };
   if (directLabels[base]) return { id: base, label: directLabels[base] };
   var found = null;
@@ -303,7 +307,7 @@ window.addEventListener('popstate', function(e) {
   // Close editor overlay on browser back
   var overlay = document.getElementById('cs-editor-overlay');
   if (overlay) { overlay.remove(); return; }
-  // Close Build Media Plan overlay on browser back
+  // Close Build Moments Group overlay on browser back
   var bmpOverlay = document.getElementById('cm-bmp-overlay');
   if (bmpOverlay) { bmpOverlay.remove(); return; }
   // Restore campaign detail page
@@ -320,12 +324,12 @@ window.addEventListener('popstate', function(e) {
     return;
   }
   // Media planner plan detail
-  if (e.state && e.state.mp2PlanId) {
+  if (e.state && e.state.mp2AdGroupId) {
     setPage('media-planner-v2', 'Moments Match', true);
-    setTimeout(function() { mp2OpenPlanById(e.state.mp2PlanId, true); }, 80);
+    setTimeout(function() { mp2OpenPlanById(e.state.mp2AdGroupId, true); }, 80);
     return;
   }
-  // Media planner tab (media-plans / previous-analysis)
+  // Media planner tab (ad-groups / previous-analysis)
   if (e.state && e.state.mp2Tab) {
     mp2HomeTab = e.state.mp2Tab; // set before render so correct tab is shown
     setPage('media-planner-v2', 'Moments Match', true);
@@ -431,8 +435,8 @@ var aiTyping = false;
 
 var AI_RESPONSES = [
   { k: ['campaign', 'perform'], r: 'Across all active campaigns, your overall CTR is sitting at 2.4% — up 0.3pp week-over-week. The Walmart Summer Launch is your top performer at 3.1% CTR with 12.4M impressions delivered so far.' },
-  { k: ['moment', 'engag', 'top'], r: 'Your highest-engagement moments this week are from the Paramount AUS library: cooking segments (+38% avg attention vs benchmark), sports highlights (+27%), and live event recaps (+22%). Want me to surface these in the Media Planner?' },
-  { k: ['media plan', 'walmart', 'build'], r: 'To build a plan for Walmart, I\'d recommend targeting cooking, home improvement, and family entertainment moments across Paramount AUS and Disney. Estimated reach: 4.2M uniques. Shall I draft a full plan in the Media Planner?' },
+  { k: ['moment', 'engag', 'top'], r: 'Your highest-engagement moments this week are from the Paramount AUS library: cooking segments (+38% avg attention vs benchmark), sports highlights (+27%), and live event recaps (+22%). Want me to surface these in the Moments Match?' },
+  { k: ['Moments Group', 'walmart', 'build'], r: 'To build a plan for Walmart, I\'d recommend targeting cooking, home improvement, and family entertainment moments across Paramount AUS and Disney. Estimated reach: 4.2M uniques. Shall I draft a full plan in the Moments Match?' },
   { k: ['q3', 'invent', 'avail'], r: 'Q3 pods looks strong. Paramount AUS has ~18M available impressions, Disney ~11M. Premium slots (live events, sports) are filling fast — roughly 62% already committed. I\'d recommend locking in now for key programming windows.' },
   { k: ['hello', 'hi', 'hey'], r: 'Hi there! Ready to help. You can ask me about campaign performance, pods insights, audience moments, or anything else on the platform.' }
 ];
@@ -768,7 +772,7 @@ function selectOrg(id) {
       'olv-analysis':          'OLV Analysis',
       'pods-explorer':    'Inventory Explorer',
       'campaign-management':   'Campaign Management',
-      'build-media-plan':      'Build Media Plan',
+      'build-ad-group':      'Build Moments Group',
       'creative-studio':       'Creative Studio',
       'moments-builder':       'Custom Moments Builder',
       'media-planner-v2':      'Moments Match',
@@ -824,11 +828,15 @@ function login() {
         if (typeEl) typeEl.textContent = kerv.type || '';
       }
     }).catch(function() { /* keep hardcoded fallback */ });
+    // Load advertisers from DB (used by campaign forms)
+    fetch('/api/advertisers').then(function(r){ return r.json(); }).then(function(d) {
+      _appDbAdvertisers = d.advertisers || [];
+    }).catch(function() { /* keep empty */ });
     if (startItem.openEditor)    { setTimeout(function() { csBuildTemplates(0, startItem.csAssetId); }, 80); }
     if (startItem.openLibrary)   { setTimeout(function() { csSwitchTab('library'); }, 80); }
     if (startItem.cmCampaignId)  { setTimeout(function() { cmOpenDetail(startItem.cmCampaignId, true); }, 80); }
     if (startItem.mp2Tab)        { setTimeout(function() { mp2SwitchHomeTab(startItem.mp2Tab); }, 80); }
-    if (startItem.mp2PlanId)     { setTimeout(function() { mp2OpenPlanById(startItem.mp2PlanId, true); }, 80); }
+    if (startItem.mp2AdGroupId)     { setTimeout(function() { mp2OpenPlanById(startItem.mp2AdGroupId, true); }, 80); }
   } else {
     document.getElementById('err').textContent = 'Invalid credentials.';
   }

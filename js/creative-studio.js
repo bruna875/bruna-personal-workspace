@@ -11,6 +11,8 @@ var csSelectedCampaign   = null;
 var csCampaignName       = '';
 var csEditorAssets       = [];
 var csBuildSelectedAsset = 0;
+var csRcTab              = 0;   // 0 = Ad Types, 1 = Add Template
+var _csPendingAssets     = null; // pre-set by external callers before setPage; consumed by renderCreativeStudio
 
 var CS_PRODUCT_CATALOGS = ['Walmart Grocery', 'Walmart Electronics', 'Walmart Home & Garden', 'Back to School Collection'];
 
@@ -612,7 +614,10 @@ function csEditorTooltip(btn, text, show) {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 function renderCreativeStudio() {
-  csStep = 1; CS_UPLOADED_ASSETS = []; csCampaignMode = 'select';
+  csStep = 1; csCampaignMode = 'select';
+  // Consume pending assets pre-set by external callers (e.g. campaign preview eye icon)
+  CS_UPLOADED_ASSETS = (_csPendingAssets && _csPendingAssets.length) ? _csPendingAssets : [];
+  _csPendingAssets = null;
   csSelectedCampaign = null; csCampaignName = '';
   var tabs = [{id:'new',label:'New Creative'},{id:'library',label:'Creative Library',dividerBefore:true}];
   setTimeout(function() { csRenderContent('new'); }, 0);
@@ -634,6 +639,8 @@ function csRenderContent(tab) {
   var outer = document.getElementById('cs-outer');
   if (outer) outer.style.padding = tab === 'library' ? '0' : '32px';
   if (tab === 'library') { csRenderLibrary(); setTimeout(csLoadLibraryFromDB, 0); return; }
+  // If assets were pre-loaded by an external caller (e.g. campaign preview), skip reset and go straight to builder
+  if (CS_UPLOADED_ASSETS.length) { csBuildTemplates(0); return; }
   csStep = 1; CS_UPLOADED_ASSETS = [];
   csRenderNewCreative();
 }
@@ -771,21 +778,25 @@ function _csEditorHtml() {
     + '</div>';
 
   // ── Center — player + timeline ──
+  // Detect asset type to choose the right player
+  var isRadiusAsset = sel && sel.assetType === 'radius';
   // Extract YouTube video ID from asset src if available, fall back to hardcoded demo
   var _ytId = CS_TEMPLATE_YT_ID;
-  if (sel && sel.src) {
+  if (!isRadiusAsset && sel && sel.src) {
     var _ytMatch = sel.src.match(/(?:youtube\.com\/embed\/|youtu\.be\/|v=)([A-Za-z0-9_-]{11})/);
     if (_ytMatch) _ytId = _ytMatch[1];
   }
-  var ytThumb = 'https://img.youtube.com/vi/' + _ytId + '/mqdefault.jpg';
+  var ytThumb = isRadiusAsset ? '' : 'https://img.youtube.com/vi/' + _ytId + '/mqdefault.jpg';
   var scenes = '';
   for (var i = 0; i < 14; i++) {
     var secs = i * 3;
     var tLabel = Math.floor(secs/60) + ':' + (secs%60 < 10 ? '0' : '') + (secs%60);
     var isActive = i === 2;
     scenes += '<div style="flex:1;min-width:0;cursor:pointer;border-radius:4px;overflow:hidden;border:1.5px solid ' + (isActive ? '#e11d8f' : 'rgba(255,255,255,.06)') + '" onmouseover="this.style.borderColor=\'rgba(255,255,255,.22)\'" onmouseout="this.style.borderColor=\'' + (isActive ? '#e11d8f' : 'rgba(255,255,255,.06)') + '\'">'
-      + '<div style="height:36px;overflow:hidden;background:#000">'
-      +   '<img src="' + ytThumb + '" style="width:100%;height:100%;object-fit:cover;display:block;opacity:.75">'
+      + '<div style="height:36px;overflow:hidden;background:#0d1117;display:flex;align-items:center;justify-content:center">'
+      + (ytThumb
+        ? '<img src="' + ytThumb + '" style="width:100%;height:100%;object-fit:cover;display:block;opacity:.75">'
+        : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>')
       + '</div>'
       + '<div style="padding:2px 4px;background:#1c2128;font-size:8px;font-weight:600;color:' + (isActive ? '#e11d8f' : '#484f58') + ';text-align:center;font-variant-numeric:tabular-nums">' + tLabel + '</div>'
       + '</div>';
@@ -795,9 +806,12 @@ function _csEditorHtml() {
   var playerInnerHtml = isImageAsset
     ? '<img src="' + (sel.src || sel.thumb) + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block">'
       + '<div id="cs-player-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:1"></div>'
-    : '<iframe src="https://www.youtube.com/embed/' + _ytId + '?autoplay=1&mute=1&modestbranding=1&rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>'
-      + '<div id="cs-yt-title-cover" style="position:absolute;top:0;left:0;right:0;height:22%;background:linear-gradient(to bottom,#000 0%,rgba(0,0,0,.7) 60%,transparent 100%);pointer-events:none;z-index:2;transition:opacity 1s ease;opacity:1"></div>'
-      + '<div id="cs-player-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div>';
+    : isRadiusAsset
+      ? '<iframe src="' + (sel.src || '') + '" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>'
+        + '<div id="cs-player-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div>'
+      : '<iframe src="https://www.youtube.com/embed/' + _ytId + '?autoplay=1&mute=1&modestbranding=1&rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>'
+        + '<div id="cs-yt-title-cover" style="position:absolute;top:0;left:0;right:0;height:22%;background:linear-gradient(to bottom,#000 0%,rgba(0,0,0,.7) 60%,transparent 100%);pointer-events:none;z-index:2;transition:opacity 1s ease;opacity:1"></div>'
+        + '<div id="cs-player-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div>';
 
   var timelineHtml = isImageAsset ? '' :
     '<div style="height:58px;background:#161b22;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:stretch;padding:6px 8px;flex-shrink:0;gap:3px">'
@@ -816,21 +830,39 @@ function _csEditorHtml() {
     + timelineHtml
     + '</div>';
 
-  var rcNavIcons = [
-    { label: 'Add Templates', svg: '<path d="M3 3h8v8H3z"/><path d="M13 3h8v5h-8z"/><path d="M13 11h8v10h-8z"/><path d="M3 14h8v9H3z"/>' },
-    { label: 'Tags',          svg: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>' },
+  // Top bar icons: Ad Types + grid-2x2-plus (Lucide)
+  var rcNavIconsTop = [
+    { label: 'Ad Types',     svg: '<path d="M3 3h8v8H3z"/><path d="M13 3h8v5h-8z"/><path d="M13 11h8v10h-8z"/><path d="M3 14h8v9H3z"/>' },
+    { label: 'Add Template', svg: '<rect width="7" height="7" x="2" y="2" rx="1"/><rect width="7" height="7" x="15" y="2" rx="1"/><rect width="7" height="7" x="2" y="15" rx="1"/><path d="M18.5 15v7M15 18.5h7"/>' },
   ];
+  // Bottom bar icons: Element 1, Element 2, Link (qr-code), Tags
+  var rcNavIconsBottom = [
+    { label: 'Element 1', svg: '<rect width="18" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>' },
+    { label: 'Element 2', svg: '<rect width="18" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>' },
+    { label: 'Link',      svg: '<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/>' },
+    { label: 'Tags',      svg: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>' },
+  ];
+  function _rcNavBtns(icons, cls, withTabSwitch, onClickFn) {
+    return icons.map(function(ic, i) {
+      var active = i === csRcTab;
+      var tabCall   = withTabSwitch ? 'csRcSetTab(' + i + ');' : '';
+      var extraCall = onClickFn    ? onClickFn + '(' + i + ');' : '';
+      return '<button onclick="' + tabCall + extraCall + 'this.parentNode.querySelectorAll(\'.' + cls + '\').forEach(function(b){b.style.background=\'none\';b.style.color=\'#484f58\'});this.style.background=\'rgba(255,255,255,.07)\';this.style.color=\'#c9d1d9\'" '
+        + 'class="' + cls + '" '
+        + 'style="width:34px;height:30px;border:none;border-radius:6px;background:' + (active ? 'rgba(255,255,255,.07)' : 'none') + ';color:' + (active ? '#c9d1d9' : '#484f58') + ';cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s" '
+        + 'onmouseover="csEditorTooltip(this,\'' + ic.label + '\',true)" '
+        + 'onmouseout="csEditorTooltip(this,\'\',false)">'
+        +   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ic.svg + '</svg>'
+        + '</button>';
+    }).join('');
+  }
+  // Top icon bar — with tab switching
   var rcNav = '<div style="display:flex;align-items:center;gap:2px;border-bottom:1px solid rgba(255,255,255,.06);margin:-14px -16px 14px;padding:8px 10px">'
-    + rcNavIcons.map(function(ic, i) {
-        var active = i === 0;
-        return '<button onclick="this.parentNode.querySelectorAll(\'.rc-nav-btn\').forEach(function(b){b.style.background=\'none\';b.style.color=\'#484f58\'});this.style.background=\'rgba(255,255,255,.07)\';this.style.color=\'#c9d1d9\'" '
-          + 'class="rc-nav-btn" '
-          + 'style="width:34px;height:30px;border:none;border-radius:6px;background:' + (active ? 'rgba(255,255,255,.07)' : 'none') + ';color:' + (active ? '#c9d1d9' : '#484f58') + ';cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s" '
-          + 'onmouseover="csEditorTooltip(this,\'' + ic.label + '\',true)" '
-          + 'onmouseout="csEditorTooltip(this,\'\',false)">'
-          +   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ic.svg + '</svg>'
-          + '</button>';
-      }).join('')
+    + _rcNavBtns(rcNavIconsTop, 'rc-nav-btn', true)
+    + '</div>';
+  // Bottom icon bar (inside tab 1, no tab switching, context-aware click)
+  var rcNav2 = '<div style="display:flex;align-items:center;gap:2px;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);margin:0 -16px 14px;padding:8px 10px">'
+    + _rcNavBtns(rcNavIconsBottom, 'rc-nav-btn2', false, 'csRcNav2Click')
     + '</div>';
 
   var SEP    = '<div style="height:1px;background:rgba(255,255,255,.06);margin:14px 0"></div>';
@@ -843,21 +875,24 @@ function _csEditorHtml() {
     // ── Scrollable content
     + '<div style="flex:1;overflow-y:auto;padding:14px 16px">'
     +   rcNav
-    // Asset name + pencil
+    // Asset name + pencil — always visible
     +   '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
     +     '<div id="cs-asset-name" style="font-size:12px;font-weight:600;color:#e6edf3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + (sel ? sel.name : '—') + '</div>'
     +     PENCIL
     +   '</div>'
-    // Type (subtle)
-    +   '<div style="font-size:10px;color:#6e7681">Type: <span style="color:#8b949e;font-weight:500">' + (sel ? sel.type : '—') + '</span></div>'
-    +   SEP
-    // Add Templates section
-    +   '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#484f58;margin-bottom:8px">Template Added</div>'
-    +   '<div id="cs-saved-tpl-section">' + _csSavedTplSectionHtml() + '</div>'
-    +   SEP
-    +   _csDarkSelect('cs-ds-mediatype',  'Media Type',  ['CTV', 'Web', 'Mobile'], '— select —')
-    +   _csDarkSelect('cs-ds-adtemplate', 'Ad Template', ['CTV - Sync', 'CTV - Sync Impulse', 'CTV - Sync LBAR', 'CTV - Pause Ad', 'CTV - Organic Pause', 'CTV - CTA Pause'], '— select —')
-    +   '<div id="cs-template-config" style="margin-top:4px"></div>'
+    // ── Tab 0: Ad Types — Template Added
+    +   '<div id="cs-rc-tab0" style="display:' + (csRcTab === 0 ? 'block' : 'none') + '">'
+    +     SEP
+    +     '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#484f58;margin-bottom:8px">Template Added</div>'
+    +     '<div id="cs-saved-tpl-section">' + _csSavedTplSectionHtml() + '</div>'
+    +   '</div>'
+    // ── Tab 1: Add Template — second icon bar + Media Type + Ad Template
+    +   '<div id="cs-rc-tab1" style="display:' + (csRcTab === 1 ? 'block' : 'none') + '">'
+    +     _csDarkSelect('cs-ds-mediatype',  'Media Type',  ['CTV', 'Web', 'Mobile'], '— select —')
+    +     _csDarkSelect('cs-ds-adtemplate', 'Ad Template', ['CTV - Sync', 'CTV - Sync Impulse', 'CTV - Sync LBAR', 'CTV - Pause Ad', 'CTV - Organic Pause', 'CTV - CTA Pause'], '— select —')
+    +     rcNav2
+    +     '<div id="cs-template-config" style="margin-top:4px"></div>'
+    +   '</div>'
     + '</div>'
     // ── Sticky Save footer (hidden until template selected)
     + '<div id="cs-rc-save-footer" style="display:none;flex-shrink:0;padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)">'
@@ -895,11 +930,11 @@ function csEditorSelectAsset(idx) {
 function csBackToStepper() {
   var overlay = document.getElementById('cs-editor-overlay');
   if (overlay) overlay.remove();
-  // If opened from Media Planner "Add Template", close without saving — restore URL
+  // If opened from Moments Match "Add Template", close without saving — restore URL
   if (window._mp2AddTemplateCreativeId) {
     window._mp2AddTemplateCreativeId = null;
     var retUrl   = window._mp2TemplateReturnUrl   || '/media-planner-v2';
-    var retState = window._mp2TemplateReturnState || { id: 'media-planner-v2', label: 'Media Planner' };
+    var retState = window._mp2TemplateReturnState || { id: 'media-planner-v2', label: 'Moments Match' };
     window._mp2TemplateReturnUrl   = null;
     window._mp2TemplateReturnState = null;
     history.replaceState(retState, '', retUrl);
@@ -928,6 +963,28 @@ function csLeftPanelSetTab(n) {
   csLeftPanelTab = n;
   var leftCol = document.getElementById('cs-left-col');
   if (leftCol) leftCol.innerHTML = _csLeftAssetsHtml();
+}
+
+function csRcSetTab(n) {
+  csRcTab = n;
+  var t0 = document.getElementById('cs-rc-tab0');
+  var t1 = document.getElementById('cs-rc-tab1');
+  if (t0) t0.style.display = n === 0 ? 'block' : 'none';
+  if (t1) t1.style.display = n === 1 ? 'block' : 'none';
+  document.querySelectorAll('.rc-nav-btn').forEach(function(b, i) {
+    b.style.background = i === n ? 'rgba(255,255,255,.07)' : 'none';
+    b.style.color      = i === n ? '#c9d1d9' : '#484f58';
+  });
+}
+
+// Bottom icon bar click handler — context-aware per template type
+// i: 0=Element1, 1=Element2, 2=Link, 3=Tags
+function csRcNav2Click(i) {
+  if (csEditorTemplateType === 'lbar') {
+    // Map icons to L-Bar cards: Element1→1 (Badge+QR), Element2→2 (Squeeze In), Link→3 (QR Link)
+    var lbarMap = { 0: 1, 1: 2, 2: 3 };
+    if (lbarMap[i] !== undefined) csLBarSetActiveElement(lbarMap[i]);
+  }
 }
 
 // ── Brand Guidelines panel ────────────────────────────────────────────────────
@@ -1368,7 +1425,7 @@ function csEditorSave() {
   var overlay = document.getElementById('cs-editor-overlay');
   if (overlay) overlay.remove();
 
-  // If opened from Media Planner "Add Template", sync templates back
+  // If opened from Moments Match "Add Template", sync templates back
   if (window._mp2AddTemplateCreativeId) {
     window._mp2AddTemplateCreativeId = null;
     csEditorAssets.forEach(function(asset) {
@@ -1376,7 +1433,7 @@ function csEditorSave() {
       if (cr) cr.templates = (asset.templates || []).slice();
     });
     var retUrl   = window._mp2TemplateReturnUrl   || '/media-planner-v2';
-    var retState = window._mp2TemplateReturnState || { id: 'media-planner-v2', label: 'Media Planner' };
+    var retState = window._mp2TemplateReturnState || { id: 'media-planner-v2', label: 'Moments Match' };
     window._mp2TemplateReturnUrl   = null;
     window._mp2TemplateReturnState = null;
     history.replaceState(retState, '', retUrl);
@@ -1684,8 +1741,12 @@ function csRenderLibrary() {
 
     var client = '<td style="' + TD + ';font-size:12px;color:var(--muted)">' + (cr.client||'—') + '</td>';
 
-    var camp = '<td style="' + TD + ';font-size:12px;color:' + (cr.campaign ? 'var(--text)' : 'var(--faint)') + '">'
-      + (cr.campaign || '—') + '</td>';
+    var crIdSafe0 = cr.id.replace(/'/g, "\\'");
+    var camp = '<td style="' + TD + ';font-size:12px" onclick="event.stopPropagation()">'
+      + (cr.campaign
+          ? '<span style="color:var(--text)">' + cr.campaign + '</span>'
+          : '<button onclick="event.stopPropagation()" style="border:none;background:none;padding:0;cursor:pointer;font-size:11px;font-weight:500;color:var(--accent);font-family:inherit;white-space:nowrap;transition:opacity .12s" onmouseover="this.style.opacity=\'.7\'" onmouseout="this.style.opacity=\'1\'">+ Add Campaign</button>')
+      + '</td>';
 
     var mtStyle = cr.mediaType === 'CTV' ? 'color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe'
                 : cr.mediaType === 'Web' ? 'color:#7c3aed;background:#f5f3ff;border-color:#ddd6fe'
@@ -1694,16 +1755,15 @@ function csRenderLibrary() {
 
     var tpls = (cr.templates && cr.templates.length)
       ? cr.templates.map(function(t) {
-          return '<span style="' + BADGE + ';color:#e11d8f;background:#fdf2f8;border-color:#f9a8d4;margin-right:3px">' + t + '</span>';
+          return '<span style="' + BADGE + ';color:#e11d8f;background:#fdf2f8;border-color:#f9a8d4;margin-right:3px">' + (t.name || t) + '</span>';
         }).join('')
       : '<span style="font-size:11px;color:var(--faint)">—</span>';
     var tpl = '<td style="' + TD + '">' + tpls + '</td>';
 
     var date = '<td style="' + TD + ';color:var(--muted);font-size:11px">' + (cr.date||'—') + '</td>';
 
-    var crIdSafe = cr.id.replace(/'/g, "\\'");
+    var crIdSafe = crIdSafe0;
     var actions = '<td style="' + TD + ';padding-right:8px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">'
-      + (!cr.campaign ? iconBtn('<path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3"/><path d="m13 13 3 3-3 3"/><path d="M16 16H9a3 3 0 0 1 0-6h8"/>', 'Associate to a Campaign') : '')
       + iconBtn('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>', 'Delete', 'csDeleteCreative(\'' + crIdSafe + '\')')
       + '</td>';
 

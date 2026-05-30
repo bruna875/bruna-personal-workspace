@@ -12,12 +12,11 @@ export default async function handler(req, res) {
   // ── GET ──────────────────────────────────────────────────────────────────────
   if (req.method === 'GET') {
     try {
-      const { analysis_id, campaign_id, client_org_id, advertiser_id, creative_id } = req.query;
-
+      const { moments_match_analysis_id, campaign_id, client_org_id, advertiser_id, creative_id } = req.query;
       const conditions = [];
       const params     = [];
 
-      if (analysis_id)   { conditions.push(`mm.analysis_id   = $${params.length + 1}`); params.push(parseInt(analysis_id));   }
+      if (moments_match_analysis_id) { conditions.push(`mm.moments_match_analysis_id = $${params.length + 1}`); params.push(parseInt(moments_match_analysis_id)); }
       if (campaign_id)   { conditions.push(`mm.campaign_id   = $${params.length + 1}`); params.push(parseInt(campaign_id));   }
       if (client_org_id) { conditions.push(`mm.client_org_id = $${params.length + 1}`); params.push(parseInt(client_org_id)); }
       if (advertiser_id) { conditions.push(`mm.advertiser_id = $${params.length + 1}`); params.push(parseInt(advertiser_id)); }
@@ -27,32 +26,37 @@ export default async function handler(req, res) {
 
       const query = `
         SELECT
-          mm.analysis_id,
-          mm.analysis_name,
+          mm.moments_match_analysis_id,
+          mm.moments_match_analysis_name,
           mm.campaign_id,
           mm.client_org_id,
           mm.advertiser_id,
           mm.creative_id,
           mm.creative_ids,
-          mm.asset_type,
           mm.lookback_window,
           mm.moments,
-          mm.media_plans,
+          mm.moments_groups,
           mm.brief,
           mm.doc,
           mm.created_by,
           mm.created_at,
-          c.campaign_name,
-          c.status AS campaign_status,
-          COALESCE(o.client_name,  o2.client_name)      AS client_name,
-          COALESCE(a.advertiser_name, a2.advertiser_name) AS advertiser_name,
+          -- Prefer the direct campaign_id link; fall back to reverse-lookup via
+          -- campaigns.moments_match_analysis_id for rows linked before the back-write was added.
+          COALESCE(c.campaign_name,  c2.campaign_name)  AS campaign_name,
+          COALESCE(c.status,         c2.status)         AS campaign_status,
+          COALESCE(o.client_name,  o2.client_name,  o3.client_name)      AS client_name,
+          COALESCE(a.advertiser_name, a2.advertiser_name, a3.advertiser_name) AS advertiser_name,
           cr.creative_name
         FROM moments_match mm
         LEFT JOIN campaigns            c  ON mm.campaign_id   = c.campaign_id
+        -- Reverse-lookup: campaign that has analysis_id pointing to this row
+        LEFT JOIN campaigns            c2 ON c2.moments_match_analysis_id = mm.moments_match_analysis_id AND mm.campaign_id IS NULL
         LEFT JOIN advertisers          a  ON mm.advertiser_id = a.advertiser_id
         LEFT JOIN advertisers          a2 ON c.advertiser_id  = a2.advertiser_id
+        LEFT JOIN advertisers          a3 ON c2.advertiser_id = a3.advertiser_id
         LEFT JOIN client_organizations o  ON mm.client_org_id = o.client_org_id
         LEFT JOIN client_organizations o2 ON c.client_org_id  = o2.client_org_id
+        LEFT JOIN client_organizations o3 ON c2.client_org_id = o3.client_org_id
         LEFT JOIN creatives            cr ON mm.creative_id   = cr.creative_id
         ${where}
         ORDER BY mm.created_at DESC
@@ -70,18 +74,17 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const {
-        analysis_name, campaign_id, client_org_id, advertiser_id,
+        moments_match_analysis_name, campaign_id, client_org_id, advertiser_id,
         creative_id, creative_ids, created_by,
-        lookback_window, moments, asset_type, brief, doc,
+        lookback_window, moments, creative_asset_type, brief, doc,
       } = req.body || {};
-
       const result = await sql`
         INSERT INTO moments_match
-          (analysis_name, campaign_id, client_org_id, advertiser_id,
+          (moments_match_analysis_name, campaign_id, client_org_id, advertiser_id,
            creative_id, creative_ids, created_by,
-           lookback_window, moments, asset_type, brief, doc)
+           lookback_window, moments, creative_asset_type, brief, doc)
         VALUES (
-          ${analysis_name      ? String(analysis_name)              : null},
+          ${moments_match_analysis_name ? String(moments_match_analysis_name) : null},
           ${campaign_id        ? parseInt(campaign_id)              : null},
           ${client_org_id      ? parseInt(client_org_id)            : null},
           ${advertiser_id      ? parseInt(advertiser_id)            : null},
@@ -90,43 +93,43 @@ export default async function handler(req, res) {
           ${created_by         ? String(created_by)                 : null},
           ${lookback_window    ? parseInt(lookback_window)          : null},
           ${moments            !== undefined ? JSON.stringify(moments) : null},
-          ${asset_type         ? String(asset_type)                 : null},
+          ${creative_asset_type         ? String(creative_asset_type)                 : null},
           ${brief              ? String(brief)                      : null},
           ${doc                ? String(doc)                        : null}
         )
-        RETURNING analysis_id, created_at
+        RETURNING moments_match_analysis_id, created_at
       `;
 
-      return res.status(201).json({ ok: true, analysis_id: result[0].analysis_id, created_at: result[0].created_at });
+      return res.status(201).json({ ok: true, moments_match_analysis_id: result[0].moments_match_analysis_id, created_at: result[0].created_at });
     } catch (err) {
       console.error('moments-match POST error:', err);
       return res.status(500).json({ error: err.message });
     }
   }
 
-  // ── PATCH — update fields (including media_plans JSONB) ───────────────────────
+  // ── PATCH — update fields (including ad_groups JSONB) ───────────────────────
   if (req.method === 'PATCH') {
     try {
-      const { analysis_id } = req.query;
-      if (!analysis_id) return res.status(400).json({ error: 'Missing analysis_id' });
+      const { moments_match_analysis_id } = req.query;
+      if (!moments_match_analysis_id) return res.status(400).json({ error: 'Missing moments_match_analysis_id' });
 
-      const { moments, media_plans, analysis_name, brief, doc } = req.body || {};
-      const aid = parseInt(analysis_id);
+      const { moments, moments_groups, moments_match_analysis_name, brief, doc } = req.body || {};
+      const aid = parseInt(moments_match_analysis_id);
 
       if (moments !== undefined) {
-        await sql`UPDATE moments_match SET moments = ${JSON.stringify(moments)}::jsonb WHERE analysis_id = ${aid}`;
+        await sql`UPDATE moments_match SET moments = ${JSON.stringify(moments)}::jsonb WHERE moments_match_analysis_id = ${aid}`;
       }
-      if (media_plans !== undefined) {
-        await sql`UPDATE moments_match SET media_plans = ${JSON.stringify(media_plans)}::jsonb WHERE analysis_id = ${aid}`;
+      if (moments_groups !== undefined) {
+        await sql`UPDATE moments_match SET moments_groups = ${JSON.stringify(moments_groups)}::jsonb WHERE moments_match_analysis_id = ${aid}`;
       }
-      if (analysis_name !== undefined) {
-        await sql`UPDATE moments_match SET analysis_name = ${String(analysis_name)} WHERE analysis_id = ${aid}`;
+      if (moments_match_analysis_name !== undefined) {
+        await sql`UPDATE moments_match SET moments_match_analysis_name = ${String(moments_match_analysis_name)} WHERE moments_match_analysis_id = ${aid}`;
       }
       if (brief !== undefined) {
-        await sql`UPDATE moments_match SET brief = ${String(brief)} WHERE analysis_id = ${aid}`;
+        await sql`UPDATE moments_match SET brief = ${String(brief)} WHERE moments_match_analysis_id = ${aid}`;
       }
       if (doc !== undefined) {
-        await sql`UPDATE moments_match SET doc = ${String(doc)} WHERE analysis_id = ${aid}`;
+        await sql`UPDATE moments_match SET doc = ${String(doc)} WHERE moments_match_analysis_id = ${aid}`;
       }
 
       return res.status(200).json({ ok: true });
@@ -139,10 +142,10 @@ export default async function handler(req, res) {
   // ── DELETE ────────────────────────────────────────────────────────────────────
   if (req.method === 'DELETE') {
     try {
-      const { analysis_id } = req.query;
-      if (!analysis_id) return res.status(400).json({ error: 'Missing analysis_id' });
+      const { moments_match_analysis_id } = req.query;
+      if (!moments_match_analysis_id) return res.status(400).json({ error: 'Missing moments_match_analysis_id' });
 
-      await sql`DELETE FROM moments_match WHERE analysis_id = ${parseInt(analysis_id)}`;
+      await sql`DELETE FROM moments_match WHERE moments_match_analysis_id = ${parseInt(moments_match_analysis_id)}`;
       return res.status(200).json({ ok: true });
     } catch (err) {
       console.error('moments-match DELETE error:', err);

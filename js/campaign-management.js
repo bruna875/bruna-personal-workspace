@@ -38,30 +38,75 @@ function cmLoadFromDB() {
 }
 
 function cmDeleteCampaign(dbId, btn) {
-  if (!confirm('Delete this campaign? This action cannot be undone.')) return;
-  var row = btn ? btn.closest('tr') : null;
-  fetch('/api/campaigns?campaign_id=' + dbId, { method: 'DELETE' })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.ok) { alert('Delete failed: ' + (data.error || 'unknown error')); return; }
-      CM_CAMPAIGNS = CM_CAMPAIGNS.filter(function(c) { return String(c.dbId) !== String(dbId); });
-      if (row) {
-        row.style.transition = 'opacity 0.2s';
-        row.style.opacity = '0';
-        setTimeout(function() {
+  var c = (CM_CAMPAIGNS || []).find(function(x) { return String(x.dbId) === String(dbId); });
+  var crCount  = c ? (c.creatives     || 0) : 0;
+  var mpCount  = c ? (c.analysisCount || 0) : 0;
+  var hasLinks = crCount > 0 || mpCount > 0;
+
+  // Build warning message for linked assets
+  var warningHtml = '';
+  if (hasLinks) {
+    var parts = [];
+    if (crCount > 0) parts.push(crCount + ' creative' + (crCount === 1 ? '' : 's'));
+    if (mpCount > 0) parts.push(mpCount + ' Moments Group' + (mpCount === 1 ? '' : 's'));
+    var linked = parts.join(' and ');
+    warningHtml = '<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:#fef9c3;border:1px solid #fde68a;font-size:12px;color:#92400e;line-height:1.6">'
+      + '<strong style="display:block;margin-bottom:3px">⚠️ Warning</strong>'
+      + 'There ' + (crCount + mpCount === 1 ? 'is' : 'are') + ' ' + linked + ' linked to this campaign. Deleting it will leave them in Creative Library and Moments Match unassigned to any client, advertiser or campaign.'
+      + '</div>';
+  }
+
+  // Build modal
+  var modal = document.createElement('div');
+  modal.id = 'cm-delete-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)';
+  modal.innerHTML = '<div style="background:var(--surface);border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:24px;max-width:420px;width:90%;font-family:inherit" onclick="event.stopPropagation()">'
+    + '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Delete campaign</div>'
+    + '<div style="font-size:13px;color:var(--muted);line-height:1.5">Are you sure you want to delete <strong style="color:var(--text)">' + (c ? c.name : 'this campaign') + '</strong>? This action cannot be undone.</div>'
+    + warningHtml
+    + '<div id="cm-delete-err" style="display:none;margin-top:10px;padding:8px 10px;border-radius:7px;background:#fef2f2;border:1px solid #fecaca;font-size:12px;color:#dc2626"></div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">'
+    +   '<button onclick="document.getElementById(\'cm-delete-modal\').remove()" style="height:32px;padding:0 16px;border:1px solid var(--border-md);border-radius:8px;background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Cancel</button>'
+    +   '<button id="cm-delete-confirm-btn" style="height:32px;padding:0 16px;border:none;border-radius:8px;background:#dc2626;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Delete</button>'
+    + '</div>'
+    + '</div>';
+
+  modal.addEventListener('click', function() { modal.remove(); });
+  document.body.appendChild(modal);
+
+  document.getElementById('cm-delete-confirm-btn').addEventListener('click', function() {
+    modal.remove();
+    var row = btn ? btn.closest('tr') : null;
+    fetch('/api/campaigns?campaign_id=' + dbId, { method: 'DELETE' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.ok) {
+          var errEl = document.getElementById('cm-delete-err');
+          if (errEl) { errEl.textContent = 'Delete failed: ' + (data.error || 'unknown error'); errEl.style.display = 'block'; }
+          return;
+        }
+        CM_CAMPAIGNS = CM_CAMPAIGNS.filter(function(x) { return String(x.dbId) !== String(dbId); });
+        if (row) {
+          row.style.transition = 'opacity 0.2s';
+          row.style.opacity = '0';
+          setTimeout(function() {
+            var tbody = document.getElementById('cm-tbody');
+            if (tbody) tbody.innerHTML = _cmRowsHtml();
+            var count = document.getElementById('cm-count');
+            if (count) count.textContent = CM_CAMPAIGNS.length;
+          }, 220);
+        } else {
           var tbody = document.getElementById('cm-tbody');
           if (tbody) tbody.innerHTML = _cmRowsHtml();
           var count = document.getElementById('cm-count');
           if (count) count.textContent = CM_CAMPAIGNS.length;
-        }, 220);
-      } else {
-        var tbody = document.getElementById('cm-tbody');
-        if (tbody) tbody.innerHTML = _cmRowsHtml();
-        var count = document.getElementById('cm-count');
-        if (count) count.textContent = CM_CAMPAIGNS.length;
-      }
-    })
-    .catch(function(e) { alert('Delete failed: ' + e.message); });
+        }
+      })
+      .catch(function(e) {
+        var errEl = document.getElementById('cm-delete-err');
+        if (errEl) { errEl.textContent = 'Delete failed: ' + e.message; errEl.style.display = 'block'; }
+      });
+  });
 }
 
 
@@ -97,17 +142,24 @@ var _cmLibSearch        = '';
 
 // ── Moments Match panel state (Campaign Setup step) ───────────────────────────
 var _cmSelectedAnalysis = null; // single selected analysis (col 1)
-var _cmSelectedMp       = null; // selected media plan within analysis (col 2)
+var _cmSelectedMp       = null; // selected Moments Group within analysis (col 2)
 var _cmMpLibrary        = null; // null = not loaded, [] = loaded
 var _cmMpLibSearch      = '';
+var _cmMpPlansSearch    = '';
 var _cmOpenDetailId     = null; // tracks which campaign detail is open
+
+// ── Pending deep-link state (set by mp2SaveAndDistribute) ─────────────────────
+var _cmPendingCampaignDbId = null; // DB id of campaign to auto-open
+var _cmPendingAnalysisId   = null; // analysis_id to pre-select in step 2
+var _cmPendingMpId         = null; // ad_group_id to pre-select in step 2
 
 // ── Moments panel state ───────────────────────────────────────────────────────
 var _cmMomentMode        = null; // 'saved' | 'new'
 var _cmSavedPlanId       = null;
 var _cmMomentsSearchQuery = '';
+var _cmMomentsMode = 'moments'; // 'moments' | 'custom'
 
-// ── Build Media Plan page state ───────────────────────────────────────────────
+// ── Build Moments Group page state ───────────────────────────────────────────────
 var _bmpMode              = null; // 'analysis' | 'creatives' | 'brief'
 var _bmpAnalysisSearch    = '';
 var _bmpAnalysisId        = null;
@@ -123,7 +175,7 @@ var BMP_PREVIOUS_ANALYSES = [
   { id:'bpa6', name:'New Devices Launch — Performance Forecast', campaign:'New Devices Launch',       date:'15 Feb 2026' },
 ];
 
-var CM_SAVED_MEDIA_PLANS = [
+var CM_SAVED_AD_GROUPS = [
   { id:'smp1', name:'Q2 Walmart Grocery — Full Funnel',    advertiser:'Walmart',   date:'Apr 2026' },
   { id:'smp2', name:'Back to School 2026 — Awareness',     advertiser:'Walmart',   date:'May 2026' },
   { id:'smp3', name:'Electronics Week — Performance',      advertiser:'Samsung',   date:'Mar 2026' },
@@ -172,23 +224,27 @@ var _cmLibCols = [
 function _cmLibFilteredRows() {
   var q = (_cmLibSearch || '').toLowerCase();
   var lib = (typeof CS_LIBRARY !== 'undefined' ? CS_LIBRARY : []);
-  var noFilters = !_cmDraftClient && !_cmDraftAdv && !_cmDraftCampaignName;
   return lib.filter(function(c) {
-    // When no filters set: show only unassigned creatives (campaign_id = NULL)
-    if (noFilters) {
-      var searchOk = !q
-        || (c.name||'').toLowerCase().indexOf(q) >= 0
-        || (c.advertiser||'').toLowerCase().indexOf(q) >= 0;
-      return !c.campaign && searchOk;
-    }
-    var clientOk = !_cmDraftClient       || (c.client||'')     === _cmDraftClient;
-    var advOk    = !_cmDraftAdv          || (c.advertiser||'')  === _cmDraftAdv;
-    var campOk   = !_cmDraftCampaignName || !c.campaign || (c.campaign||'') === _cmDraftCampaignName;
+    // Always exclude creatives already assigned to a DIFFERENT campaign
+    var noOtherCampaign = !c.campaignId || c.campaignId === _cmCurrentCampaignDbId;
+    if (!noOtherCampaign) return false;
+
+    // Client filter: match if no client selected, or creative has no client, or client matches
+    var clientOk = !_cmDraftClient
+      || !c.client || c.client === '—'
+      || (c.client||'') === _cmDraftClient;
+
+    // Advertiser filter: match if no advertiser selected, or creative has no advertiser, or advertiser matches
+    var advOk = !_cmDraftAdv
+      || !c.advertiser || c.advertiser === '—'
+      || (c.advertiser||'') === _cmDraftAdv;
+
+    // Text search
     var searchOk = !q
       || (c.name||'').toLowerCase().indexOf(q) >= 0
-      || (c.advertiser||'').toLowerCase().indexOf(q) >= 0
-      || (c.campaign||'').toLowerCase().indexOf(q) >= 0;
-    return clientOk && advOk && campOk && searchOk;
+      || (c.advertiser||'').toLowerCase().indexOf(q) >= 0;
+
+    return clientOk && advOk && searchOk;
   });
 }
 
@@ -451,9 +507,23 @@ function cmUploadHandleUrl() {
   var url = inp.value.trim();
   if (!url) return;
   var ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  var thumb = ytMatch ? 'https://img.youtube.com/vi/' + ytMatch[1] + '/mqdefault.jpg' : '';
-  var name = ytMatch ? ('YouTube – ' + ytMatch[1]) : url.split('/').pop().split('?')[0] || 'Video';
-  _cmUploadStaged.push({ id: 'up-' + Date.now(), name: name, type: 'MP4', thumb: thumb, src: url, assetType: 'youtube' });
+  var rvMatch = url.match(/radius\.video\/previews\/(?:share\/)?([A-Za-z0-9%=+/_-]+)/);
+  var thumb, name, assetType;
+  if (ytMatch) {
+    thumb     = 'https://img.youtube.com/vi/' + ytMatch[1] + '/mqdefault.jpg';
+    name      = 'YouTube – ' + ytMatch[1];
+    assetType = 'youtube';
+  } else if (rvMatch) {
+    var rvId  = decodeURIComponent(rvMatch[1]).split(',')[0];
+    thumb     = '';
+    name      = 'Radius – ' + rvId;
+    assetType = 'radius';
+  } else {
+    thumb     = '';
+    name      = url.split('/').pop().split('?')[0] || 'Video';
+    assetType = 'youtube';
+  }
+  _cmUploadStaged.push({ id: 'up-' + Date.now(), name: name, type: 'MP4', thumb: thumb, src: url, assetType: assetType });
   inp.value = '';
   _cmRenderUploadPreview();
 }
@@ -503,7 +573,7 @@ function cmUploadConfirm() {
         body: JSON.stringify({
           creative_name:       item.name,
           creative_asset_type: item.assetType,
-          creative_asset_link: item.assetType === 'youtube' ? item.src : '',
+          creative_asset_link: (item.assetType === 'youtube' || item.assetType === 'radius') ? item.src : '',
           creative_preview:    thumb
         })
       })
@@ -565,6 +635,23 @@ function cmDraftCreativeRemove(id) {
   _cmDraftCreatives = _cmDraftCreatives.filter(function(a){ return a.id !== id; });
   var el = document.getElementById('cm-draft-creatives');
   if (el) el.innerHTML = _cmDraftCreativesInnerHtml();
+}
+
+function cmSwitchNameMode(btn, mode) {
+  _cmNameMode = mode;
+  var pill = btn.parentNode;
+  Array.prototype.forEach.call(pill.querySelectorAll('button'), function(b) {
+    var active = b === btn;
+    b.style.background  = active ? '#fff' : 'transparent';
+    b.style.color       = active ? 'var(--accent)' : '#9ca3af';
+    b.style.fontWeight  = active ? '600' : '500';
+    b.style.boxShadow   = active ? '0 1px 2px rgba(0,0,0,.1)' : 'none';
+  });
+  var inp = document.getElementById('cm-draft-name');
+  if (inp) {
+    inp.placeholder = mode === 'name' ? 'Campaign name…' : 'e.g. CAMP-2024-001';
+    inp.focus();
+  }
 }
 
 function cmSaveCreatives() {
@@ -676,13 +763,45 @@ function cmDraftGoToBuilder() {
   setTimeout(function() { csBuildTemplates(0); }, 80);
 }
 
+// Open Template Builder pre-populated with the creatives of a live/saved campaign
+function cmPreviewCampaignCreatives(campaignDbId) {
+  function _open(creatives) {
+    // Use _csPendingAssets so renderCreativeStudio() picks them up instead of resetting
+    _csPendingAssets = creatives.map(function(cr) {
+      return {
+        id:        cr.id        || ('cr' + cr.dbId),
+        name:      cr.name      || '',
+        type:      cr.fileType  || '',
+        thumb:     cr.thumb     || '',
+        src:       cr.assetLink || '',
+        assetType: cr.assetType || '',
+        templates: cr.templates || [],
+      };
+    });
+    csBuilderBackPage = 'campaign-management';
+    setPage('creative-studio', 'Creative Studio', true);
+    setTimeout(function() { csBuildTemplates(0); }, 80);
+  }
+
+  // Try CS_LIBRARY first (already loaded)
+  var lib = (typeof CS_LIBRARY !== 'undefined' ? CS_LIBRARY : []);
+  var cached = lib.filter(function(cr) { return cr.campaignId === campaignDbId; });
+  if (cached.length) { _open(cached); return; }
+
+  // Fallback: fetch from API
+  fetch('/api/creatives?campaign_id=' + campaignDbId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) { _open(data.creatives || []); })
+    .catch(function() { _open([]); });
+}
+
 // ── Moments full-screen overlay ───────────────────────────────────────────────
 function cmOpenMomentsOverlay(mode) {
   var existing = document.getElementById('cm-moments-overlay');
   if (existing) existing.remove();
 
   var isMoments = mode === 'moments';
-  var title  = isMoments ? 'Custom Moments Builder' : 'Media Planner';
+  var title  = isMoments ? 'Custom Moments Builder' : 'Moments Match';
   var pageId = isMoments ? 'moments-builder' : 'media-planner-v2';
 
   // Render the target page content
@@ -725,7 +844,7 @@ function cmCloseMomentsOverlay() {
   if (ov) ov.remove();
 }
 
-// ── Build Media Plan page ─────────────────────────────────────────────────────
+// ── Build Moments Group page ─────────────────────────────────────────────────────
 function _bmpReset() {
   _bmpMode = null; _bmpAnalysisSearch = ''; _bmpAnalysisId = null;
   _bmpLibSearch = ''; _bmpLibSelectedIds = [];
@@ -743,20 +862,20 @@ function _bmpCardHtml() {
 }
 
 // Standalone page — accessed directly via URL
-function renderBuildMediaPlan() {
+function renderBuildAdGroup() {
   _bmpReset();
   var backBtn = '<button onclick="history.back()" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit" onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
     + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>'
     + 'Back to Campaign'
     + '</button>';
-  return UI.pageHeader({ title: 'Build Media Plan', titleRight: backBtn })
+  return UI.pageHeader({ title: 'Build Moments Group', titleRight: backBtn })
     + '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:460px;display:flex;background:var(--surface)">'
     + _bmpCardHtml()
     + '</div>';
 }
 
 // Full-screen overlay — opened from draft campaign
-function cmOpenBuildMediaPlanOverlay() {
+function cmOpenBuildAdGroupOverlay() {
   _bmpReset();
   if (_cmDraftCreatives && _cmDraftCreatives.length > 0) _bmpMode = 'creatives';
   var existing = document.getElementById('cm-bmp-overlay');
@@ -780,12 +899,12 @@ function cmOpenBuildMediaPlanOverlay() {
 
   overlay.innerHTML =
     '<div style="display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'
-    + '<button onclick="cmCloseBuildMediaPlanOverlay()" style="' + backStyle + '" onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
+    + '<button onclick="cmCloseBuildAdGroupOverlay()" style="' + backStyle + '" onmouseover="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">'
     +   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>'
     +   'Back to Campaign'
     + '</button>'
     + '<div style="width:1px;height:18px;background:var(--border)"></div>'
-    + '<div style="font-size:13px;font-weight:600;color:var(--text)">Build Media Plan</div>'
+    + '<div style="font-size:13px;font-weight:600;color:var(--text)">Build Moments Group</div>'
     + '<div style="flex:1"></div>'
     + _bmpMetaChip('Client', _bmpClient)
     + '<div style="width:1px;height:14px;background:var(--border)"></div>'
@@ -798,10 +917,10 @@ function cmOpenBuildMediaPlanOverlay() {
     + '</div>';
 
   document.body.appendChild(overlay);
-  history.pushState({ bmpOverlay: true }, '', '/campaign-management/draft-campaign/build-media-plan');
+  history.pushState({ bmpOverlay: true }, '', '/campaign-management/draft-campaign/build-ad-group');
 }
 
-function cmCloseBuildMediaPlanOverlay() {
+function cmCloseBuildAdGroupOverlay() {
   var ov = document.getElementById('cm-bmp-overlay');
   if (ov) ov.remove();
   history.back();
@@ -1099,7 +1218,7 @@ function bmpSelectAnalysis(id) {
   if (extraEl) extraEl.innerHTML = _bmpExtraHtml();
 }
 
-// ── Media Plan panel — two-col (library + selected) ───────────────────────────
+// ── Moments Group panel — two-col (library + selected) ───────────────────────────
 var _cmAnalysisCols = [
   { label: '',       width: '32px'  },
   { label: 'Analysis'               },
@@ -1109,43 +1228,61 @@ var _cmAnalysisCols = [
 function _cmAnalysisFilteredRows() {
   var q   = (_cmMpLibSearch || '').toLowerCase();
   var lib = _cmMpLibrary || [];
+
+  // Statuses that indicate an active/live campaign (excluded from the list)
+  var LIVE_STATUSES = { pacing: 1, underpacing: 1, error: 1, completed: 1 };
+
   return lib.filter(function(a) {
-    // Only show analyses not yet linked to a campaign
-    if (a.campaign_id) return false;
-    return !q
-      || (a.analysis_name   || '').toLowerCase().indexOf(q) >= 0
-      || (a.advertiser_name || '').toLowerCase().indexOf(q) >= 0;
+    var searchOk = !q
+      || (a.moments_match_analysis_name   || '').toLowerCase().indexOf(q) >= 0
+      || (a.advertiser_name || '').toLowerCase().indexOf(q) >= 0
+      || (a.client_name     || '').toLowerCase().indexOf(q) >= 0;
+
+    // ── Case 1: not linked to any campaign ───────────────────────────────────
+    if (!a.campaign_id) return searchOk;
+
+    // ── Case 2: linked to a campaign ─────────────────────────────────────────
+    // Exclude live/completed campaigns
+    var status = (a.campaign_status || '').toLowerCase();
+    if (LIVE_STATUSES[status]) return false;
+    // Only include if campaign is draft AND belongs to same client+advertiser as step 1
+    if (status !== 'draft') return false;
+    var orgMatch = _cmCurrentClientOrgId
+      ? String(a.client_org_id) === String(_cmCurrentClientOrgId)
+      : false;
+    var advMatch = _cmCurrentAdvertiserId
+      ? String(a.advertiser_id) === String(_cmCurrentAdvertiserId)
+      : true; // no advertiser selected yet → don't filter on advertiser
+    return orgMatch && advMatch && searchOk;
   });
 }
 
 function _cmAnalysisRowsHtml(filtered) {
   var TD = 'padding:5px 12px;border-bottom:1px solid var(--border);vertical-align:middle';
   return filtered.map(function(a) {
-    var isSel = _cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === a.analysis_id;
-    var cb = '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="cmAnalysisLibToggle(' + a.analysis_id + ')" '
+    var isSel = _cmSelectedAnalysis && _cmSelectedAnalysis.moments_match_analysis_id === a.moments_match_analysis_id;
+    var cb = '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="cmAnalysisLibToggle(' + a.moments_match_analysis_id + ')" '
       + 'style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">';
-    var nameCell = '<div style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.analysis_name || 'Untitled Analysis') + '</div>'
-      + (a.advertiser_name ? '<div style="font-size:10px;color:var(--faint)">' + a.advertiser_name + '</div>' : '');
     var date = a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : '—';
-    return '<tr style="cursor:pointer" onclick="cmAnalysisLibToggle(' + a.analysis_id + ')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+    var nameCell = '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (a.moments_match_analysis_name || 'Untitled Analysis') + '</div>'
+      + '<div style="font-size:10px;color:var(--faint)">' + date + '</div>';
+    return '<tr style="cursor:pointer" onclick="cmAnalysisLibToggle(' + a.moments_match_analysis_id + ')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="' + TD + ';width:32px" onclick="event.stopPropagation()">' + cb + '</td>'
       + '<td style="' + TD + '">' + nameCell + '</td>'
-      + '<td style="' + TD + ';width:90px;font-size:11px;color:var(--muted)">' + date + '</td>'
       + '</tr>';
   }).join('');
 }
 
 function _cmMpLibColHtml() {
   var filtered = _cmAnalysisFilteredRows();
-  var search = '<div style="padding:8px 12px;border-bottom:1px solid var(--border)">'
+  var search = '<div style="padding:8px 12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">'
     + UI.searchBar('cm-mp-lib-search', 'Search analyses…', 'cmMpLibSearch(this.value)', _cmMpLibSearch || '')
     + '</div>';
   var body = filtered.length
     ? '<div style="overflow-y:auto;max-height:260px"><table style="width:100%;border-collapse:collapse">'
-      + '<thead><tr>'
-      + '<th style="width:32px"></th>'
+      + '<thead><tr style="background:var(--bg)">'
+      + '<th style="width:32px;border-bottom:1px solid var(--border)"></th>'
       + '<th style="padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Analysis</th>'
-      + '<th style="width:90px;padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Date</th>'
       + '</tr></thead>'
       + '<tbody>' + _cmAnalysisRowsHtml(filtered) + '</tbody>'
       + '</table></div>'
@@ -1169,7 +1306,7 @@ function _cmMpSelColHtml() {
   return '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)">'
     + '<div style="padding:8px 10px;border-bottom:1px solid var(--border);background:var(--subtle);display:flex;align-items:center;gap:6px">'
     +   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
-    +   '<div style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + (a.analysis_name || 'Untitled Analysis') + '</div>'
+    +   '<div style="font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + (a.moments_match_analysis_name || 'Untitled Analysis') + '</div>'
     +   '<button onclick="cmAnalysisDeselect()" style="width:16px;height:16px;border:none;border-radius:3px;background:transparent;color:var(--faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--faint)\'">'
     +     '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
     +   '</button>'
@@ -1194,37 +1331,51 @@ function _cmThreeColEmpty(msg) {
 function _cmParseMpPlans() {
   if (!_cmSelectedAnalysis) return [];
   try {
-    var raw = _cmSelectedAnalysis.media_plans;
+    var raw = _cmSelectedAnalysis.moments_groups;
     return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
   } catch(e) { return []; }
 }
 
 function _cmMpPlansColHtml() {
   if (!_cmSelectedAnalysis) return _cmThreeColEmpty('Select an analysis');
-  var plans = _cmParseMpPlans();
-  if (!plans.length) return _cmThreeColEmpty('No media plans in this analysis');
-  var rows = plans.map(function(p, i) {
-    var isSel = _cmSelectedMp && _cmSelectedMp._idx === i;
-    // DB structure: { media_plan_name, moments[] } — fall back to legacy { name, items[] }
-    var planName  = p.media_plan_name || p.name || ('Media Plan ' + (i + 1));
-    var momArr    = Array.isArray(p.moments) ? p.moments : (Array.isArray(p.items) ? p.items : []);
-    var itemCount = momArr.length;
-    var checkIcon = isSel
-      ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><circle cx="8" cy="8" r="7" fill="var(--accent)"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      : '<div style="width:14px;height:14px;flex-shrink:0"></div>';
-    return '<div onclick="cmSelectMediaPlan(' + i + ')" style="background:#fff;padding:10px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:8px;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'#fff\'">'
-      + checkIcon
-      + '<div style="min-width:0">'
-      +   '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + planName + '</div>'
-      +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + itemCount + ' moments</div>'
-      + '</div>'
-      + '</div>';
-  }).join('');
-  return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">' + rows + '</div>';
+  var allPlans = _cmParseMpPlans();
+  if (!allPlans.length) return _cmThreeColEmpty('No Moments Groups in this analysis');
+  var q = (_cmMpPlansSearch || '').toLowerCase();
+  var plans = q ? allPlans.filter(function(p, i) {
+    var name = (p.ad_group_name || p.name || '').toLowerCase();
+    return name.indexOf(q) >= 0;
+  }) : allPlans;
+  var search = '<div style="padding:8px 12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">'
+    + UI.searchBar('cm-mp-plans-search', 'Search Moments Groups…', 'cmMpPlansSearch(this.value)', _cmMpPlansSearch || '')
+    + '</div>';
+  var TD = 'padding:5px 12px;border-bottom:1px solid var(--border);vertical-align:middle';
+  var body = plans.length
+    ? '<div style="overflow-y:auto;max-height:220px"><table style="width:100%;border-collapse:collapse">'
+      + '<thead><tr style="background:var(--bg)">'
+      +   '<th style="width:32px;border-bottom:1px solid var(--border)"></th>'
+      +   '<th style="padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Moments Group</th>'
+      + '</tr></thead>'
+      + '<tbody>' + allPlans.map(function(p, i) {
+          if (q && (p.ad_group_name || p.name || '').toLowerCase().indexOf(q) < 0) return '';
+          var isSel = _cmSelectedMp && _cmSelectedMp._idx === i;
+          var planName = p.ad_group_name || p.name || ('Moments Group ' + (i + 1));
+          var momArr   = Array.isArray(p.moments) ? p.moments : (Array.isArray(p.items) ? p.items : []);
+          var cb = '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="cmSelectMediaPlan(' + i + ')" '
+            + 'style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">';
+          var nameCell = '<div style="font-size:12px;font-weight:' + (isSel ? '600' : '500') + ';color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + planName + '</div>'
+            + '<div style="font-size:10px;color:var(--faint)">' + momArr.length + ' moments</div>';
+          return '<tr style="cursor:pointer" onclick="cmSelectMediaPlan(' + i + ')" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+            + '<td style="' + TD + ';width:32px" onclick="event.stopPropagation()">' + cb + '</td>'
+            + '<td style="' + TD + '">' + nameCell + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div>'
+    : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">No results</div>';
+  return search + body;
 }
 
 function _cmMpMomentsColHtml() {
-  if (!_cmSelectedMp) return _cmThreeColEmpty('Select a media plan');
+  if (!_cmSelectedMp) return _cmThreeColEmpty('Select a Moments Group');
   // DB structure: { moments: [{ moment_name, moment_type, moment_channels, moment_est_impr, moment_est_cpm, moment_est_dollar_value }] }
   // Fall back to legacy: { items: [{ name, type, channels, impressionsLabel }] }
   var items = Array.isArray(_cmSelectedMp.moments) ? _cmSelectedMp.moments
@@ -1275,16 +1426,18 @@ function _cmMpMomentsColHtml() {
 
   var totImprLabel = totalImpr >= 1000000 ? (totalImpr / 1000000).toFixed(1) + 'M' : totalImpr >= 1000 ? Math.round(totalImpr / 1000) + 'K' : totalImpr ? String(totalImpr) : '—';
   var totValLabel  = totalVal  ? '$' + (totalVal  >= 1000 ? Math.round(totalVal  / 1000) + 'K' : totalVal)  : '—';
+  var avgCpm       = (totalImpr && totalVal) ? (totalVal / totalImpr * 1000) : 0;
+  var avgCpmLabel  = avgCpm ? '$' + avgCpm.toFixed(2) : '—';
   var TOT = 'padding:7px 10px;font-size:11px;font-weight:700;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg);white-space:nowrap';
   var totRow = '<tr>'
     + '<td style="' + TOT + '">Total</td>'
     + '<td style="' + TOT + ';text-align:right">' + totImprLabel + '</td>'
-    + '<td style="' + TOT + ';text-align:right">—</td>'
+    + '<td style="' + TOT + ';text-align:right">' + avgCpmLabel  + '</td>'
     + '<td style="' + TOT + ';text-align:right">' + totValLabel  + '</td>'
     + '</tr>';
 
   return '<table style="width:100%;border-collapse:collapse">'
-    + '<thead><tr>'
+    + '<thead><tr style="background:var(--bg)">'
     +   '<th style="' + TH + ';text-align:left">Moment</th>'
     +   '<th style="' + TH + ';text-align:right;width:64px">Impr.</th>'
     +   '<th style="' + TH + ';text-align:right;width:56px">CPM</th>'
@@ -1296,32 +1449,138 @@ function _cmMpMomentsColHtml() {
 }
 
 function _cmMpPanelInnerHtml() {
+  var rightCols = _cmSelectedAnalysis
+    ? '<div style="flex:0 0 29%;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">'
+      +   '<div style="padding:12px 16px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments Groups</div>'
+      +   '<div id="cm-mp-plans-col" style="overflow-y:auto">' + _cmMpPlansColHtml() + '</div>'
+      + '</div>'
+      + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">'
+      +   '<div style="padding:12px 16px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments</div>'
+      +   '<div id="cm-mp-moments-col" style="flex:1;overflow-y:auto;border-top:1px solid var(--border)">' + _cmMpMomentsColHtml() + '</div>'
+      + '</div>'
+    : '<div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;padding:20px">'
+      +   '<div onclick="cmGoToMomentsMatch()" style="border:1.5px dashed var(--border-md);border-radius:10px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px 24px;width:100%;text-align:center;cursor:pointer;transition:border-color .15s,background .15s" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.background=\'rgba(237,0,94,.03)\'" onmouseout="this.style.borderColor=\'var(--border-md)\';this.style.background=\'var(--bg)\'">'
+      +     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="8" height="8" rx="2"/><path d="M4 10a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2"/><path d="M14 20a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2"/></svg>'
+      +     '<div style="font-size:12px;font-weight:600;color:var(--text)">Run a Moments Match analysis</div>'
+      +     '<div style="font-size:11px;color:var(--muted)">' + (_cmCurrentCampaignDbId ? 'Opens the wizard pre-filled with this campaign' : 'Click to open the Moments Match wizard') + '</div>'
+      +     '<button onclick="event.stopPropagation();cmGoToMomentsMatch()" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border:1px solid var(--border-md);border-radius:7px;font-size:11px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;transition:border .15s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border-md)\'">'
+      +       '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+      +       'New Analysis'
+      +     '</button>'
+      +   '</div>'
+      + '</div>';
+
   return '<div style="display:flex;align-items:stretch;min-height:280px">'
-    + '<div style="flex:33;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">'
-    +   '<div style="padding:12px 16px 0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Analyses</div>'
+    + '<div style="flex:0 0 32%;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">'
+    +   '<div style="padding:12px 16px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Analyses</div>'
     +   '<div id="cm-mp-lib-col" style="flex:1;overflow:hidden">' + _cmMpLibColHtml() + '</div>'
     + '</div>'
-    + '<div style="flex:30;min-width:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">'
-    +   '<div style="padding:12px 16px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Media Plans</div>'
-    +   '<div id="cm-mp-plans-col" style="overflow-y:auto">' + _cmMpPlansColHtml() + '</div>'
+    + rightCols
     + '</div>'
-    + '<div style="flex:40;min-width:0;display:flex;flex-direction:column;overflow:hidden">'
-    +   '<div style="padding:16px 20px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">Moments</div>'
-    +   '<div id="cm-mp-moments-col" style="flex:1;overflow-y:auto">' + _cmMpMomentsColHtml() + '</div>'
-    + '</div>'
-    + '</div>'
-    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
-    +   '<button id="cm-mp-save-btn" onclick="cmSaveAnalysis()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Assign Analysis to Campaign</button>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:14px">'
     +   '<span id="cm-mp-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
+    +   '<button id="cm-mp-save-btn" onclick="cmSaveAnalysis()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Assign Analysis to Campaign</button>'
     + '</div>';
 }
 
+function _cmMomentsPillHtml() {
+  function btn(mode, label) {
+    var act = _cmMomentsMode === mode;
+    return '<button type="button" onclick="cmSwitchMomentsMode(\'' + mode + '\')" style="height:20px;padding:0 9px;border:none;border-radius:3px;font-size:10px;font-weight:' + (act ? '600' : '500') + ';cursor:pointer;font-family:inherit;background:' + (act ? '#fff' : 'transparent') + ';color:' + (act ? 'var(--accent)' : '#9ca3af') + ';box-shadow:' + (act ? '0 1px 2px rgba(0,0,0,.1)' : 'none') + ';transition:background .12s,color .12s;white-space:nowrap">' + label + '</button>';
+  }
+  return '<div style="display:inline-flex;background:#f3f4f6;border-radius:5px;padding:2px;gap:1px">'
+    + btn('moments', 'Moments match')
+    + btn('custom',  'Custom moments')
+    + '</div>';
+}
+function cmSwitchMomentsMode(mode) {
+  _cmMomentsMode = mode;
+  var panel = document.getElementById('cm-moments-panel');
+  if (panel) panel.innerHTML = _cmMomentsInnerHtml();
+}
 function _cmMomentsInnerHtml() {
-  return '<div id="cm-mp-panel" style="border-top:1px solid var(--border)">' + _cmMpPanelInnerHtml() + '</div>';
+  return '<div style="padding:14px 20px 0">'
+    +   _cmMomentsPillHtml()
+    + '</div>'
+    + '<div id="cm-mp-panel" style="border-top:1px solid var(--border);margin-top:10px">'
+    + (_cmMomentsMode === 'custom'
+        ? '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:12px;color:var(--muted);text-align:center">'
+          + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.35"><path d="M12 3a9 9 0 100 18A9 9 0 0012 3z"/><path d="M12 8v4l3 3"/></svg>'
+          + '<div style="font-size:13px;font-weight:600;color:var(--text);opacity:.5">Custom moments coming soon</div>'
+          + '<div style="font-size:12px;color:var(--muted);max-width:280px;line-height:1.5">Define your own moment categories to target specific content contexts beyond the standard Moments library.</div>'
+          + '</div>'
+        : _cmMpPanelInnerHtml())
+    + '</div>';
+}
+
+// Navigate to Moments Match wizard, pre-filling from campaign setup state:
+//   • Saved campaign  → land on step 1 pre-filled with campaign data
+//   • No saved campaign but draft creatives exist → land on step 3 pre-filled with those creatives
+function cmGoToMomentsMatch() {
+  var c = _cmCurrentCampaignDbId
+    ? (CM_CAMPAIGNS || []).find(function(x) { return String(x.dbId) === String(_cmCurrentCampaignDbId); })
+    : null;
+  if (c && c.dbId) {
+    // Case 1 – saved campaign: pre-fill step 1
+    _mp2PendingCampaign = {
+      dbId:            c.dbId,
+      name:            c.name         || '',
+      advertiser:      c.advertiser   || '',
+      advertiserId:    c.advertiserId || null,
+      client:          c.client       || '',
+      clientOrgId:     c.clientOrgId  || _cmCurrentClientOrgId || null,
+      status:          c.status       || 'draft',
+      budget:          c.budget       || '',
+      impression_goal: c.goal         || '',
+    };
+    _mp2PendingCreatives = null;
+  } else if (_cmDraftCreatives && _cmDraftCreatives.length > 0) {
+    // Case 2 – no saved campaign but draft creatives: skip to step 3
+    _mp2PendingCampaign  = null;
+    _mp2PendingCreatives = _cmDraftCreatives.map(function(a) {
+      return {
+        id:        a.id,
+        dbId:      a.dbId  || null,
+        name:      a.name  || '',
+        thumb:     a.thumb || '',
+        fileType:  a.type  || '',
+        mediaType: '',
+        templates: a.templates || [],
+        campaign:  '',
+        advertiser: '',
+        assetLink: a.src       || '',
+        assetType: a.assetType || '',
+      };
+    });
+  } else {
+    _mp2PendingCampaign  = null;
+    _mp2PendingCreatives = null;
+  }
+  if (typeof setPage === 'function') setPage('media-planner-v2', 'Moments Match', true);
 }
 
 function cmLoadMediaPlanPanel() {
-  if (_cmMpLibrary !== null) {
+  function _applyPendingSelection() {
+    // Auto-select pending analysis + Moments Group (set by Save & Distribute flow)
+    if (_cmPendingAnalysisId && _cmMpLibrary && _cmMpLibrary.length) {
+      var _a = _cmMpLibrary.find(function(x) { return String(x.moments_match_analysis_id) === String(_cmPendingAnalysisId); });
+      if (_a) {
+        _cmSelectedAnalysis = _a;
+        if (_cmPendingMpId && Array.isArray(_a.moments_groups)) {
+          var _mpIdx = _a.moments_groups.findIndex(function(p) { return String(p.ad_group_id) === String(_cmPendingMpId); });
+          if (_mpIdx >= 0) {
+            _cmSelectedMp = Object.assign({}, _a.moments_groups[_mpIdx], { _idx: _mpIdx });
+          }
+        }
+      }
+      _cmPendingAnalysisId = null;
+      _cmPendingMpId       = null;
+    }
+  }
+  // If we have a pending deep-link (from Save & Distribute), always force a fresh fetch
+  // so the newly-saved Moments Group is included in the library — the cache may be stale.
+  if (_cmMpLibrary !== null && !_cmPendingAnalysisId) {
+    _applyPendingSelection();
     var el = document.getElementById('cm-mp-panel');
     if (el) el.innerHTML = _cmMpPanelInnerHtml();
     return;
@@ -1331,6 +1590,7 @@ function cmLoadMediaPlanPanel() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       _cmMpLibrary = data.analyses || [];
+      _applyPendingSelection();
       var el = document.getElementById('cm-mp-panel');
       if (el) el.innerHTML = _cmMpPanelInnerHtml();
     })
@@ -1341,6 +1601,12 @@ function cmMpLibSearch(q) {
   _cmMpLibSearch = q || '';
   var el = document.getElementById('cm-mp-lib-col');
   if (el) el.innerHTML = _cmMpLibColHtml();
+}
+
+function cmMpPlansSearch(q) {
+  _cmMpPlansSearch = q || '';
+  var el = document.getElementById('cm-mp-plans-col');
+  if (el) el.innerHTML = _cmMpPlansColHtml();
 }
 
 function cmSelectMediaPlan(planIdx) {
@@ -1356,27 +1622,19 @@ function cmSelectMediaPlan(planIdx) {
 }
 
 function cmAnalysisLibToggle(analysisId) {
-  var a = (_cmMpLibrary || []).find(function(x) { return x.analysis_id === analysisId; });
+  var a = (_cmMpLibrary || []).find(function(x) { return x.moments_match_analysis_id === analysisId; });
   if (!a) return;
-  _cmSelectedAnalysis = (_cmSelectedAnalysis && _cmSelectedAnalysis.analysis_id === analysisId) ? null : a;
+  _cmSelectedAnalysis = (_cmSelectedAnalysis && _cmSelectedAnalysis.moments_match_analysis_id === analysisId) ? null : a;
   _cmSelectedMp = null;
-  var libEl     = document.getElementById('cm-mp-lib-col');
-  var plansEl   = document.getElementById('cm-mp-plans-col');
-  var momentsEl = document.getElementById('cm-mp-moments-col');
-  if (libEl)     libEl.innerHTML     = _cmMpLibColHtml();
-  if (plansEl)   plansEl.innerHTML   = _cmMpPlansColHtml();
-  if (momentsEl) momentsEl.innerHTML = _cmMpMomentsColHtml();
+  var panelEl = document.getElementById('cm-mp-panel');
+  if (panelEl) panelEl.innerHTML = _cmMpPanelInnerHtml();
 }
 
 function cmAnalysisDeselect() {
   _cmSelectedAnalysis = null;
   _cmSelectedMp = null;
-  var libEl     = document.getElementById('cm-mp-lib-col');
-  var plansEl   = document.getElementById('cm-mp-plans-col');
-  var momentsEl = document.getElementById('cm-mp-moments-col');
-  if (libEl)     libEl.innerHTML     = _cmMpLibColHtml();
-  if (plansEl)   plansEl.innerHTML   = _cmMpPlansColHtml();
-  if (momentsEl) momentsEl.innerHTML = _cmMpMomentsColHtml();
+  var panelEl = document.getElementById('cm-mp-panel');
+  if (panelEl) panelEl.innerHTML = _cmMpPanelInnerHtml();
 }
 
 function cmSaveAnalysis() {
@@ -1393,13 +1651,20 @@ function cmSaveAnalysis() {
   fetch('/api/campaigns-update', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ campaign_id: _cmCurrentCampaignDbId, analysis_id: _cmSelectedAnalysis.analysis_id })
+    body: JSON.stringify({ campaign_id: _cmCurrentCampaignDbId, moments_match_analysis_id: _cmSelectedAnalysis.moments_match_analysis_id })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     if (data.ok) {
       _showFb('Saved ✓', 'var(--accent)');
+      // Update in-memory campaign so step badge flips to Ready immediately
+      var _dbId = _cmCurrentCampaignDbId;
+      var _camp = CM_CAMPAIGNS.filter(function(x) { return x.dbId === _dbId; })[0];
+      if (_camp) {
+        _camp.analysisCount = Math.max((_camp.analysisCount || 0) + 1, 1);
+      }
+      cmRefreshStepBadges();
     } else {
       _showFb(data.error || 'Error saving', '#dc2626');
     }
@@ -1537,9 +1802,9 @@ function _cmPartnerPanelInnerHtml() {
     +   '<div id="cm-partner-sel-col">' + _cmPartnerSelColHtml() + '</div>'
     + '</div>'
     + '</div>'
-    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
-    +   '<button id="cm-partner-save-btn" onclick="cmSavePartners()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add Partners to Campaign</button>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:14px">'
     +   '<span id="cm-partner-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
+    +   '<button id="cm-partner-save-btn" onclick="cmSavePartners()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add Partners to Campaign</button>'
     + '</div>';
 }
 
@@ -1900,6 +2165,21 @@ function _cmRefreshTable() {
   // Refresh tab counters when DB loads
   var navEl = document.getElementById('cm-tab-nav');
   if (navEl) navEl.innerHTML = _cmTabNavInnerHtml();
+  // Deep-link: if arriving from Save & Distribute, auto-open campaign + step 2
+  if (_cmPendingCampaignDbId) {
+    var _pId = _cmPendingCampaignDbId;
+    _cmPendingCampaignDbId = null;
+    setTimeout(function() { cmOpenDetailByDbId(_pId); }, 0);
+  }
+}
+
+// ── Deep-link opener: open a campaign by DB id and jump to a specific step ────
+function cmOpenDetailByDbId(dbId) {
+  var c = (CM_CAMPAIGNS || []).find(function(x) { return String(x.dbId) === String(dbId); });
+  if (!c) return;
+  cmOpenDetail(c.id);
+  // After DOM renders, open step 2 (Moments Match)
+  setTimeout(function() { _cmDraftToggle(2); }, 60);
 }
 
 // ── Rows ──────────────────────────────────────────────────────────────────────
@@ -1937,7 +2217,7 @@ function _cmRowsHtml() {
       ? '<span style="font-size:11px;color:var(--faint)">—</span>'
       : '<div style="display:flex;align-items:center;gap:6px">'
         + '<span style="font-size:12px;color:var(--text)">' + c.creatives + ' creative' + (c.creatives !== 1 ? 's' : '') + '</span>'
-        + mkIcon('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>', 'Preview in Template Builder', 'event.stopPropagation();csBuilderBackPage=\'campaign-management\';setPage(\'creative-studio\',\'Creative Studio\',true);setTimeout(function(){csBuildTemplates(0)},80)')
+        + mkIcon('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>', 'Preview in Template Builder', 'event.stopPropagation();cmPreviewCampaignCreatives(' + (c.dbId || 'null') + ')')
         + '</div>';
 
     var actions = '<div style="display:flex;align-items:center;gap:2px;justify-content:flex-end">'
@@ -1964,7 +2244,7 @@ function _cmRowsHtml() {
       budget,
       creativesCell,
       c.status === 'draft'
-        ? '<button onclick="" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap">+ Add Media Plan</button>'
+        ? '<button onclick="" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap">+ Add Moments Group</button>'
         : '<span style="font-size:12px;color:var(--text)">' + c.moments + ' moment' + (c.moments !== 1 ? 's' : '') + '</span>',
       '<span style="font-size:12px;color:var(--muted)">' + (c.createdBy || '—') + '</span>',
       '<span style="font-size:12px;color:var(--muted)">' + (c.createdOn || '—') + '</span>',
@@ -1982,9 +2262,14 @@ function renderCampaignManagement() {
   setTimeout(cmLoadFromDB, 0);
 
   var newCampBtn =
-    '<button onclick="cmCreateNewCampaign()" style="height:30px;padding:0 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">'
+    '<div style="display:flex;align-items:center;gap:8px">'
+    + '<button onclick="cmCreateNewCampaign()" style="height:30px;padding:0 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">'
     + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-    + 'New Campaign</button>';
+    + 'New Campaign (v1)</button>'
+    + '<button onclick="setPage(\'campaign-setup-v2\',\'Campaign Setup V2\')" style="height:30px;padding:0 14px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background=\'var(--accent)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--accent)\'">'
+    + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    + 'New Campaign (v2)</button>'
+    + '</div>';
 
   var searchBox =
     '<div style="padding:12px 20px;border-bottom:1px solid var(--border)">'
@@ -2000,10 +2285,10 @@ function renderCampaignManagement() {
     { label: 'Status',      width:'120px' },
     { label: 'Pacing',      width:'110px' },
     { label: 'Partner',     width:'170px' },
-    { label: 'Imp. Goal',   width:'110px' },
+    { label: (_cmActiveTab === 'live' ? 'Imp. Delivery' : 'Imp. Goal'), width:'110px' },
     { label: 'Budget',      width:'120px' },
     { label: 'Creatives',   width:'150px' },
-    { label: 'Media Plan',  width:'160px' },
+    { label: 'Moments Group',  width:'160px' },
     { label: 'Created By',  width:'140px' },
     { label: 'Created On',  width:'110px' },
     { label: '',            width:'80px',  align:'right' },
@@ -2069,10 +2354,12 @@ function cmCreateNewCampaign() {
   }
   _cmDraftAdv = '';
   _cmDraftCampaignName = '';
+  _cmNameMode = 'name';
   _cmSelectedAnalysis = null;
   _cmSelectedMp = null;
   _cmMpLibrary = null;
   _cmMpLibSearch = '';
+  _cmMpPlansSearch = '';
   cmOpenDetail(tempId);
 }
 
@@ -2279,7 +2566,7 @@ function _cmLoadPacingCreatives(dbId) {
           id:        cr.creative_id || cr.id || ('cr' + Math.random()),
           name:      cr.creative_name || cr.name || cr.creative_id || '—',
           thumb:     cr.thumb || cr.file_url || '',
-          type:      cr.fileType || cr.asset_type || 'VoD',
+          type:      cr.fileType || cr.creative_asset_type || 'VoD',
           templates: cr.templates || []
         };
       });
@@ -2306,19 +2593,19 @@ function _cmLoadPacingCreatives(dbId) {
     });
 }
 
-// ── Pacing detail: load media plan moments table ──────────────────────────────
+// ── Pacing detail: load Moments Group moments table ──────────────────────────────
 function _cmLoadPacingPlan(dbId) {
   var TH  = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap';
   var TOT = 'padding:10px 12px;font-size:12px;font-weight:600;color:var(--text);border-top:2px solid var(--border-md);background:var(--bg)';
 
-  fetch('/api/media-plans?campaign_id=' + dbId)
+  fetch('/api/ad-groups?campaign_id=' + dbId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var el = document.getElementById('cm-detail-plan');
       if (!el) return;
-      var rows = data.media_plans || [];
+      var rows = data.moments_groups || [];
       if (!rows.length) {
-        el.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No media plan linked.</div>';
+        el.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">No Moments Group linked.</div>';
         return;
       }
 
@@ -2423,7 +2710,7 @@ function _cmLoadPacingPlan(dbId) {
     })
     .catch(function() {
       var el = document.getElementById('cm-detail-plan');
-      if (el) el.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Could not load media plan.</div>';
+      if (el) el.innerHTML = '<div style="padding:32px;text-align:center;font-size:12px;color:var(--faint)">Could not load Moments Group.</div>';
     });
 }
 
@@ -2448,6 +2735,7 @@ var _cmDraftGeo          = [];
 var _cmDraftAdv          = '';
 var _cmDraftFlight       = { start:'', end:'' };
 var _cmDraftCampaignName = '';
+var _cmNameMode          = 'name'; // 'name' | 'id'
 var _cmCurrentCampaignDbId  = null; // set when _cmSetupChecklist renders
 var _cmCurrentClientOrgId   = null; // client_org_id of the campaign being edited
 var _cmCurrentAdvertiserId  = null; // advertiser_id of the campaign being edited
@@ -2490,13 +2778,13 @@ function _cmBuildClientList(q) {
   q = (q||'').toLowerCase();
   var orgs = (typeof _appClientOrgs === 'function' ? _appClientOrgs() : (typeof APP_ORGS !== 'undefined' ? APP_ORGS : []));
   var notSelRow = !q
-    ? '<div onclick="cmDraftClientPick(\'\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (!_cmDraftClient?'600':'400') + ';border-bottom:1px solid var(--border);margin-bottom:2px" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+    ? '<div onclick="cmDraftClientPick(\'\',null)" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (!_cmDraftClient?'600':'400') + ';border-bottom:1px solid var(--border);margin-bottom:2px" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<span style="color:var(--faint);font-style:italic">Not selected</span>'
       + (!_cmDraftClient ? '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '')
       + '</div>' : '';
   list.innerHTML = notSelRow + (orgs.filter(function(o){ return !q || o.name.toLowerCase().indexOf(q) >= 0; }).map(function(o) {
     var sel = _cmDraftClient === o.name;
-    return '<div onclick="cmDraftClientPick(\'' + o.name.replace(/'/g,"\\'") + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (sel?'600':'400') + '" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+    return '<div onclick="cmDraftClientPick(\'' + o.name.replace(/'/g,"\\'") + '\',' + (o.dbId || 'null') + ')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (sel?'600':'400') + '" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<div>'
       +   '<span style="color:var(--text)">' + o.name + '</span>'
       +   (o.type ? '<span style="font-size:10px;color:var(--faint);margin-left:6px">' + o.type + '</span>' : '')
@@ -2506,8 +2794,9 @@ function _cmBuildClientList(q) {
   }).join('') || '<div style="padding:10px;text-align:center;font-size:11px;color:var(--faint)">No results</div>');
 }
 
-function cmDraftClientPick(name) {
+function cmDraftClientPick(name, orgId) {
   _cmDraftClient = name;
+  _cmCurrentClientOrgId = orgId || null;
   _cmBuildClientList(document.getElementById('cm-draft-client-search') ? document.getElementById('cm-draft-client-search').value : '');
   var lbl = document.getElementById('cm-draft-client-lbl');
   if (lbl) { lbl.textContent = name || 'Not selected'; lbl.style.color = name ? '' : 'var(--faint)'; lbl.style.fontStyle = name ? '' : 'italic'; }
@@ -2515,6 +2804,22 @@ function cmDraftClientPick(name) {
   var btn   = document.getElementById('cm-draft-client-btn');
   if (panel) panel.style.display = 'none';
   if (btn) btn.style.borderColor = 'var(--border-md)';
+  // Reset advertiser when client changes and update its button state live
+  _cmDraftAdv = '';
+  var advBtn = document.getElementById('cm-draft-adv-btn');
+  var advLbl = document.getElementById('cm-draft-adv-lbl');
+  if (advBtn) {
+    advBtn.style.opacity    = name ? '' : '0.45';
+    advBtn.style.cursor     = name ? '' : 'not-allowed';
+  }
+  if (advLbl) {
+    advLbl.textContent   = name ? 'Not selected' : 'Select a client first';
+    advLbl.style.color   = 'var(--faint)';
+    advLbl.style.fontStyle = 'italic';
+  }
+  // Close adv panel if open
+  var advPanel = document.getElementById('cm-draft-adv-panel');
+  if (advPanel) advPanel.style.display = 'none';
   // Refresh creatives panel if open
   var p1 = document.getElementById('cm-draft-panel-1');
   if (p1 && p1.style.display !== 'none') cmLoadCreativesPanel();
@@ -2588,6 +2893,7 @@ function cmDraftGeoPick(code) {
 
 function cmDraftAdvToggle(e) {
   if (e) e.stopPropagation();
+  if (!_cmDraftClient) return; // client must be selected first
   var panel = document.getElementById('cm-draft-adv-panel');
   var btn   = document.getElementById('cm-draft-adv-btn');
   if (!panel) return;
@@ -2615,23 +2921,30 @@ function _cmBuildAdvList(q) {
   var list = document.getElementById('cm-draft-adv-list');
   if (!list) return;
   q = (q||'').toLowerCase();
-  var advs = typeof APP_ADVERTISERS !== 'undefined' ? APP_ADVERTISERS : [];
+  // Use DB advertisers filtered by currently selected client org
+  var all  = (typeof _appDbAdvertisers !== 'undefined' && _appDbAdvertisers.length)
+    ? _appDbAdvertisers
+    : [];
+  var advs = _cmCurrentClientOrgId
+    ? all.filter(function(a) { return String(a.client_org_id) === String(_cmCurrentClientOrgId); })
+    : all;
   var notSelRow = !q
-    ? '<div onclick="cmDraftAdvPick(\'\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (!_cmDraftAdv?'600':'400') + ';border-bottom:1px solid var(--border);margin-bottom:2px" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+    ? '<div onclick="cmDraftAdvPick(\'\',null)" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (!_cmDraftAdv?'600':'400') + ';border-bottom:1px solid var(--border);margin-bottom:2px" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
       + '<span style="color:var(--faint);font-style:italic">Not selected</span>'
       + (!_cmDraftAdv ? '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '')
       + '</div>' : '';
-  list.innerHTML = notSelRow + (advs.filter(function(a){ return !q || a.name.toLowerCase().indexOf(q)>=0; }).map(function(a) {
-    var sel = _cmDraftAdv === a.name;
-    return '<div onclick="cmDraftAdvPick(\'' + a.name.replace(/'/g,"\\'") + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (sel?'600':'400') + '" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
-      + '<span style="color:var(--text)">' + a.name + '</span>'
+  list.innerHTML = notSelRow + (advs.filter(function(a){ return !q || a.advertiser_name.toLowerCase().indexOf(q)>=0; }).map(function(a) {
+    var sel = _cmDraftAdv === a.advertiser_name;
+    return '<div onclick="cmDraftAdvPick(\'' + a.advertiser_name.replace(/'/g,"\\'") + '\',' + a.advertiser_id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;font-size:12px;cursor:pointer;border-radius:6px;font-weight:' + (sel?'600':'400') + '" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'">'
+      + '<span style="color:var(--text)">' + a.advertiser_name + '</span>'
       + (sel ? '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '')
       + '</div>';
-  }).join('') || '<div style="padding:10px;text-align:center;font-size:11px;color:var(--faint)">No results</div>');
+  }).join('') || '<div style="padding:10px;text-align:center;font-size:11px;color:var(--faint)">No advertisers for this client</div>');
 }
 
-function cmDraftAdvPick(name) {
+function cmDraftAdvPick(name, advId) {
   _cmDraftAdv = name;
+  _cmCurrentAdvertiserId = advId || null;
   _cmBuildAdvList(document.getElementById('cm-draft-adv-search') ? document.getElementById('cm-draft-adv-search').value : '');
   var lbl = document.getElementById('cm-draft-adv-lbl');
   if (lbl) { lbl.textContent = name || 'Not selected'; lbl.style.color = name ? '' : 'var(--faint)'; lbl.style.fontStyle = name ? '' : 'italic'; }
@@ -2644,7 +2957,7 @@ function cmDraftAdvPick(name) {
   if (p1 && p1.style.display !== 'none') cmLoadCreativesPanel();
 }
 
-// ── Flight dates — full calendar picker (same component as Media Planner) ─────
+// ── Flight dates — full calendar picker (same component as Moments Match) ─────
 var _cmFlightCal = {
   start: '', end: '',
   viewMonth: new Date().getMonth(),
@@ -2824,10 +3137,12 @@ var _CS_ARW  = '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" style=
 var _cmDraftAddl = {
   budget:    { min:0, max:1000000, exact:'', noBudget:false },
   impr:      { min:0, max:10000000, exact:'', noEstimate:false },
+  bidCpm:    { base:'', max:'', noCap:false },
   channels:  [],
   type:      [],
   safety:    [],
-  matchScore:[]
+  matchScore:[],
+  mediaType: [],
 };
 
 // ── Inject dual-range slider CSS once ─────────────────────────────────────────
@@ -2975,8 +3290,43 @@ function cmImprLabel() {
   return _cmFmtImp(p.min)+' – '+_cmFmtImp(p.max)+'/day';
 }
 
+// ── Bid CPM picker ────────────────────────────────────────────────────────────
+function _cmBidCpmContent() {
+  var p = _cmDraftAddl.bidCpm;
+  var dis = p.noCap ? 'opacity:.35;pointer-events:none;' : '';
+  function dollarInput(id, val, onInput) {
+    return '<div style="position:relative">'
+      + '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none">$</span>'
+      + '<input id="' + id + '" type="number" min="0" step="0.01" class="cm-addl-inp" placeholder="0.00" value="' + (val||'') + '" style="padding-left:22px" oninput="' + onInput + '">'
+      + '</div>';
+  }
+  return '<div style="' + dis + 'display:flex;flex-direction:column;gap:8px">'
+    + '<div>'
+    +   '<div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Base bid CPM</div>'
+    +   dollarInput('cm-bid-base-inp', p.base, '_cmDraftAddl.bidCpm.base=this.value;_cmAddlUpdateLbl(\'cm-draft-bidcpm-lbl\',cmBidCpmLabel())')
+    + '</div>'
+    + '<div>'
+    +   '<div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Max bid CPM</div>'
+    +   dollarInput('cm-bid-max-inp', p.max, '_cmDraftAddl.bidCpm.max=this.value;_cmAddlUpdateLbl(\'cm-draft-bidcpm-lbl\',cmBidCpmLabel())')
+    + '</div>'
+    + '</div>'
+    + '<label style="display:flex;align-items:center;gap:7px;margin-top:10px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none">'
+    +   '<input type="checkbox"' + (p.noCap?' checked':'') + ' style="accent-color:#e11d8f;width:13px;height:13px" onchange="_cmDraftAddl.bidCpm.noCap=this.checked;_cmAddlUpdateLbl(\'cm-draft-bidcpm-lbl\',cmBidCpmLabel());var dd=document.getElementById(\'cm-addl-bidcpm-dd\');if(dd)dd.innerHTML=_cmBidCpmContent()">'
+    +   'No CPM target'
+    + '</label>'
+    + _cmAddlOkBtn('cm-addl-bidcpm-dd');
+}
+function cmBidCpmLabel() {
+  var p = _cmDraftAddl.bidCpm;
+  if (p.noCap) return 'No CPM target';
+  var parts = [];
+  if (p.base) parts.push('Base $' + parseFloat(p.base).toFixed(2));
+  if (p.max)  parts.push('Max $'  + parseFloat(p.max).toFixed(2));
+  return parts.length ? parts.join(' / ') : 'Any';
+}
+
 // ── Generic checkbox picker (Channels, Type, Safety, MatchScore) ───────────────
-function _cmCheckboxDdContent(ddId, items, stateKey, hasSearch) {
+function _cmCheckboxDdContent(ddId, items, stateKey, hasSearch, firstDividerOnly) {
   var state = _cmDraftAddl[stateKey];
   var html = '';
   if (hasSearch) {
@@ -2985,15 +3335,17 @@ function _cmCheckboxDdContent(ddId, items, stateKey, hasSearch) {
       + 'style="width:100%;box-sizing:border-box;height:28px;border:1px solid var(--border-md);border-radius:6px;padding:0 8px;font-size:11px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">'
       + '</div>';
   }
-  html += '<div id="' + ddId + '-list">' + _cmCheckboxList(items, state, ddId, stateKey) + '</div>';
+  html += '<div id="' + ddId + '-list">' + _cmCheckboxList(items, state, ddId, stateKey, firstDividerOnly) + '</div>';
   html += _cmAddlOkBtn(ddId);
   return html;
 }
-function _cmCheckboxList(items, state, ddId, stateKey) {
-  return items.map(function(item) {
+function _cmCheckboxList(items, state, ddId, stateKey, firstDividerOnly) {
+  return items.map(function(item, idx) {
     var val = item.val || item; var label = item.label || item;
     var sel = state.indexOf(val) >= 0;
-    return '<label style="display:flex;align-items:center;gap:9px;padding:7px 2px;font-size:12px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border);user-select:none" '
+    // firstDividerOnly: divider only after first item (separator between "All" and specific options); false = no dividers
+    var border = (firstDividerOnly && idx === 0) ? 'border-bottom:1px solid var(--border);margin-bottom:2px;' : '';
+    return '<label style="display:flex;align-items:center;gap:9px;padding:7px 2px;font-size:12px;color:var(--text);cursor:pointer;' + border + 'user-select:none" '
       + 'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'">'
       + '<input type="checkbox"' + (sel?' checked':'') + ' value="' + val + '" style="accent-color:#e11d8f;width:14px;height:14px;flex-shrink:0" '
       + 'onchange="cmCheckboxPick(\'' + stateKey + '\',\'' + val + '\',this.checked,\'' + ddId + '\')">'
@@ -3001,20 +3353,22 @@ function _cmCheckboxList(items, state, ddId, stateKey) {
       + '</label>';
   }).join('');
 }
+// Keys that use firstDividerOnly mode (divider only after the first item)
+var _cmCheckboxFirstDivider = { channels: true, type: true, safety: true, matchScore: true };
 function _cmCheckboxSearch(q, ddId, stateKey) {
-  var allItems = { channels:['CTV','OLV','Display','Social','Audio'], type:['All','VoD','Livestream','Organic Pause'], safety:['No Restrictions','Alcohol','Violence','Gambling','Drugs','Adult Content','Weapons','Political'], matchScore:['All','High','Standard'] };
+  var allItems = { channels:['All','CTV','OLV','Display','Social','Audio'], type:['All','VoD','Livestream','Organic Pause'], safety:['No Restrictions','Alcohol','Violence','Gambling','Drugs','Adult Content','Weapons','Political'], matchScore:['All','High','Standard'], mediaType:['Display','Video','CTV','Audio','Native'] };
   var items = allItems[stateKey] || [];
   q = q.toLowerCase();
   var filtered = items.filter(function(i){ return !q || (i.label||i).toLowerCase().indexOf(q)>=0; });
   var list = document.getElementById(ddId + '-list');
-  if (list) list.innerHTML = _cmCheckboxList(filtered, _cmDraftAddl[stateKey], ddId, stateKey);
+  if (list) list.innerHTML = _cmCheckboxList(filtered, _cmDraftAddl[stateKey], ddId, stateKey, !!_cmCheckboxFirstDivider[stateKey]);
 }
 function cmCheckboxPick(stateKey, val, checked, ddId) {
   var state = _cmDraftAddl[stateKey];
   var idx = state.indexOf(val);
   if (checked && idx < 0) state.push(val);
   else if (!checked && idx >= 0) state.splice(idx, 1);
-  var lblMap = { channels:'cm-draft-channels-lbl', type:'cm-draft-type-lbl', safety:'cm-draft-safety-lbl', matchScore:'cm-draft-match-lbl' };
+  var lblMap = { channels:'cm-draft-channels-lbl', type:'cm-draft-type-lbl', safety:'cm-draft-safety-lbl', matchScore:'cm-draft-match-lbl', mediaType:'cm-draft-mediatype-lbl' };
   _cmAddlUpdateLbl(lblMap[stateKey], state.length ? state.join(', ') : 'Any');
 }
 function _cmAddlUpdateLbl(id, text) {
@@ -3136,7 +3490,7 @@ function _cmDraftToggle(idx) {
         .catch(function() {});
     }
   }
-  // Lazy-load media plan when panel 2 opens
+  // Lazy-load Moments Group when panel 2 opens
   if (idx === 2) {
     var p2 = document.getElementById('cm-draft-panel-2');
     if (p2 && p2.style.display !== 'none') cmLoadMediaPlanPanel();
@@ -3177,11 +3531,13 @@ function cmSaveCampaignDetails() {
     CM_CAMPAIGNS = CM_CAMPAIGNS.map(function(c) {
       if (c.dbId !== resolvedId && c.id !== _cmOpenDetailId) return c;
       return Object.assign({}, c, {
-        dbId:       resolvedId,
-        id:         'cm' + resolvedId,
-        name:       campaignName   || c.name,
-        client:     clientName     || c.client,
-        advertiser: advertiserName || c.advertiser,
+        dbId:        resolvedId,
+        id:          'cm' + resolvedId,
+        name:        campaignName         || c.name,
+        client:      clientName           || c.client,
+        advertiser:  advertiserName       || c.advertiser,
+        clientOrgId: _cmCurrentClientOrgId  || c.clientOrgId  || null,
+        advertiserId: _cmCurrentAdvertiserId || c.advertiserId || null,
       });
     });
     _cmOpenDetailId = 'cm' + resolvedId;
@@ -3236,8 +3592,8 @@ function _cmStepDone(stepIdx, c) {
       );
     case 1: // Creatives — at least one creative linked to this campaign in DB
       return (c.creatives > 0);
-    case 2: // Media Plan — at least one moment linked to this campaign in DB
-      return (c.moments > 0);
+    case 2: // Moments Group — at least one analysis assigned to this campaign in DB
+      return (c.analysisCount > 0);
     case 3: // Partner — at least one connection_id saved on partner_ids
       return !!(
         (c.partnerIds && c.partnerIds.length > 0) ||
@@ -3302,6 +3658,7 @@ function _cmSetupChecklist(c, opts) {
   _cmDraftFlight.start   = c.start       || '';
   _cmDraftFlight.end     = c.end         || '';
   _cmDraftCampaignName   = c.name        || '';
+  _cmDraftAddl.mediaType = (c.mediaType  || []).slice();
   // Reset partner draft state for each new campaign open
   _cmDraftPartners  = [];
   _cmPartnerSearch  = '';
@@ -3321,10 +3678,14 @@ function _cmSetupChecklist(c, opts) {
     + '</div>'
     + '</div>';
 
+  var _advLocked = !_cmDraftClient; // disabled until a client is selected
+  var _advLabel  = _advLocked ? 'Select a client first' : (_cmDraftAdv || 'Not selected');
+  var _advLblStyle = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--faint);font-style:italic';
+  if (!_advLocked && _cmDraftAdv) _advLblStyle = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
   var advTrigger =
     '<div style="position:relative">'
-    + '<button type="button" id="cm-draft-adv-btn" onclick="cmDraftAdvToggle(event)" style="' + _CS_TRIG + '">'
-    +   '<span id="cm-draft-adv-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (!c.advertiser ? ';color:var(--faint);font-style:italic' : '') + '">' + (c.advertiser || 'Not selected') + '</span>'
+    + '<button type="button" id="cm-draft-adv-btn" onclick="cmDraftAdvToggle(event)" style="' + _CS_TRIG + (_advLocked ? ';opacity:.45;cursor:not-allowed' : '') + '">'
+    +   '<span id="cm-draft-adv-lbl" style="' + _advLblStyle + '">' + _advLabel + '</span>'
     +   _CS_ARW
     + '</button>'
     + '<div id="cm-draft-adv-panel" style="display:none">'
@@ -3360,18 +3721,42 @@ function _cmSetupChecklist(c, opts) {
   }
 
   var LB = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
+  var mediaTypeTrigger =
+    '<div style="position:relative">'
+    + '<button type="button" onclick="_cmAddlOpen(\'cm-mediatype-dd\',function(){return _cmCheckboxDdContent(\'cm-mediatype-dd\',[\'Display\',\'Video\',\'CTV\',\'Audio\',\'Native\'],\'mediaType\',false,false)},this)" style="' + _CS_TRIG + '">'
+    +   '<span id="cm-draft-mediatype-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (_cmDraftAddl.mediaType.length ? '' : 'color:var(--faint)') + '">'
+    +   (_cmDraftAddl.mediaType.length ? _cmDraftAddl.mediaType.join(', ') : 'Not selected')
+    +   '</span>'
+    +   _CS_ARW
+    + '</button>'
+    + '</div>';
+
   var detailsForm =
     '<div style="padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">'
-    // ── Row 1: Client, Advertiser, Campaign Name ──
+    // ── Row 1: Campaign Name / ID, Client ID / Partner ID, Advertiser ──
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">'
-    +   '<div style="min-width:0"><label style="' + LB + '">Client</label>' + clientTrigger + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Campaign Name / ID</label>'
++   '<div id="cm-name-field" style="display:flex;align-items:center;gap:8px;height:36px;padding:0 11px 0 4px;border:1px solid var(--border-md);border-radius:5px;background:var(--surface);transition:border-color .15s" onfocusin="this.style.borderColor=\'var(--accent)\'" onfocusout="this.style.borderColor=\'var(--border-md)\'">'
++     '<div style="display:inline-flex;background:#f3f4f6;border-radius:4px;padding:2px;gap:1px;flex-shrink:0">'
++       '<button type="button" onclick="cmSwitchNameMode(this,\'name\')" style="height:20px;padding:0 7px;border:none;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.1);transition:background .12s,color .12s">Name</button>'
++       '<button type="button" onclick="cmSwitchNameMode(this,\'id\')" style="height:20px;padding:0 7px;border:none;border-radius:3px;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:#9ca3af;transition:background .12s,color .12s">ID</button>'
++     '</div>'
++     '<input id="cm-draft-name" type="text" placeholder="Campaign name…" value="' + (c.name||'').replace(/"/g,'&quot;') + '" style="flex:1;min-width:0;border:none;outline:none;font-size:12px;font-family:inherit;color:var(--text);background:transparent" oninput="_cmDraftCampaignName=this.value">'
++   '</div>'
++   '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Client ID / Partner ID</label>' + clientTrigger + '</div>'
     +   '<div style="min-width:0"><label style="' + LB + '">Advertiser</label>' + advTrigger + '</div>'
-    +   '<div style="min-width:0"><label style="' + LB + '">Campaign Name</label>' + UI.input('cm-draft-name','text','Campaign name',c.name) + '</div>'
     + '</div>'
-    // ── Row 2: Geography, Flight Dates ──
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
-    +   '<div style="min-width:0"><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
-    +   '<div style="min-width:0"><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
+    // ── Row 2: [Flight Dates + Geography stacked] | Media Type | Campaign Type ──
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">'
+    +   '<div style="min-width:0;display:flex;gap:8px;align-items:end">'
+    +     '<div style="flex:4;min-width:0"><label style="' + LB + '">Flight Dates</label>' + flightTrigger + '</div>'
+    +     '<div style="flex:2;min-width:0"><label style="' + LB + '">Geography</label>' + geoTrigger + '</div>'
+    +   '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Media Type</label>' + mediaTypeTrigger + '</div>'
+    +   '<div style="min-width:0"><label style="' + LB + '">Campaign Type</label>'
+    +   UI.customSelect('cm-draft-camptype', [{val:'',label:'Not selected'},{val:'standard',label:'Standard'},{val:'pg',label:'Programmatic Guaranteed'}], '', null)
+    +   '</div>'
     + '</div>'
     // ── Additional Details toggle ──
     + '<div style="margin:4px 0 0">'
@@ -3400,39 +3785,21 @@ function _cmSetupChecklist(c, opts) {
     +         '</button>'
     +       '</div>'
     +     '</div>'
-    +     '<div style="min-width:0"><label style="' + LB + '">Pref. Channels</label>'
+    +     '<div style="min-width:0"><label style="' + LB + '">Bid CPM</label>'
     +       '<div style="position:relative">'
-    +         '<button type="button" onclick="_cmAddlOpen(\'cm-addl-channels-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-channels-dd\',[\'CTV\',\'OLV\',\'Display\',\'Social\',\'Audio\'],\'channels\',true)},this)" style="' + _CS_TRIG + '">'
-    +           '<span id="cm-draft-channels-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
+    +         '<button type="button" onclick="_cmAddlOpen(\'cm-addl-bidcpm-dd\',_cmBidCpmContent,this)" style="' + _CS_TRIG + '">'
+    +           '<span id="cm-draft-bidcpm-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
     +         '</button>'
     +       '</div>'
     +     '</div>'
-    +     '<div style="min-width:0"><label style="' + LB + '">Type</label>'
-    +       '<div style="position:relative">'
-    +         '<button type="button" onclick="_cmAddlOpen(\'cm-addl-type-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-type-dd\',[\'All\',\'VoD\',\'Livestream\',\'Organic Pause\'],\'type\',false)},this)" style="' + _CS_TRIG + '">'
-    +           '<span id="cm-draft-type-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
-    +         '</button>'
-    +       '</div>'
-    +     '</div>'
-    +     '<div style="min-width:0"><label style="' + LB + '">Brand Safety</label>'
-    +       '<div style="position:relative">'
-    +         '<button type="button" onclick="_cmAddlOpen(\'cm-addl-safety-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-safety-dd\',[\'No Restrictions\',\'Alcohol\',\'Violence\',\'Gambling\',\'Drugs\',\'Adult Content\',\'Weapons\',\'Political\'],\'safety\',false)},this)" style="' + _CS_TRIG + '">'
-    +           '<span id="cm-draft-safety-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
-    +         '</button>'
-    +       '</div>'
-    +     '</div>'
-    +     '<div style="min-width:0"><label style="' + LB + '">Match Score</label>'
-    +       '<div style="position:relative">'
-    +         '<button type="button" onclick="_cmAddlOpen(\'cm-addl-match-dd\',function(){return _cmCheckboxDdContent(\'cm-addl-match-dd\',[\'All\',\'High\',\'Standard\'],\'matchScore\',false)},this)" style="' + _CS_TRIG + '">'
-    +           '<span id="cm-draft-match-lbl" style="flex:1;color:var(--faint)">Any</span>' + _CS_ARW
-    +         '</button>'
-    +       '</div>'
+    +     '<div style="min-width:0"><label style="' + LB + '">Pacing Mode</label>'
+    +       UI.customSelect('cm-draft-pacing', [{val:'',label:'Not selected'},{val:'ahead',label:'Ahead'},{val:'evenly',label:'Evenly'}], '', null)
     +     '</div>'
     +   '</div>'
     + '</div>'
-    + '<div style="margin-top:18px;display:flex;align-items:center;gap:14px">'
-    +   '<button id="cm-draft-save-btn" onclick="cmSaveCampaignDetails()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
+    + '<div style="margin-top:18px;display:flex;align-items:center;justify-content:flex-end;gap:14px">'
     +   '<span id="cm-save-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
+    +   '<button id="cm-draft-save-btn" onclick="cmSaveCampaignDetails()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save Changes</button>'
     + '</div>'
     + '</div>';
 
@@ -3454,7 +3821,7 @@ function _cmSetupChecklist(c, opts) {
     } else if (stepIdx === 1) {
       msg = 'No creatives attached yet. Add at least one creative to mark this step as complete.';
     } else if (stepIdx === 2) {
-      msg = 'No media plan linked yet. Associate at least one moment to continue.';
+      msg = 'No Moments Group linked yet. Associate at least one moment to continue.';
     } else if (stepIdx === 3) {
       msg = 'No DSP / SSP partner connected yet. Link a partner to enable campaign delivery.';
     }
@@ -3468,13 +3835,13 @@ function _cmSetupChecklist(c, opts) {
     // 1 — Creatives (two-col: library picker + asset tiles)
     _stepAlert(1)
     + '<div id="cm-draft-creatives" style="border-top:1px solid var(--border)">' + _cmDraftCreativesInnerHtml() + '</div>'
-    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px">'
-    +   '<button id="cm-creatives-save-btn" onclick="cmSaveCreatives()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add Creatives to Campaign</button>'
+    + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:14px">'
     +   '<span id="cm-creatives-feedback" style="font-size:12px;font-weight:600;opacity:0;transition:opacity .4s"></span>'
+    +   '<button id="cm-creatives-save-btn" onclick="cmSaveCreatives()" style="height:32px;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add Creatives to Campaign</button>'
     + '</div>'
     + '<div style="height:1px;background:var(--border);margin:0"></div>',
 
-    // 2 — Media Plan / Moments
+    // 2 — Moments Group / Moments
     _stepAlert(2)
     + '<div id="cm-moments-panel">' + _cmMomentsInnerHtml() + '</div>'
     + '<div style="height:1px;background:var(--border);margin:0"></div>',
@@ -3536,9 +3903,8 @@ function _cmSetupChecklist(c, opts) {
     + stepsHtml
     + '</div>';
 
-  return '<div style="display:flex;gap:20px;align-items:flex-start;margin-top:20px">'
-    + '<div style="flex:1;min-width:0">' + accordionCard + '</div>'
-    + '<div style="width:260px;flex-shrink:0">' + _cmSummaryHtml(c) + '</div>'
+  return '<div style="margin-top:20px">'
+    + accordionCard
     + '</div>';
 }
 
@@ -3586,7 +3952,7 @@ function _cmSummaryDetailHtml(i, c) {
       var crCount = c.creatives || (_cmDraftCreatives && _cmDraftCreatives.length) || 0;
       return row('Creatives', crCount ? crCount + ' attached' : 'None yet');
     case 2:
-      var hasAnalysis = _cmSelectedAnalysis || c.analysis_id;
+      var hasAnalysis = _cmSelectedAnalysis || c.moments_match_analysis_id;
       return row('Analysis', hasAnalysis ? 'Assigned' : 'None yet');
     case 3:
       return row('Partners', (c.partners && c.partners.length) ? c.partners.join(', ') : 'None yet');
