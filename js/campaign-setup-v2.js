@@ -22,13 +22,15 @@ function renderCampaignSetupV2() {
     var rawItems = Array.isArray(pending.line_items) ? pending.line_items : [];
     cs2AdGroups = rawItems.map(function(li) {
       return {
-        name:       li.name        || 'Line Item',
-        mediaType:  li.media_type  || [],
-        deviceType: li.device_type || [],
-        geo:        li.geo         || [],
-        budget:     li.budget      != null ? li.budget   : null,
-        baseCpm:    li.base_cpm    != null ? li.base_cpm : null,
-        maxCpm:     li.max_cpm     != null ? li.max_cpm  : null,
+        name:              li.name              || 'Line Item',
+        mediaType:         li.media_type        || [],
+        deviceType:        li.device_type       || [],
+        geo:               li.geo               || [],
+        budget:            li.budget            != null ? li.budget   : null,
+        baseCpm:           li.base_cpm          != null ? li.base_cpm : null,
+        maxCpm:            li.max_cpm           != null ? li.max_cpm  : null,
+        creative_ids:      Array.isArray(li.creative_ids)       ? li.creative_ids       : [],
+        moments_group_ids: Array.isArray(li.moments_group_ids)  ? li.moments_group_ids  : [],
       };
     });
     if (!cs2AdGroups.length) cs2AdGroups = [{ name: 'Line Item 1' }];
@@ -175,6 +177,7 @@ function _cs2UpdatePanel() {
   panel.innerHTML = _cs2PanelContent();
   if (isAg) {
     cs2LiLoadCreatives(cs2Selected.idx);
+    cs2LiLoadMomentsGroups(cs2Selected.idx);
     if (typeof cmRenderMpSection === 'function') cmRenderMpSection();
   }
 }
@@ -419,10 +422,12 @@ function _cs2AdGroupForm(idx) {
     + '</div>'
     + '</div>';
 
-  // ── Card 3: Moments Match ──
+  // ── Card 3: Moments Groups ──
   var card3 = '<div id="cs2-ag-section-moments-' + idx + '" style="' + CARD + '">'
-    + '<div style="' + CARD_HDR + '">Moments Match</div>'
-    + '<div id="cm-moments-panel">' + _cmMomentsInnerHtml() + '</div>'
+    + '<div style="' + CARD_HDR + '">Moments Groups</div>'
+    + '<div id="cs2-moments-list-' + idx + '" style="min-height:80px;display:flex;align-items:center;justify-content:center">'
+    +   '<span style="font-size:12px;color:var(--faint)">Loading…</span>'
+    + '</div>'
     + '</div>';
 
   return ''
@@ -519,13 +524,15 @@ function cs2Save() {
   // ── Collect line items ──────────────────────────────────────────────────────
   var lineItems = cs2AdGroups.map(function(ag) {
     return {
-      name:        ag.name        || '',
-      media_type:  ag.mediaType   || [],
-      device_type: ag.deviceType  || [],
-      geo:         ag.geo         || [],
-      budget:      ag.budget      != null ? ag.budget  : null,
-      base_cpm:    ag.baseCpm     != null ? ag.baseCpm : null,
-      max_cpm:     ag.maxCpm      != null ? ag.maxCpm  : null,
+      name:              ag.name              || '',
+      media_type:        ag.mediaType         || [],
+      device_type:       ag.deviceType        || [],
+      geo:               ag.geo               || [],
+      budget:            ag.budget            != null ? ag.budget  : null,
+      base_cpm:          ag.baseCpm           != null ? ag.baseCpm : null,
+      max_cpm:           ag.maxCpm            != null ? ag.maxCpm  : null,
+      creative_ids:      ag.creative_ids      || [],
+      moments_group_ids: ag.moments_group_ids || [],
     };
   });
 
@@ -601,7 +608,7 @@ function cs2SaveCampaignDetails() {
     campaign_status:  'draft',
     campaign_details: campaignDetails,
     line_items:       cs2AdGroups.map(function(ag) {
-      return { name: ag.name || '', media_type: ag.mediaType || [], device_type: ag.deviceType || [], geo: ag.geo || [], budget: ag.budget || null, base_cpm: ag.baseCpm || null, max_cpm: ag.maxCpm || null };
+      return { name: ag.name || '', media_type: ag.mediaType || [], device_type: ag.deviceType || [], geo: ag.geo || [], budget: ag.budget || null, base_cpm: ag.baseCpm || null, max_cpm: ag.maxCpm || null, creative_ids: ag.creative_ids || [], moments_group_ids: ag.moments_group_ids || [] };
     }),
   };
 
@@ -645,13 +652,15 @@ function cs2SaveLineItemDetails(idx) {
   // Build full line_items array from current state
   var lineItems = cs2AdGroups.map(function(ag) {
     return {
-      name:        ag.name        || '',
-      media_type:  ag.mediaType   || [],
-      device_type: ag.deviceType  || [],
-      geo:         ag.geo         || [],
-      budget:      ag.budget      != null ? ag.budget  : null,
-      base_cpm:    ag.baseCpm     != null ? ag.baseCpm : null,
-      max_cpm:     ag.maxCpm      != null ? ag.maxCpm  : null,
+      name:              ag.name              || '',
+      media_type:        ag.mediaType         || [],
+      device_type:       ag.deviceType        || [],
+      geo:               ag.geo               || [],
+      budget:            ag.budget            != null ? ag.budget  : null,
+      base_cpm:          ag.baseCpm           != null ? ag.baseCpm : null,
+      max_cpm:           ag.maxCpm            != null ? ag.maxCpm  : null,
+      creative_ids:      ag.creative_ids      || [],
+      moments_group_ids: ag.moments_group_ids || [],
     };
   });
 
@@ -703,6 +712,8 @@ function cs2SaveLineItemDetails(idx) {
       cs2CampaignId = data.campaign_id;
       if (btn) { btn.textContent = 'Save Line Item Details'; btn.disabled = false; }
       setFeedback('Saved ✓', '#16a34a');
+      // Now that we have a campaign ID, reload moments groups for this line item
+      cs2LiLoadMomentsGroups(idx);
     })
     .catch(function(err) {
       console.error('cs2SaveLineItemDetails (create) error:', err);
@@ -873,23 +884,31 @@ function cs2LiGeoClear(idx) {
 // ── Creatives V2 picker ───────────────────────────────────────────────────────
 
 function cs2LiLoadCreatives(idx) {
-  var params = ['no_campaign=1'];
-  if (typeof _cmCurrentClientOrgId !== 'undefined' && _cmCurrentClientOrgId)
-    params.push('client_org_id=' + _cmCurrentClientOrgId);
-  if (typeof _cmCurrentAdvertiserId !== 'undefined' && _cmCurrentAdvertiserId)
-    params.push('advertiser_id=' + _cmCurrentAdvertiserId);
+  var el = document.getElementById('cs2-creatives-list-' + idx);
+  // Filter by campaign_id if we have one, otherwise fall back to client/advertiser
+  var params = [];
+  if (cs2CampaignId) {
+    params.push('campaign_id=' + cs2CampaignId);
+  } else {
+    if (typeof _cmCurrentClientOrgId  !== 'undefined' && _cmCurrentClientOrgId)  params.push('client_org_id='  + _cmCurrentClientOrgId);
+    if (typeof _cmCurrentAdvertiserId !== 'undefined' && _cmCurrentAdvertiserId) params.push('advertiser_id=' + _cmCurrentAdvertiserId);
+    if (!params.length) {
+      if (el) el.innerHTML = '<div style="padding:24px;font-size:12px;color:var(--faint);text-align:center">Save the campaign first to load creatives.</div>';
+      return;
+    }
+  }
   var qs = '?' + params.join('&');
   fetch('/api/creatives-v2' + qs)
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!cs2AdGroups[idx]) return;
       cs2AdGroups[idx]._creativesV2 = d.creatives || [];
-      var el = document.getElementById('cs2-creatives-list-' + idx);
-      if (el) el.innerHTML = cs2LiCreativesListHtml(idx);
+      var elNow = document.getElementById('cs2-creatives-list-' + idx);
+      if (elNow) elNow.innerHTML = cs2LiCreativesListHtml(idx);
     })
     .catch(function() {
-      var el = document.getElementById('cs2-creatives-list-' + idx);
-      if (el) el.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--faint);text-align:center">Could not load creatives.</div>';
+      var elNow = document.getElementById('cs2-creatives-list-' + idx);
+      if (elNow) elNow.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--faint);text-align:center">Could not load creatives.</div>';
     });
 }
 
@@ -944,8 +963,105 @@ function cs2LiToggleCreative(idx, creativeId) {
   if (!ag.creative_ids) ag.creative_ids = [];
   var pos = ag.creative_ids.indexOf(creativeId);
   if (pos >= 0) ag.creative_ids.splice(pos, 1);
-  else ag.creative_ids.push(creativeId);
+  else          ag.creative_ids.push(creativeId);
   var el = document.getElementById('cs2-creatives-list-' + idx);
   if (el) el.innerHTML = cs2LiCreativesListHtml(idx);
+}
+
+// ── Moments Groups picker ─────────────────────────────────────────────────────
+
+function cs2LiLoadMomentsGroups(idx) {
+  var el = document.getElementById('cs2-moments-list-' + idx);
+  if (!el) return;
+
+  // Determine moments_match_analysis_id: prefer campaign_details, else pending campaign
+  var analysisId = null;
+  if (typeof _cs2PendingCampaign === 'object' && _cs2PendingCampaign) {
+    var pd = _cs2PendingCampaign.campaign_details || {};
+    analysisId = pd.moments_match_analysis_id || null;
+  }
+  // Also check _cmCurrentAnalysisId if it was set during session
+  if (!analysisId && typeof _cmCurrentAnalysisId !== 'undefined' && _cmCurrentAnalysisId) {
+    analysisId = _cmCurrentAnalysisId;
+  }
+
+  if (!analysisId && !cs2CampaignId) {
+    el.innerHTML = '<div style="padding:24px;font-size:12px;color:var(--faint);text-align:center">No Moments Match analysis linked to this campaign yet.</div>';
+    return;
+  }
+
+  var qs = analysisId
+    ? '?moments_match_analysis_id=' + analysisId
+    : '?campaign_id=' + cs2CampaignId;
+
+  fetch('/api/ad-groups-summary' + qs)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!cs2AdGroups[idx]) return;
+      cs2AdGroups[idx]._momentsGroups = d.plans || [];
+      var elNow = document.getElementById('cs2-moments-list-' + idx);
+      if (elNow) elNow.innerHTML = cs2LiMomentsGroupsHtml(idx);
+    })
+    .catch(function() {
+      var elNow = document.getElementById('cs2-moments-list-' + idx);
+      if (elNow) elNow.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--faint);text-align:center">Could not load moments groups.</div>';
+    });
+}
+
+function cs2LiMomentsGroupsHtml(idx) {
+  var ag     = cs2AdGroups[idx] || {};
+  var groups = ag._momentsGroups   || [];
+  var sel    = ag.moments_group_ids || [];
+
+  if (!groups.length) {
+    return '<div style="padding:24px;font-size:12px;color:var(--faint);text-align:center">No moments groups found for this campaign.</div>';
+  }
+
+  var TH = 'padding:6px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border)';
+  var TD = 'padding:8px 16px;border-bottom:1px solid var(--border);vertical-align:middle';
+
+  var rows = groups.map(function(g) {
+    var gid      = g.moments_group_id;
+    var isSelected = sel.indexOf(gid) >= 0;
+    var cb = '<input type="checkbox"' + (isSelected ? ' checked' : '')
+      + ' onclick="event.stopPropagation();cs2LiToggleMomentsGroup(' + idx + ',' + JSON.stringify(gid) + ')"'
+      + ' style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">';
+    var name = '<div style="font-size:12px;font-weight:500;color:var(--text)">' + (g.moments_group_name || '—') + '</div>';
+    var count = '<div style="font-size:12px;color:var(--muted);text-align:right">' + (g.moment_count || 0) + ' moments</div>';
+    var impr  = '<div style="font-size:12px;color:var(--muted);text-align:right">' + (g.total_impressions || '—') + '</div>';
+    var dollar = '<div style="font-size:12px;color:var(--muted);text-align:right">' + (g.total_dollar_value || '—') + '</div>';
+
+    return '<tr onclick="cs2LiToggleMomentsGroup(' + idx + ',' + JSON.stringify(gid) + ')"'
+      + ' onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'"'
+      + ' style="cursor:pointer">'
+      + '<td style="' + TD + ';width:32px">' + cb + '</td>'
+      + '<td style="' + TD + '">' + name + '</td>'
+      + '<td style="' + TD + ';width:100px">' + count + '</td>'
+      + '<td style="' + TD + ';width:100px">' + impr + '</td>'
+      + '<td style="' + TD + ';width:110px">' + dollar + '</td>'
+      + '</tr>';
+  }).join('');
+
+  return '<table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr>'
+    + '<th style="' + TH + ';width:32px"></th>'
+    + '<th style="' + TH + '">Group Name</th>'
+    + '<th style="' + TH + ';width:100px;text-align:right">Moments</th>'
+    + '<th style="' + TH + ';width:100px;text-align:right">Impressions</th>'
+    + '<th style="' + TH + ';width:110px;text-align:right">Est. Value</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>';
+}
+
+function cs2LiToggleMomentsGroup(idx, groupId) {
+  var ag = cs2AdGroups[idx];
+  if (!ag) return;
+  if (!ag.moments_group_ids) ag.moments_group_ids = [];
+  var pos = ag.moments_group_ids.indexOf(groupId);
+  if (pos >= 0) ag.moments_group_ids.splice(pos, 1);
+  else          ag.moments_group_ids.push(groupId);
+  var el = document.getElementById('cs2-moments-list-' + idx);
+  if (el) el.innerHTML = cs2LiMomentsGroupsHtml(idx);
 }
 

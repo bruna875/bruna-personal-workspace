@@ -29,15 +29,41 @@ export default async function handler(req, res) {
 
   try {
     const sql = neon(process.env.DATABASE_URL);
-    const { client_org_id } = req.query;
+    const { client_org_id, moments_match_analysis_id, campaign_id } = req.query;
 
-    const rows = client_org_id
+    const rows = moments_match_analysis_id
       ? await sql`
           SELECT mm.moments_match_analysis_id, mm.campaign_id, mm.client_org_id, mm.advertiser_id,
                  mm.moments_groups, mm.created_by, mm.created_at,
                  c.campaign_name, o.client_name, a.advertiser_name
           FROM moments_match mm
-          LEFT JOIN campaigns            c ON mm.campaign_id   = c.campaign_id
+          LEFT JOIN campaigns_v2         c ON mm.campaign_id   = c.campaign_id
+          LEFT JOIN advertisers          a ON mm.advertiser_id = a.advertiser_id
+          LEFT JOIN client_organizations o ON mm.client_org_id = o.client_org_id
+          WHERE mm.moments_match_analysis_id = ${parseInt(moments_match_analysis_id)}
+            AND mm.moments_groups IS NOT NULL
+          ORDER BY mm.created_at DESC
+        `
+      : campaign_id
+      ? await sql`
+          SELECT mm.moments_match_analysis_id, mm.campaign_id, mm.client_org_id, mm.advertiser_id,
+                 mm.moments_groups, mm.created_by, mm.created_at,
+                 c.campaign_name, o.client_name, a.advertiser_name
+          FROM moments_match mm
+          LEFT JOIN campaigns_v2         c ON mm.campaign_id   = c.campaign_id
+          LEFT JOIN advertisers          a ON mm.advertiser_id = a.advertiser_id
+          LEFT JOIN client_organizations o ON mm.client_org_id = o.client_org_id
+          WHERE mm.campaign_id = ${parseInt(campaign_id)}
+            AND mm.moments_groups IS NOT NULL
+          ORDER BY mm.created_at DESC
+        `
+      : client_org_id
+      ? await sql`
+          SELECT mm.moments_match_analysis_id, mm.campaign_id, mm.client_org_id, mm.advertiser_id,
+                 mm.moments_groups, mm.created_by, mm.created_at,
+                 c.campaign_name, o.client_name, a.advertiser_name
+          FROM moments_match mm
+          LEFT JOIN campaigns_v2         c ON mm.campaign_id   = c.campaign_id
           LEFT JOIN advertisers          a ON mm.advertiser_id = a.advertiser_id
           LEFT JOIN client_organizations o ON mm.client_org_id = o.client_org_id
           WHERE mm.client_org_id = ${parseInt(client_org_id)}
@@ -49,7 +75,7 @@ export default async function handler(req, res) {
                  mm.moments_groups, mm.created_by, mm.created_at,
                  c.campaign_name, o.client_name, a.advertiser_name
           FROM moments_match mm
-          LEFT JOIN campaigns            c ON mm.campaign_id   = c.campaign_id
+          LEFT JOIN campaigns_v2         c ON mm.campaign_id   = c.campaign_id
           LEFT JOIN advertisers          a ON mm.advertiser_id = a.advertiser_id
           LEFT JOIN client_organizations o ON mm.client_org_id = o.client_org_id
           WHERE mm.moments_groups IS NOT NULL
