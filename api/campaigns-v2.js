@@ -42,6 +42,7 @@ export default async function handler(req, res) {
       if (advertiser_id) { conditions.push(`cv.advertiser_id = $${params.length + 1}`); params.push(parseInt(advertiser_id)); }
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
+      // ── Query campaigns_v2 (new table) ───────────────────────────────────────
       const rows = await sql.query(`
         SELECT
           cv.*,
@@ -56,11 +57,34 @@ export default async function handler(req, res) {
         ORDER BY cv.created_at DESC
       `, params);
 
-      // Resolve partner names from campaign_details.partner_ids
-      const allPartnerIds = [...new Set(rows.flatMap(r => {
-        const d = r.campaign_details || {};
-        return Array.isArray(d.partner_ids) ? d.partner_ids : [];
-      }))];
+      // ── Query campaigns (old table) — backward compat ────────────────────────
+      const v1Conditions = [], v1Params = [];
+      if (campaign_id)   { v1Conditions.push(`c.campaign_id   = $${v1Params.length + 1}`); v1Params.push(parseInt(campaign_id));   }
+      if (client_org_id) { v1Conditions.push(`c.client_org_id = $${v1Params.length + 1}`); v1Params.push(parseInt(client_org_id)); }
+      if (advertiser_id) { v1Conditions.push(`c.advertiser_id = $${v1Params.length + 1}`); v1Params.push(parseInt(advertiser_id)); }
+      const v1Where = v1Conditions.length ? `WHERE ${v1Conditions.join(' AND ')}` : '';
+      const v1Rows = await sql.query(`
+        SELECT
+          c.campaign_id, c.campaign_name, c.status AS campaign_status,
+          c.geo, c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
+          c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
+          c.client_org_id, c.advertiser_id,
+          o.client_name, a.advertiser_name,
+          NULL::jsonb AS line_items,
+          (SELECT COUNT(*) FROM creatives    cr WHERE cr.campaign_id = c.campaign_id)::int AS creative_count,
+          (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = c.campaign_id)::int AS analysis_count
+        FROM campaigns c
+        LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id
+        LEFT JOIN advertisers          a ON c.advertiser_id = a.advertiser_id
+        ${v1Where}
+        ORDER BY c.created_at DESC
+      `, v1Params);
+
+      // ── Collect all partner IDs for name resolution ──────────────────────────
+      const allPartnerIds = [...new Set([
+        ...rows.flatMap(r => { const d = r.campaign_details || {}; return Array.isArray(d.partner_ids) ? d.partner_ids : []; }),
+        ...v1Rows.flatMap(r => Array.isArray(r.partner_ids) ? r.partner_ids : []),
+      ])];
       let partnerMap = {};
       if (allPartnerIds.length) {
         const pRows = await sql`
@@ -72,13 +96,15 @@ export default async function handler(req, res) {
         pRows.forEach(p => { partnerMap[p.connection_id] = p.name; });
       }
 
-      const campaigns = rows.map(r => {
+      // ── Map campaigns_v2 rows ────────────────────────────────────────────────
+      const v2Campaigns = rows.map(r => {
         const d        = r.campaign_details || {};
         const pIds     = Array.isArray(d.partner_ids) ? d.partner_ids : [];
         const geo      = d.geo ? d.geo.split(',').map(g => g.trim()).filter(Boolean) : [];
         return {
           id:            'db' + r.campaign_id,
           dbId:          r.campaign_id,
+          _source:       'v2',
           clientOrgId:   r.client_org_id   || null,
           advertiserId:  r.advertiser_id   || null,
           name:          r.campaign_name   || '—',
@@ -100,13 +126,52 @@ export default async function handler(req, res) {
           partners:      pIds.map(id => partnerMap[id] || String(id)),
           createdBy:     d.created_by || r.created_by || '—',
           createdOn:     fmtDate(r.created_at),
-          // raw fields for Campaign Setup V2
           campaign_details: r.campaign_details,
           line_items:       r.line_items,
           moments_match_analysis_id: d.moments_match_analysis_id || null,
         };
       });
 
+      // ── Map old campaigns rows ───────────────────────────────────────────────
+      // Exclude any old campaign whose ID already exists in campaigns_v2
+      const v2Ids = new Set(rows.map(r => r.campaign_id));
+      const v1Campaigns = v1Rows
+        .filter(r => !v2Ids.has(r.campaign_id))
+        .map(r => {
+          const pIds = Array.isArray(r.partner_ids) ? r.partner_ids : [];
+          const geo  = r.geo ? r.geo.split(',').map(g => g.trim()).filter(Boolean) : [];
+          return {
+            id:            'v1' + r.campaign_id,
+            dbId:          r.campaign_id,
+            _source:       'v1',
+            clientOrgId:   r.client_org_id   || null,
+            advertiserId:  r.advertiser_id   || null,
+            name:          r.campaign_name   || '—',
+            client:        r.client_name     || '—',
+            advertiser:    r.advertiser_name || '—',
+            geography:     geo,
+            status:        r.campaign_status || 'draft',
+            pacing:        null,
+            impressions:   '—',
+            goal:          fmtRange(r.impression_goal, r.impression_goal_max, fmtNumber),
+            budget:        fmtRange(r.budget, r.budget_max, fmtBudget),
+            spent:         '—',
+            start:         fmtDate(r.start_date),
+            end:           fmtDate(r.end_date),
+            creatives:     r.creative_count  || 0,
+            analysisCount: r.analysis_count  || 0,
+            moments:       0,
+            partnerIds:    pIds,
+            partners:      pIds.map(id => partnerMap[id] || String(id)),
+            createdBy:     r.created_by || '—',
+            createdOn:     fmtDate(r.created_at),
+            campaign_details: null,
+            line_items:       null,
+            moments_match_analysis_id: null,
+          };
+        });
+
+      const campaigns = [...v2Campaigns, ...v1Campaigns];
       return res.status(200).json({ campaigns });
     } catch (err) {
       console.error('campaigns-v2 GET error:', err);
@@ -191,13 +256,20 @@ export default async function handler(req, res) {
   // ── DELETE ────────────────────────────────────────────────────────────────────
   if (req.method === 'DELETE') {
     try {
-      const { campaign_id } = req.query;
+      const { campaign_id, source } = req.query;
       if (!campaign_id) return res.status(400).json({ error: 'Missing campaign_id' });
       const id = parseInt(campaign_id);
-      // Clear FK references before deleting
-      await sql`UPDATE moments_match  SET campaign_id = NULL WHERE campaign_id = ${id}`;
-      await sql`UPDATE creatives_v2   SET campaign_id = NULL WHERE campaign_id = ${id}`;
-      await sql`DELETE FROM campaigns_v2 WHERE campaign_id = ${id}`;
+      // Clear FK references (shared across both tables)
+      await sql`UPDATE moments_match SET campaign_id = NULL WHERE campaign_id = ${id}`;
+      if (source === 'v1') {
+        // Old campaigns table
+        await sql`UPDATE creatives SET campaign_id = NULL WHERE campaign_id = ${id}`;
+        await sql`DELETE FROM campaigns WHERE campaign_id = ${id}`;
+      } else {
+        // New campaigns_v2 table (default)
+        await sql`UPDATE creatives_v2 SET campaign_id = NULL WHERE campaign_id = ${id}`;
+        await sql`DELETE FROM campaigns_v2 WHERE campaign_id = ${id}`;
+      }
       return res.status(200).json({ ok: true });
     } catch (err) {
       console.error('campaigns-v2 DELETE error:', err);

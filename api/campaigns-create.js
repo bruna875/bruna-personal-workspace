@@ -39,9 +39,15 @@ export default async function handler(req, res) {
     const startDateVal = start_date || null;
     const endDateVal   = end_date   || null;
 
+    // Build campaign_details JSONB
+    const detailsObj = {};
+    if (geoVal)       detailsObj.geo        = geoVal;
+    if (startDateVal) detailsObj.start_date  = startDateVal;
+    if (endDateVal)   detailsObj.end_date    = endDateVal;
+
     const result = await sql`
-      INSERT INTO campaigns (status, campaign_name, client_org_id, advertiser_id, geo, start_date, end_date)
-      VALUES ('draft', ${nameVal}, ${client_org_id}, ${advertiser_id}, ${geoVal}, ${startDateVal}, ${endDateVal})
+      INSERT INTO campaigns_v2 (campaign_name, client_org_id, advertiser_id, campaign_status, campaign_details, line_items)
+      VALUES (${nameVal}, ${client_org_id}, ${advertiser_id}, 'draft', ${JSON.stringify(detailsObj)}::jsonb, '[]'::jsonb)
       RETURNING campaign_id
     `;
 

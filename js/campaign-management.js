@@ -77,7 +77,7 @@ function cmDeleteCampaign(dbId, btn) {
   document.getElementById('cm-delete-confirm-btn').addEventListener('click', function() {
     modal.remove();
     var row = btn ? btn.closest('tr') : null;
-    fetch('/api/campaigns-v2?campaign_id=' + dbId, { method: 'DELETE' })
+    fetch('/api/campaigns-v2?campaign_id=' + dbId + '&source=' + ((c && c._source) || 'v2'), { method: 'DELETE' })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.ok) {
