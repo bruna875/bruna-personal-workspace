@@ -1,4 +1,4 @@
-// media-planner-v2.js — Media Planner page  (self-contained module)
+// media-planner-v2.js — Moments Match page  (self-contained module)
 
 // ── Shared creative assets for asset strips (plan detail + analysis) ──────────
 var mp2MockCreatives = [
@@ -67,8 +67,16 @@ function mp2AddTemplate(crId) {
 var mp2TaxStep      = 'upload';
 var mp2TaxInputType = 'video';
 var mp2TaxFileName  = '';
+var _mp2PendingCampaign  = null; // set by cmGoToMomentsMatch() before navigating here
+var _mp2PendingCreatives = null; // set by cmGoToMomentsMatch() when no saved campaign but draft creatives exist
 
 function renderMediaPlannerV2() {
+  // Consume pending pre-selections (set by cmGoToMomentsMatch)
+  var _pendingCamp      = _mp2PendingCampaign;
+  var _pendingCreatives = _mp2PendingCreatives;
+  _mp2PendingCampaign  = null;
+  _mp2PendingCreatives = null;
+
   // Reset client/campaign selection state so data re-fetches with current org filter
   mp2Step1Clients        = null;
   mp2SelectedClientId    = null;
@@ -80,10 +88,68 @@ function renderMediaPlannerV2() {
     mp2TaxStep = 'upload'; mp2TaxInputType = 'video'; mp2TaxFileName = '';
     sdtInjectStyles();
     mp2InjectSliderStyles();
-    mp2SwitchHomeTab(mp2HomeTab, true); // restore correct tab without pushing history
+    if (_pendingCamp) {
+      // First switch to new-plan tab — this resets all state (mp2SelectedCampaign etc.)
+      mp2CampaignMode = 'select'; // always use the existing campaign, never create a new one
+      mp2SwitchHomeTab('new-plan', true);
+      // Re-apply pending campaign AFTER the reset so it wins
+      mp2SelectedCampaign = {
+        name:            _pendingCamp.name            || '',
+        advertiser:      _pendingCamp.advertiser      || '',
+        advertiserId:    _pendingCamp.advertiserId    || null,
+        dbId:            _pendingCamp.dbId            || null,
+        budget:          _pendingCamp.budget          || '',
+        impression_goal: _pendingCamp.impression_goal || '',
+        client:          _pendingCamp.client          || '',
+        status:          _pendingCamp.status          || 'draft',
+      };
+      mp2SelectedClientId = _pendingCamp.clientOrgId || null;
+      // Re-render step 1 with the pre-filled campaign now set
+      mp2LoadStep1Clients();
+      var _s1 = document.getElementById('mp2-step1');
+      if (_s1) _s1.innerHTML = _mp2Step1Html();
+      // Fetch campaigns list so the dropdown shows items (async, re-renders when done)
+      if (mp2SelectedClientId) {
+        fetch('/api/campaigns?client_org_id=' + mp2SelectedClientId)
+          .then(function(r) { return r.json(); })
+          .then(function(d) { mp2Step1Campaigns = d.campaigns || []; mp2RefreshStep1(); })
+          .catch(function() { mp2Step1Campaigns = []; mp2RefreshStep1(); });
+      }
+    } else if (_pendingCreatives && _pendingCreatives.length) {
+      // No saved campaign, but draft creatives exist — land on step 3 pre-filled
+      mp2SwitchHomeTab('new-plan', true);
+      // Advance wizard to step 3 (mp2SwitchHomeTab reset it to 1)
+      mp2NewPlanStep = 3;
+      [1,2,3].forEach(function(n) {
+        var el = document.getElementById('mp2-step' + n);
+        if (el) el.style.display = n === 3 ? '' : 'none';
+      });
+      var hdr = document.getElementById('mp2-step-hdr');
+      if (hdr) hdr.innerHTML = _mp2StepHdrHtml();
+      var nav = document.getElementById('mp2-step-nav');
+      if (nav) nav.innerHTML = _mp2StepNavHtml();
+      // Switch to "Asset from Library" tab and pre-fill creatives
+      mp2SelectInput('library');
+      mp2LibrarySelectedItems = _pendingCreatives;
+      mp2LibrarySelected = _pendingCreatives[0] || null;
+      var area = document.getElementById('tx2-input-area');
+      if (area) area.innerHTML = _mp2LibrarySelectedGridHtml(mp2LibrarySelectedItems);
+      // Disable "New Asset" and "Brief" tabs (creatives are fixed)
+      ['tx2-opt-video', 'tx2-opt-brief'].forEach(function(id) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        btn.style.pointerEvents = 'none';
+        btn.style.opacity       = '0.35';
+        btn.style.cursor        = 'not-allowed';
+      });
+      // Initialise slider
+      setTimeout(function() { mp2SliderFill(mp2LookbackSecs); }, 0);
+    } else {
+      mp2SwitchHomeTab(mp2HomeTab, true); // restore correct tab without pushing history
+    }
   }, 0);
   var mp2PillTabs = [{id:'new-plan',label:'New Moments Match'},{id:'analyses',label:'Previous Moments Match',dividerBefore:true}];
-  return UI.pageHeader({ title: 'Moments Match', subtitle: 'AI-powered inventory matching and media plan generation'})
+  return UI.pageHeader({ title: 'Moments Match', subtitle: 'AI-powered inventory matching and Moments Group generation'})
     + '<div id="mp2-pills" style="margin-bottom:20px">' + UI.tabNav(mp2PillTabs, mp2HomeTab, 'mp2SwitchHomeTab') + '</div>'
     + `<div id="sdt-panel-taxonomy2">
   <div class="cs-card" id="mp2-outer-card" style="padding:${mp2HomeTab === 'new-plan' ? '32px' : '0'};overflow:hidden">
@@ -183,7 +249,7 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
 
   // Update URL
   if (!noPush && plan.id) {
-    history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2PlanId: plan.id }, '', '/media-planner-v2/media-plans/' + plan.id);
+    history.pushState({ id: 'media-planner-v2', label: 'Moments Match', mp2AdGroupId: plan.id }, '', '/media-planner-v2/ad-groups/' + plan.id);
   }
 
   // Update breadcrumb
@@ -289,7 +355,7 @@ function mp2ShowMediaPlanDetail(idx, noPush) {
         var planCardHeader =
           '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border)">'
           + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;min-width:0">'
-          +   metaChunk('Plan Name', plan.name)
+          +   metaChunk('Moments Group Name', plan.name)
           +   SEP
           +   metaChunk('Created by', plan.author || '—')
           +   SEP
@@ -389,7 +455,7 @@ function mp2SaveCurrentAnalysis() {
   fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ media_plans: _mp2CurrentAnalysisPlans.map(function(p) { return p._dbRaw || p; }) })
+    body: JSON.stringify({ moments_groups: _mp2CurrentAnalysisPlans.map(function(p) { return p._dbRaw || p; }) })
   })
   .then(function(r) { return r.json(); })
   .then(function() {
@@ -417,14 +483,14 @@ function mp2ActivateDSP(idx) {
   overlay.innerHTML =
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:inherit">'
     + '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">Activate via DSP</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-bottom:20px">Select the DSP to push this media plan to</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:20px">Select the DSP to push this Moments Group to</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">'
     + dsps.map(function(d) {
         return '<button onclick="mp2DSPPush(\'' + d.name + '\',this.closest(\'.dsp-overlay\'))" style="display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s" onmouseenter="this.style.borderColor=\'' + d.color + '\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
           + '<div style="width:32px;height:32px;border-radius:8px;background:' + d.color + ';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">' + d.logo + '</div>'
           + '<div>'
           +   '<div style="font-size:13px;font-weight:500;color:var(--text)">' + d.name + '</div>'
-          +   '<div style="font-size:11px;color:var(--muted)">Connect & push line items</div>'
+          +   '<div style="font-size:11px;color:var(--muted)">Connect & push Moments Groups</div>'
           + '</div>'
           + '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-left:auto;flex-shrink:0;color:var(--faint)"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
           + '</button>';
@@ -449,7 +515,7 @@ var DSP_PARAMS_V2 = {
   'The Trade Desk': [
     { id: 'ttd-advertiser',label: 'Advertiser ID',       placeholder: 'e.g. ttd_adv_001',   required: true },
     { id: 'ttd-campaign',  label: 'Campaign ID',         placeholder: 'e.g. ttd_camp_001',  required: true },
-    { id: 'ttd-adgroup',   label: 'Ad Group Name',       placeholder: 'e.g. CTV_Moments_Q3',required: true },
+    { id: 'ttd-adgroup',   label: 'Moments Group Name',       placeholder: 'e.g. CTV_Moments_Q3',required: true },
     { id: 'ttd-start',     label: 'Flight Start',        placeholder: '',  type: 'date',    required: true },
     { id: 'ttd-end',       label: 'Flight End',          placeholder: '',  type: 'date',    required: true },
     { id: 'ttd-cpm',       label: 'Target CPM (USD)',    placeholder: 'e.g. 18',            required: false }
@@ -745,7 +811,10 @@ var mp2NewPlanStep    = 1;
 var mp2CampaignMode   = 'select';   // 'create' | 'select'
 var mp2SelectedCampaign   = null;
 var _mp2LastAnalysisId    = null;   // analysis_id returned from last POST to creatives-analysis
-var _mp2CurrentAnalysisPlans = [];  // saved media plans for the current analysis only
+var _mp2PendingDbSaves    = [];     // plans queued to save when analysis_id becomes available
+var _mp2SavesInFlight     = 0;      // count of in-flight POST /api/ad-groups-add calls
+var _mp2OnSavesComplete   = null;   // callback fired when _mp2SavesInFlight drops to 0
+var _mp2CurrentAnalysisPlans = [];  // saved Moments Groups for the current analysis only
 var _mp2DistributePlanIdx    = null; // index of plan selected for Save & Distribute
 var _mp2LastAnalysisName  = '';     // analysis_name for URL slug
 var _mp2AnalysisFromSaved = false;  // true when loaded from Previous Analysis
@@ -1497,7 +1566,7 @@ function mp2BuildNewPlanAIPanel() {
 
 
     + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px;text-align:left">'
-    +   'The budget for my media plan is ' + aiTriggerHtml('budget')
+    +   'The budget for my Moments Group is ' + aiTriggerHtml('budget')
     +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions per day. '
     +   'The Channels should be ' + aiTriggerHtml('channels')
     +   ' and the type ' + aiTriggerHtml('type') + '. '
@@ -1515,7 +1584,7 @@ function mp2GenerateNewPlanAI() {
   panel.innerHTML =
     '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:14px">'
     + '<div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:#e11d8f;border-radius:50%;animation:cs-spin .7s linear infinite"></div>'
-    + '<div style="font-size:12px;color:var(--muted)">Generating your AI media plan…</div>'
+    + '<div style="font-size:12px;color:var(--muted)">Generating your AI Moments Group…</div>'
     + '</div>';
   setTimeout(function() {
     _aiSuggestions = [
@@ -1602,10 +1671,10 @@ function mp2RenderNewPlanAIResults() {
     +   '</table>'
     + '</div>'
     + '<div style="display:flex;gap:8px;align-items:center">'
-    +   '<input id="ai-plan-name" class="ai-input" placeholder="Media plan name…" style="flex:1;height:38px">'
+    +   '<input id="ai-plan-name" class="ai-input" placeholder="Media Moments Group name…" style="flex:1;height:38px">'
     +   '<button onclick="aiSaveAIMediaPlan()" style="height:38px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(225,29,143,.25);white-space:nowrap">'
     +     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#fff" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>'
-    +     'Save as Media Plan'
+    +     'Save as Moments Group'
     +   '</button>'
     + '</div>'
     + '</div>';
@@ -1677,7 +1746,7 @@ function mp2ShowUpload() {
     { label: 'Campaign',       width: '220px'                      },
     { label: 'Client',         width: '120px'                      },
     { label: 'Advertiser',     width: '120px'                      },
-    { label: 'Media Plans',    width: '90px',  align: 'center'     },
+    { label: 'Moments Groups',    width: '90px',  align: 'center'     },
     { label: 'Date',           width: '100px'                      },
     { label: '',               width: '44px'                       },
   ];
@@ -1701,7 +1770,7 @@ function mp2ShowUpload() {
     // ── New Plan tab — gradient bg, 2 columns: AI panel | upload form ──
     + '<div id="tx2-home-panel-new-plan" style="' + (mp2HomeTab !== 'new-plan' ? 'display:none;' : '') + 'min-height:400px;background:linear-gradient(160deg,#fef6fb 0%,var(--surface) 65%);border-radius:10px;padding:28px 32px;display:flex;flex-direction:column">'
     +   '<div style="text-align:center;margin-bottom:16px">'
-    +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">AI-powered inventory matching and media plan generation</div>'
+    +     '<div style="font-size:15px;font-weight:700;color:#0D1E36;margin-bottom:4px">AI-powered inventory matching and Moments Group generation</div>'
     +     '<div style="font-size:11px;color:var(--muted)">Scan your creatives or describe your campaign and let AI match them to the right shows and inventory.</div>'
     +   '</div>'
     // ── Stepper card ──
@@ -2070,7 +2139,7 @@ function mp2LibSearch(q) {
   _mp2RenderAnalysisRows(filtered);
 }
 
-function mp2PlansSearch(q) {
+function mp2AdGroupsSearch(q) {
   var term = (q || '').toLowerCase().trim();
   document.querySelectorAll('#mp2-plans-tbody tr').forEach(function(tr) {
     tr.style.display = (!term || tr.textContent.toLowerCase().indexOf(term) >= 0) ? '' : 'none';
@@ -2082,7 +2151,7 @@ function mp2DeleteAnalysis(analysisId, btn) {
   var aName = rec.moments_match_analysis_name || ('Analysis #' + analysisId);
   mp2ShowConfirmModal(
     'Delete analysis?',
-    'Deleting <strong>' + aName.replace(/</g,'&lt;') + '</strong> will also permanently remove all media plans associated with this analysis. This cannot be undone.',
+    'Deleting <strong>' + aName.replace(/</g,'&lt;') + '</strong> will also permanently remove all Moments Groups associated with this analysis. This cannot be undone.',
     function() {
       if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
       fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, { method: 'DELETE' })
@@ -2109,7 +2178,7 @@ function mp2DeleteAnalysis(analysisId, btn) {
 function mp2LibLoad(analysisId, analysisName) {
   _mp2AnalysisFromSaved = true;
   var url = mp2AnalysisUrl(analysisId, analysisName, 'saved');
-  history.pushState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: analysisId, origin: 'saved' }, '', url);
+  history.pushState({ id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis', analysisId: analysisId, origin: 'saved' }, '', url);
   mp2ShowResults(analysisId);
 }
 
@@ -2154,10 +2223,10 @@ function mp2ToggleAnalysisExpand(analysisId, e) {
   subRows.forEach(function(tr) { tr.style.display = open ? '' : 'none'; });
 }
 
-// Delete a specific media plan from an analysis (from the expanded sub-rows)
+// Delete a specific Moments Group from an analysis (from the expanded sub-rows)
 function mp2DeleteAnalysisPlanFromLib(analysisId, planIdx, planName) {
   mp2ShowConfirmModal(
-    'Delete media plan?',
+    'Delete Moments Group?',
     'Are you sure you want to delete <strong>' + (planName || 'this plan').replace(/</g,'&lt;') + '</strong>? This cannot be undone.',
     function() {
       var rec = _mp2AnalysesCache.filter(function(a) { return a.moments_match_analysis_id === analysisId; })[0];
@@ -2181,7 +2250,7 @@ function mp2DeleteAnalysisPlanFromLib(analysisId, planIdx, planName) {
   );
 }
 
-// ─── Sub-rows for expanded media plans ────────────────────────────────────────
+// ─── Sub-rows for expanded Moments Groups ────────────────────────────────────────
 // Returns sibling <tr> elements for the SAME parent table — no nested table,
 // so column widths are inherited from the parent's table-layout:fixed automatically.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2194,10 +2263,10 @@ function _mp2SubRowsHtml(analysisId, plans, visible) {
   var HDR = 'padding:5px 16px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);background:var(--bg);border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
   var CEL = 'padding:7px 16px;font-size:11px;border-bottom:1px solid var(--border);background:var(--surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
 
-  // Header row (Plan Name / Campaign / Channels / …)
+  // Header row (Moments Group Name / Campaign / Channels / …)
   var hdrRow = '<tr class="' + cls + '" style="' + disp + '">'
     + '<td style="' + HDR + '"></td>'
-    + '<td style="' + HDR + ';text-align:left">Plan Name</td>'
+    + '<td style="' + HDR + ';text-align:left">Moments Group Name</td>'
     + '<td style="' + HDR + ';text-align:left">Campaign</td>'
     + '<td style="' + HDR + ';text-align:center">Channels</td>'
     + '<td style="' + HDR + ';text-align:center">Moments</td>'
@@ -2209,7 +2278,7 @@ function _mp2SubRowsHtml(analysisId, plans, visible) {
   if (!plans || !plans.length) {
     var emptyRow = '<tr class="' + cls + '" style="' + disp + '">'
       + '<td style="' + CEL + '"></td>'
-      + '<td colspan="7" style="' + CEL + ';color:var(--faint);font-style:italic">No media plans saved for this analysis.</td>'
+      + '<td colspan="7" style="' + CEL + ';color:var(--faint);font-style:italic">No Moments Groups saved for this analysis.</td>'
       + '</tr>';
     return hdrRow + emptyRow;
   }
@@ -2235,8 +2304,8 @@ function _mp2SubRowsHtml(analysisId, plans, visible) {
     var chanSet = {};
     moms.forEach(function(m){ (m.moment_channels||[]).forEach(function(c){ chanSet[c]=1; }); });
     var chanCount = Object.keys(chanSet).length;
-    var pName     = (p.media_plan_name || 'Untitled').replace(/</g,'&lt;');
-    var safeQ     = (p.media_plan_name || 'Untitled').replace(/'/g,"\\'").replace(/</g,'&lt;');
+    var pName     = (p.ad_group_name || 'Untitled').replace(/</g,'&lt;');
+    var safeQ     = (p.ad_group_name || 'Untitled').replace(/'/g,"\\'").replace(/</g,'&lt;');
 
     var chanBadge = chanCount
       ? '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:16px;padding:0 5px;border-radius:9px;background:var(--bg);border:1px solid var(--border);font-size:10px;font-weight:600;color:var(--muted)">' + chanCount + '</span>'
@@ -2344,8 +2413,8 @@ function _mp2RenderAnalysisRows(analyses) {
   }).join('');
 }
 
-// ── Media Plans table — DB-backed ─────────────────────────────────────────────
-var _mp2PlansCache = null; // cache fetched rows; cleared on tab re-enter if needed
+// ── Moments Groups table — DB-backed ─────────────────────────────────────────────
+var _mp2AdGroupsCache = null; // cache fetched rows; cleared on tab re-enter if needed
 
 function mp2LoadPlansTable() {
   var tbody    = document.getElementById('mp2-plans-tbody');
@@ -2358,11 +2427,11 @@ function mp2LoadPlansTable() {
 
   var _plansQs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
     ? '?client_org_id=' + selectedClientOrgId : '';
-  fetch('/api/media-plans-summary' + _plansQs)
+  fetch('/api/ad-groups-summary' + _plansQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var plans = data.plans || [];
-      _mp2PlansCache = plans;
+      _mp2AdGroupsCache = plans;
       if (subtitle) subtitle.textContent = plans.length + ' plan' + (plans.length !== 1 ? 's' : '');
       _mp2RenderPlanRows(plans);
     })
@@ -2377,7 +2446,7 @@ function _mp2RenderPlanRows(plans) {
   if (!tbody) return;
 
   if (!plans.length) {
-    tbody.innerHTML = '<tr><td colspan="11" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No media plans in the database yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:40px;text-align:center;font-size:12px;color:var(--faint)">No Moments Groups in the database yet.</td></tr>';
     return;
   }
 
@@ -2388,8 +2457,8 @@ function _mp2RenderPlanRows(plans) {
   tbody.innerHTML = plans.map(function(p, i) {
     var last = i === plans.length - 1;
     var fix  = last ? ';border-bottom:none' : '';
-    var planNameCell = p.media_plan_name
-      ? '<span style="font-weight:600;color:var(--text)">' + p.media_plan_name + '</span>'
+    var planNameCell = p.ad_group_name
+      ? '<span style="font-weight:600;color:var(--text)">' + p.ad_group_name + '</span>'
       : '<span style="font-size:11px;color:var(--faint);font-style:italic">—</span>';
     var folderLinkIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>';
     var campCell = p.campaign_name
@@ -2415,11 +2484,11 @@ function _mp2RenderPlanRows(plans) {
 }
 
 function mp2EditPlan(p) {
-  // Build API query: filter by plan_name (+ campaign_id if available)
-  var qs = 'plan_name=' + encodeURIComponent(p.media_plan_name || '');
+  // Build API query: filter by ad_group_name (+ campaign_id if available)
+  var qs = 'ad_group_name=' + encodeURIComponent(p.ad_group_name || '');
   if (p.campaign_id) qs += '&campaign_id=' + p.campaign_id;
 
-  var planFetch = fetch('/api/media-plans?' + qs).then(function(r) { return r.json(); });
+  var planFetch = fetch('/api/ad-groups?' + qs).then(function(r) { return r.json(); });
   var campFetch = p.campaign_id
     ? fetch('/api/campaigns?campaign_id=' + p.campaign_id).then(function(r) { return r.json(); })
     : Promise.resolve({ campaigns: [] });
@@ -2447,15 +2516,15 @@ function mp2EditPlan(p) {
           impressionsNum:   impNum,
           cpm:              r.est_cpm ? parseFloat(r.est_cpm) : 0,
           type:             det.moment_type  || mock.moment_type || '—',
-          _dbId:            r.media_plan_id,
+          _dbId:            r.ad_group_id,
           _momentId:        r.moment_id,
         };
       });
 
       // Build a synthetic savedMediaPlansV2-compatible plan object
       var syntheticPlan = {
-        id:          'db-' + (p.media_plan_name || 'plan').replace(/\s+/g, '-').toLowerCase(),
-        name:        p.media_plan_name || '—',
+        id:          'db-' + (p.ad_group_name || 'plan').replace(/\s+/g, '-').toLowerCase(),
+        name:        p.ad_group_name || '—',
         campaign:    campData ? campData.name       : (p.campaign_name   || ''),
         advertiser:  campData ? campData.advertiser  : (p.advertiser_name || ''),
         client:      campData ? campData.client      : (p.client_name     || ''),
@@ -2548,7 +2617,7 @@ function mp2SwitchHomeTab(tab, noPush) {
   if (!noPush) {
     var urlMap = { 'new-plan': '/moments-match/new', 'analyses': '/moments-match/saved' };
     var url = urlMap[tab] || '/moments-match';
-    var stateObj = { id: 'media-planner-v2', label: 'Media Planner' };
+    var stateObj = { id: 'media-planner-v2', label: 'Moments Match' };
     if (tab !== 'new-plan') stateObj.mp2Tab = tab;
     history.pushState(stateObj, '', url);
   }
@@ -2760,7 +2829,7 @@ function mp2RefreshDSP(idx, e) {
   }
 }
 
-// ── Media Planner v2: self-contained upload → analyze → results flow ─────────
+// ── Moments Match v2: self-contained upload → analyze → results flow ─────────
 
 function _mp2LibraryPanelHtml() {
   var lib = (typeof CS_LIBRARY !== 'undefined') ? CS_LIBRARY : [];
@@ -2953,7 +3022,7 @@ function _mp2ShowRerunConfirmModal(newCreativesCount, onConfirm) {
   overlay.innerHTML =
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:inherit">'
     + '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Re-run Analysis?</div>'
-    + '<div style="font-size:13px;color:var(--muted);margin-bottom:16px">This campaign already has an analysis. Running a new one will replace it and flag any existing Media Plans as outdated.</div>'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:16px">This campaign already has an analysis. Running a new one will replace it and flag any existing Moments Groups as outdated.</div>'
     + creativeNote
     + '<div style="display:flex;gap:8px">'
     +   '<button id="mp2-rerun-cancel" style="flex:1;height:38px;border-radius:8px;border:1px solid var(--border-md);background:none;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:border-color .12s,color .12s" onmouseenter="this.style.borderColor=\'var(--text)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--muted)\'">Cancel</button>'
@@ -2973,6 +3042,7 @@ function _mp2ShowRerunConfirmModal(newCreativesCount, onConfirm) {
 
 function _mp2DoAnalyze() {
   mp2TaxStep = 'progress';
+  mp2SelectedMoments = {}; // always start fresh for a new analysis run
 
   // ── DB save chain ─────────────────────────────────────────────────────────
   // Order: (A) create campaign if needed → (B) save analysis → (C) assign analysis_id to campaign
@@ -3009,8 +3079,11 @@ function _mp2DoAnalyze() {
     var _analysisNameInput = document.getElementById('mp2-analysis-name-input');
     var _analysisName = _analysisNameInput ? _analysisNameInput.value.trim() : '';
 
-    _mp2LastAnalysisId = null;
-    mp2AnalysisMoments = null; // reset so new analysis uses MOCK_MOMENTS_API live
+    _mp2LastAnalysisId  = null;
+    _mp2PendingDbSaves  = []; // discard any pending saves from a previous analysis
+    _mp2SavesInFlight   = 0;
+    _mp2OnSavesComplete = null;
+    mp2AnalysisMoments  = null; // reset so new analysis uses MOCK_MOMENTS_API live
 
     // ── Step A: create campaign if in create mode ──────────────────────────
     var stepA;
@@ -3049,7 +3122,7 @@ function _mp2DoAnalyze() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          analysis_name:   _analysisName || null,
+          moments_match_analysis_name:   _analysisName || null,
           campaign_id:     campaignId,
           client_org_id:   clientOrgId,
           advertiser_id:   advertiserDbId,
@@ -3057,7 +3130,7 @@ function _mp2DoAnalyze() {
           created_by:      'Bruna M.',
           mediaplan_id:    null,
           lookback_window: Math.round(mp2LookbackSecs / 60),
-          asset_type:      _assetType,
+          creative_asset_type:      _assetType,
           brief:           _briefText,
           doc:             _docName,
           moments:         MOCK_MOMENTS_API  // snapshot saved to DB at creation time
@@ -3065,12 +3138,22 @@ function _mp2DoAnalyze() {
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (!data.moments_match_analysis_id) return;
+        if (!data.moments_match_analysis_id) {
+          console.error('moments-match POST returned no moments_match_analysis_id:', data);
+          var _errToast = document.createElement('div');
+          _errToast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;font-size:12px;font-weight:500;padding:9px 16px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit';
+          _errToast.textContent = 'Analysis could not be saved: ' + (data.error || 'unknown error');
+          document.body.appendChild(_errToast);
+          setTimeout(function() { if (_errToast.parentNode) _errToast.parentNode.removeChild(_errToast); }, 6000);
+          return;
+        }
         _mp2LastAnalysisId   = data.moments_match_analysis_id;
         _mp2LastAnalysisName = _analysisName || '';
         _mp2AnalysisFromSaved = false;
+        // Flush any media-plan saves that were queued while waiting for this analysis_id
+        _mp2FlushPendingDbSaves();
         history.replaceState(
-          { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: data.moments_match_analysis_id, origin: 'new' },
+          { id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis', analysisId: data.moments_match_analysis_id, origin: 'new' },
           '',
           mp2AnalysisUrl(data.moments_match_analysis_id, _analysisName, 'new')
         );
@@ -3079,12 +3162,19 @@ function _mp2DoAnalyze() {
           fetch('/api/campaigns-update', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ campaign_id: campaignId, analysis_id: data.moments_match_analysis_id })
+            body: JSON.stringify({ campaign_id: campaignId, moments_match_analysis_id: data.moments_match_analysis_id })
           }).catch(function(e) { console.warn('campaign analysis_id assign error:', e); });
         }
       });
     })
-    .catch(function(err) { console.warn('analyze save error:', err); });
+    .catch(function(err) {
+      console.error('analyze save error:', err);
+      var _errToast = document.createElement('div');
+      _errToast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;font-size:12px;font-weight:500;padding:9px 16px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit';
+      _errToast.textContent = 'Analysis save error: ' + (err && err.message ? err.message : String(err));
+      document.body.appendChild(_errToast);
+      setTimeout(function() { if (_errToast.parentNode) _errToast.parentNode.removeChild(_errToast); }, 6000);
+    });
   })();
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -3106,19 +3196,32 @@ function _mp2DoAnalyze() {
   if (!ca) return;
 
   var progressSteps = ['Analyzing metadata…','Detecting scenes & objects…','Classifying moments…','Building taxonomy map…','Matching episodes & shows…'];
-  var frames = [
+
+  // ── Dynamic title: use campaign name if one is selected ──────────────────────
+  var hasCampaign = !!(mp2SelectedCampaign && mp2SelectedCampaign.name);
+  var scanHeading = hasCampaign ? mp2SelectedCampaign.name : mp2TaxFileName;
+  var scanLabel   = hasCampaign
+    ? 'Scanning ' + typeLabel + ' · ' + mp2SelectedCampaign.name
+    : 'Scanning ' + typeLabel;
+
+  // ── Dynamic frames: creative thumbnails → fallback to stock images ────────────
+  var _fallbackFrames = [
     'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=640&h=360&fit=crop&q=80',
     'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=640&h=360&fit=crop&q=80',
     'https://images.unsplash.com/photo-1542838132-92c53300491e?w=640&h=360&fit=crop&q=80',
     'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=640&h=360&fit=crop&q=80',
     'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=640&h=360&fit=crop&q=80',
   ];
+  var _creativeFrames = (mp2LibrarySelectedItems || [])
+    .map(function(c) { return c.thumb || ''; })
+    .filter(Boolean);
+  var frames = _creativeFrames.length >= 2 ? _creativeFrames : _fallbackFrames;
 
   ca.innerHTML =
     '<div style="max-width:520px;margin:0 auto">'
     + '<div style="margin-bottom:14px">'
-    +   '<div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:3px">Scanning ' + typeLabel + '</div>'
-    +   '<div style="font-size:15px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + mp2TaxFileName + '</div>'
+    +   '<div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:3px">' + scanLabel + '</div>'
+    +   '<div style="font-size:15px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + scanHeading + '</div>'
     + '</div>'
     + '<div style="position:relative;width:100%;padding-top:56.25%;border-radius:10px;overflow:hidden;background:#111;margin-bottom:14px">'
     +   '<img id="tx2-prog-frame" src="' + frames[0] + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .5s">'
@@ -3126,7 +3229,7 @@ function _mp2DoAnalyze() {
     +   '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.65) 0%,transparent 55%);pointer-events:none">'
     +     '<div style="position:absolute;bottom:10px;left:12px;right:12px;display:flex;align-items:center;justify-content:space-between">'
     +       '<span id="tx2-prog-timecode" style="font-size:10px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums;letter-spacing:.5px">00:00:00</span>'
-    +       '<span id="tx2-prog-scene"    style="font-size:10px;color:rgba(255,255,255,.5)">Scene 1 / 5</span>'
+    +       '<span id="tx2-prog-scene"    style="font-size:10px;color:rgba(255,255,255,.5)">Scene 1 / ' + frames.length + '</span>'
     +     '</div>'
     +   '</div>'
     + '</div>'
@@ -3164,7 +3267,7 @@ function _mp2DoAnalyze() {
         frameEl.style.opacity = '0';
         setTimeout(function() { if (frameEl) { frameEl.src = frames[frameIdx]; frameEl.style.opacity = '1'; } }, 250);
       }
-      if (sceneLbl) sceneLbl.textContent = 'Scene ' + (newStep + 1) + ' / 5';
+      if (sceneLbl) sceneLbl.textContent = 'Scene ' + (newStep + 1) + ' / ' + frames.length;
     }
     if (pct >= 100) {
       clearInterval(interval);
@@ -3178,6 +3281,7 @@ function mp2ShowResults(analysisId) {
   mp2TaxStep = 'results';
   _mp2CurrentAnalysisPlans = []; // reset saved plans for this analysis
   _mp2DistributePlanIdx    = null; // reset distribution selection
+  mp2SelectedMoments       = {}; // reset moment selection for this analysis
   var ca = document.getElementById('tx2-content-area');
   if (!ca) return;
 
@@ -3197,7 +3301,7 @@ function mp2ShowResults(analysisId) {
         _mp2LastAnalysisName = rec.moments_match_analysis_name || '';
         // Restore moments snapshot from DB (avoids re-calling API on every load)
         mp2AnalysisMoments = (rec.moments && Array.isArray(rec.moments) && rec.moments.length) ? rec.moments : null;
-        // Restore saved media plans for this analysis from DB
+        // Restore saved Moments Groups for this analysis from DB
         if (rec.moments_groups && Array.isArray(rec.moments_groups) && rec.moments_groups.length) {
           _mp2CurrentAnalysisPlans = rec.moments_groups.map(function(p) {
             var moms = (p.moments || []).map(function(m) {
@@ -3209,8 +3313,8 @@ function mp2ShowResults(analysisId) {
             var totalImpr = (p.moments || []).reduce(function(s, m) { return s + (Number(m.moment_est_impr) || 0); }, 0);
             var fmtImpr = totalImpr >= 1000000 ? (totalImpr / 1000000).toFixed(1) + 'M' : totalImpr ? Math.round(totalImpr / 1000) + 'K' : '';
             return {
-              id:          p.media_plan_id,
-              name:        p.media_plan_name || '(Untitled)',
+              id:          p.ad_group_id,
+              name:        p.ad_group_name || '(Untitled)',
               date:        '—',
               source:      'ai',
               moments:     moms,
@@ -3222,7 +3326,7 @@ function mp2ShowResults(analysisId) {
           });
         }
         // Set asset type / content from DB record
-        mp2TaxInputType  = rec.asset_type === 'brief' ? 'text' : rec.asset_type === 'doc' ? 'doc' : 'video';
+        mp2TaxInputType  = rec.creative_asset_type === 'brief' ? 'text' : rec.creative_asset_type === 'doc' ? 'doc' : 'video';
         _mp2BriefContent = rec.brief || '';
         _mp2DocName      = rec.doc   || '';
         mp2TaxFileName   = rec.doc || rec.brief || (rec.moments_match_analysis_name || ('Analysis #' + analysisId));
@@ -3275,7 +3379,7 @@ function _mp2DoRender() {
 
   var _origin = _mp2AnalysisFromSaved ? 'saved' : 'new';
   var analysisUrl = mp2AnalysisUrl(_mp2LastAnalysisId, _mp2LastAnalysisName, _origin);
-  history.replaceState({ id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: _mp2LastAnalysisId, origin: _origin }, '', analysisUrl);
+  history.replaceState({ id: 'media-planner-v2', label: 'Moments Match', mp2View: 'analysis', analysisId: _mp2LastAnalysisId, origin: _origin }, '', analysisUrl);
 
   var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border)';
   var fileIcon = mp2TaxInputType === 'video'
@@ -3430,32 +3534,32 @@ function _mp2DoRender() {
   var assetStrip =
     '<div id="mp2-asset-strip" style="display:none;width:220px;flex-shrink:0;border-left:1px solid var(--border);flex-direction:column;overflow:hidden">'
 
-    // ── Build Media Plan zone ──
+    // ── Build Moments Group zone ──
     + '<div id="mp2-strip-plan" style="display:flex;flex-direction:column;flex:1;overflow:hidden">'
     +   '<div id="mp2-strip-plan-body" style="flex:1;overflow-y:auto;padding:16px 16px 12px">'
-    +     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Media Plan</div>'
-    +     '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your media plan</div>'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Moments Group</div>'
+    +     '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your Moments Group</div>'
     +   '</div>'
     +   '<div style="flex-shrink:0">'
     +     '<div id="mp2-strip-plan-totals" style="display:none;border-top:1px solid var(--border);padding:10px 16px">'
     +     '</div>'
     +     '<div style="border-top:1px solid var(--border);padding:12px 16px;display:flex;flex-direction:column;gap:8px">'
     +       '<div style="position:relative">'
-    +         '<input id="mp2-plan-name-input" type="text" placeholder="Media Plan Name" class="ai-input" style="width:100%;box-sizing:border-box;min-height:0;height:34px;padding:0 28px 0 10px;font-size:12px;resize:none;transition:border-color .15s,box-shadow .15s">'
+    +         '<input id="mp2-plan-name-input" type="text" placeholder="Moments Group Name" class="ai-input" style="width:100%;box-sizing:border-box;min-height:0;height:34px;padding:0 28px 0 10px;font-size:12px;resize:none;transition:border-color .15s,box-shadow .15s">'
     +         '<button onclick="mp2GeneratePlanName()" title="Generate name with AI" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--faint);transition:color .13s" onmouseover="this.style.color=\'var(--text)\'" onmouseout="this.style.color=\'var(--faint)\'">' + WAND_ICON + '</button>'
     +         '<span id="mp2-plan-name-err" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;font-size:10px;color:#ef4444;background:#fff;border:1px solid #fca5a5;border-radius:5px;padding:3px 8px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 6px rgba(239,68,68,.12)"></span>'
     +       '</div>'
-    +       (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="mp2SaveBuilderMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:' + (_lk ? 'var(--bg)' : 'var(--accent)') + ';color:' + (_lk ? 'var(--faint)' : '#fff') + ';border:' + (_lk ? '1px solid var(--border)' : 'none') + ';border-radius:8px;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';opacity:' + (_lk ? '.6' : '1') + ';transition:opacity .13s,background .2s"' + (_lk ? '' : ' onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'"') + '>Save as Media Plan</button>'; })()
+    +       (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="mp2SaveBuilderMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:' + (_lk ? 'var(--bg)' : 'var(--accent)') + ';color:' + (_lk ? 'var(--faint)' : '#fff') + ';border:' + (_lk ? '1px solid var(--border)' : 'none') + ';border-radius:8px;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';opacity:' + (_lk ? '.6' : '1') + ';transition:opacity .13s,background .2s"' + (_lk ? '' : ' onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'"') + '>Save as Moments Group</button>'; })()
     +     '</div>'
     +   '</div>'
     + '</div>'
 
-    // ── Saved Media Plans zone ──
+    // ── Saved Moments Groups zone ──
     + '<div id="mp2-strip-list" style="display:none;flex-direction:column;flex:1;overflow:hidden">'
     +   '<div style="flex-shrink:0;padding:16px 16px 12px">'
-    +     '<div style="font-size:12px;font-weight:600;color:var(--text)">Saved Media Plans</div>'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text)">Saved Moments Groups</div>'
     +   '</div>'
-    +   '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet</div>'
+    +   '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved Moments Groups yet</div>'
     + '</div>'
 
     + '</div>';  // closes mp2-asset-strip
@@ -3469,9 +3573,9 @@ function _mp2DoRender() {
     +     'Ad Analysis'
     +   '</button>'
     +   '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 4px;flex-shrink:0"></span>'
-    +   '<button id="tx2-sub-tab-ai-media-plan" onclick="mp2SubTab(\'ai-media-plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
+    +   '<button id="tx2-sub-tab-ai-ad-group" onclick="mp2SubTab(\'ai-ad-group\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);transition:background .13s,color .13s">'
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>'
-    +     'AI Media Plans'
+    +     'AI Moments Groups'
     +   '</button>'
     +   '<button id="tx2-sub-tab-moments" onclick="mp2SubTab(\'moments\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;background:var(--bg);color:var(--text);transition:background .13s,color .13s" data-act="1">'
     +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
@@ -3483,11 +3587,11 @@ function _mp2DoRender() {
     +   '</button>'
     +   '<div id="mp2-nav-right-group" style="display:flex;align-items:center;margin-left:auto;justify-content:flex-start;flex-shrink:0">'
     +     '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 6px -5px 0;flex-shrink:0"></span>'
-    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Build Media Plan">'
+    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Build Moments Group">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><path d="M7 14v4"/><path d="M5 16h4"/></svg>'
     +       '<span id="mp2-mp-badge" style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;min-width:14px;text-align:center;display:none"></span>'
     +     '</button>'
-    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Saved Media Plans">'
+    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Saved Moments Groups">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8a2 2 0 0 1 2-2h1l2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 10v6l-2-2-2 2v-6"/></svg>'
     +     '</button>'
     +     '<button id="mp2-sidebar-close" onclick="mp2CloseSidebar()" title="Close panel" style="display:none;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s;margin-left:auto" onmouseover="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'">'
@@ -3506,7 +3610,7 @@ function _mp2DoRender() {
     +         '<th style="text-align:right;' + TH + '">PODs</th>'
     +       '</tr></thead><tbody id="tx-cat-body"></tbody></table>'
     +     '</div>'
-    +     '<div id="tx2-sub-content-ai-media-plan" style="display:none;border-radius:10px"></div>'
+    +     '<div id="tx2-sub-content-ai-ad-group" style="display:none;border-radius:10px"></div>'
     +     '<div id="tx2-sub-content-moments" style="display:flex;flex-direction:column"></div>'
     +     '<div id="tx2-sub-content-custom-moments" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:10px">'
     +       '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint)"><path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/></svg>'
@@ -3680,6 +3784,33 @@ function mp2OpenSidebarList(highlightIdx) {
   });
 }
 
+// Force-open sidebar in Plan Builder mode (never closes, mirrors mp2OpenSidebarList)
+function mp2OpenSidebarPlan() {
+  var strip    = document.getElementById('mp2-asset-strip');
+  var group    = document.getElementById('mp2-nav-right-group');
+  var closeBtn = document.getElementById('mp2-sidebar-close');
+  var zonePlan = document.getElementById('mp2-strip-plan');
+  var zoneList = document.getElementById('mp2-strip-list');
+  var btnPlan  = document.getElementById('mp2-asset-toggle');
+  var btnList  = document.getElementById('mp2-list-toggle');
+  if (!strip) return;
+  strip.style.display = 'flex';
+  mp2SidebarMode = 'plan';
+  if (group)    group.style.width      = '200px';
+  if (closeBtn) closeBtn.style.display = 'inline-flex';
+  if (zonePlan) zonePlan.style.display = 'flex';
+  if (zoneList) zoneList.style.display = 'none';
+  setTimeout(mp2FixSidebarHeight, 0);
+  [{ btn: btnPlan, m: 'plan' }, { btn: btnList, m: 'list' }].forEach(function(item) {
+    var act = item.m === 'plan';
+    if (item.btn) {
+      item.btn.dataset.act      = act ? '1' : '';
+      item.btn.style.background = act ? 'var(--bg)' : 'transparent';
+      item.btn.style.color      = act ? 'var(--text)' : 'var(--muted)';
+    }
+  });
+}
+
 function mp2CloseSidebar() {
   var strip    = document.getElementById('mp2-asset-strip');
   var group    = document.getElementById('mp2-nav-right-group');
@@ -3702,7 +3833,7 @@ function mp2ToggleAssetStrip() {
 }
 
 function mp2SubTab(tab) {
-  ['ad-analysis', 'ai-media-plan', 'moments', 'custom-moments'].forEach(function(t) {
+  ['ad-analysis', 'ai-ad-group', 'moments', 'custom-moments'].forEach(function(t) {
     var btn = document.getElementById('tx2-sub-tab-' + t);
     var pnl = document.getElementById('tx2-sub-content-' + t);
     if (btn) {
@@ -3727,8 +3858,8 @@ function mp2SubTab(tab) {
     }, 0);
   }
   if (tab === 'moments')       { txCustomSelections = []; mp2RenderMoments(); }
-  if (tab === 'ai-media-plan') {
-    var aiPanel = document.getElementById('tx2-sub-content-ai-media-plan');
+  if (tab === 'ai-ad-group') {
+    var aiPanel = document.getElementById('tx2-sub-content-ai-ad-group');
     if (aiPanel) {
       aiPanel.style.display = 'flex';
       aiPanel.style.flexDirection = 'column';
@@ -3811,7 +3942,7 @@ var INV_PROGRAMS_V2 = [
 var savedMediaPlansV2     = [];
 var mp2HomeTab        = 'new-plan';
 
-// ── AI Media Plan params state ────────────────────────────────────────────────
+// ── AI Moments Group params state ────────────────────────────────────────────────
 var mp2AiParams = {
   budget:      { noBudget: false, min: 0, max: 1000000, exact: '' },
   impressions: { noEstimate: false, min: 0, max: 10000000, exact: '' },
@@ -4536,7 +4667,7 @@ function aiDdCheckItem(param, input) {
 // ── AI params panel ───────────────────────────────────────────────────────────
 
 function csTx2BuildAIParamsPanel() {
-  var panel = document.getElementById('tx2-sub-content-ai-media-plan');
+  var panel = document.getElementById('tx2-sub-content-ai-ad-group');
   if (!panel) return;
   panel.style.overflow = 'hidden';
 
@@ -4546,13 +4677,13 @@ function csTx2BuildAIParamsPanel() {
 
     // Visual header
     + '<div style="margin-bottom:32px">'
-    +   '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px">AI Media Plan</div>'
+    +   '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px">AI Moments Group</div>'
     +   '<div style="font-size:11px;color:var(--muted);line-height:1.4">Describe what you need and the AI will find the best placements.</div>'
     + '</div>'
 
     // Conversational sentence — free-flowing, centered, wraps naturally
     + '<div style="font-size:15px;line-height:2;color:var(--text);margin-bottom:32px">'
-    +   'The budget for my media plan is ' + aiTriggerHtml('budget')
+    +   'The budget for my Moments Group is ' + aiTriggerHtml('budget')
     +   ' and I want to deliver ' + aiTriggerHtml('impressions') + ' impressions per day. '
     +   'The Channels should be ' + aiTriggerHtml('channels')
     +   ' and the type ' + aiTriggerHtml('type') + '. '
@@ -4575,7 +4706,7 @@ function csTx2BuildAIParamsPanel() {
 
 function mp2FixAiPanelHeight() {
   setTimeout(function() {
-    var p = document.getElementById('tx2-sub-content-ai-media-plan');
+    var p = document.getElementById('tx2-sub-content-ai-ad-group');
     if (!p || p.style.display === 'none') return;
     var rect = p.getBoundingClientRect();
     p.style.height    = Math.max(300, window.innerHeight - rect.top - 20) + 'px';
@@ -4588,10 +4719,10 @@ var _aiSuggestions    = [];
 var _aiActiveVariant  = 2;   // default: Optimized (index 2)
 var _aiPlanVariants   = [];  // populated by aiInitPlanVariantsFromAPI()
 
-// ── Map MOCK_AI_MEDIA_PLANS → internal _aiPlanVariants format ────────────────
+// ── Map MOCK_AI_AD_GROUPS → internal _aiPlanVariants format ────────────────
 function aiInitPlanVariantsFromAPI() {
   var typeMap = { 'Live': 'live', 'Organic Pause': 'organic', 'VoD': 'ads' };
-  _aiPlanVariants = (MOCK_AI_MEDIA_PLANS || []).map(function(plan) {
+  _aiPlanVariants = (MOCK_AI_AD_GROUPS || []).map(function(plan) {
     var suggestions = (plan.moments || []).map(function(m) {
       // pods from MOCK_MOMENTS_API lookup (ai-plans API doesn't carry pods)
       var mockM = (MOCK_MOMENTS_API || []).find(function(x) { return x.moment_id === m.moment_id; }) || {};
@@ -4611,7 +4742,7 @@ function aiInitPlanVariantsFromAPI() {
     });
     return {
       plan_id:     plan.plan_id,
-      name:        plan.plan_name,
+      name:        plan.ad_group_name,
       budget:      plan.budget_k,
       impressions: plan.total_impressions_m,
       description: plan.description,
@@ -4732,7 +4863,7 @@ function aiInitPlanScatter() {
 }
 
 function aiRenderResultsPanel() {
-  var panel = document.getElementById('tx2-sub-content-ai-media-plan');
+  var panel = document.getElementById('tx2-sub-content-ai-ad-group');
   if (!panel) return;
   var sugg = _aiSuggestions;
   var TH = 'font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);padding:10px 10px;border-bottom:1px solid var(--border);white-space:nowrap';
@@ -4785,7 +4916,7 @@ function aiRenderResultsPanel() {
           +   planIcon
           + '</div>'
           + '<div>'
-          +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3">' + (activeVariant ? activeVariant.name : 'Media Plan') + '</div>'
+          +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3">' + (activeVariant ? activeVariant.name : 'Moments Group') + '</div>'
           +   '<div style="font-size:10px;color:var(--faint);line-height:1.3">' + subtitle + '</div>'
           + '</div>'
           + '</div>';
@@ -4867,12 +4998,12 @@ function aiRenderResultsPanel() {
     // ── Vertical divider ──
     +   '<div style="width:1px;height:22px;background:var(--border-md);flex-shrink:0"></div>'
 
-    // ── Input + Save as Media Plan in a pill ──
+    // ── Input + Save as Moments Group in a pill ──
     +   '<div style="flex:1;display:flex;align-items:center;border:1px solid var(--border-md);border-radius:9px;overflow:hidden;background:#fff;height:36px">'
 
     // Input with grey pencil icon on the right
     +     '<div style="flex:1;min-width:0;position:relative;display:flex;align-items:center">'
-    +       '<input id="ai-plan-name" class="ai-input" placeholder="Name this media plan…" style="flex:1;height:36px;border:none;border-radius:0;padding:0 28px 0 10px;background:transparent;outline:none;font-size:12px;transition:border-color .15s,box-shadow .15s">'
+    +       '<input id="ai-plan-name" class="ai-input" placeholder="Name this Moments Group…" style="flex:1;height:36px;border:none;border-radius:0;padding:0 28px 0 10px;background:transparent;outline:none;font-size:12px;transition:border-color .15s,box-shadow .15s">'
     +       '<span id="ai-plan-name-err" style="display:none;position:absolute;bottom:calc(100% + 4px);left:10px;font-size:10px;color:#ef4444;background:#fff;border:1px solid #fca5a5;border-radius:5px;padding:3px 8px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 6px rgba(239,68,68,.12)"></span>'
     +       '<button onclick="aiGeneratePlanName()" title="Generate name with AI" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--faint);transition:color .13s" onmouseover="this.style.color=\'var(--text)\'" onmouseout="this.style.color=\'var(--faint)\'"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z"/></svg></button>'
     +     '</div>'
@@ -4880,8 +5011,8 @@ function aiRenderResultsPanel() {
     // Vertical divider
     +     '<div style="width:1px;height:22px;background:var(--border-md);flex-shrink:0"></div>'
 
-    // Save as Media Plan
-    +     (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="aiSaveAIMediaPlan()" style="flex-shrink:0;height:100%;padding:0 13px;display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:' + (_lk ? 'var(--faint)' : 'var(--text)') + ';font-size:12px;font-weight:500;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';font-family:inherit;white-space:nowrap;opacity:' + (_lk ? '.4' : '1') + ';transition:background .13s"' + (_lk ? '' : ' onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'"') + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Save as Media Plan</button>'; })()
+    // Save as Moments Group
+    +     (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="aiSaveAIMediaPlan()" style="flex-shrink:0;height:100%;padding:0 13px;display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:' + (_lk ? 'var(--faint)' : 'var(--text)') + ';font-size:12px;font-weight:500;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';font-family:inherit;white-space:nowrap;opacity:' + (_lk ? '.4' : '1') + ';transition:background .13s"' + (_lk ? '' : ' onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'"') + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Save as Moments Group</button>'; })()
 
     +   '</div>'
     + '</div>'
@@ -4901,7 +5032,7 @@ function aiAddToPlanBuilder() {
   _aiSuggestions.forEach(function(s) {
     if (s.moment) mp2SelectedMoments[s.moment] = true;
   });
-  // Open the Build Media Plan sidebar and re-render it
+  // Open the Build Moments Group sidebar and re-render it
   var strip = document.getElementById('mp2-asset-strip');
   if (!strip || strip.style.display !== 'flex') mp2ToggleSidebar('plan');
   else {
@@ -4938,20 +5069,45 @@ function aiGeneratePlanName() {
 
 // ── Shared DB persistence helper ─────────────────────────────────────────────
 function mp2SavePlanToDB(planId, planName, moments, onDone) {
-  if (!_mp2LastAnalysisId) { if (onDone) onDone(null); return; }
-  fetch('/api/media-plans-add', {
+  if (!_mp2LastAnalysisId) {
+    // Analysis API hasn't returned yet — queue and flush when it does
+    _mp2PendingDbSaves.push({ planId: planId, planName: planName, moments: moments, onDone: onDone });
+    return;
+  }
+  _mp2DoSavePlanToDB(_mp2LastAnalysisId, planId, planName, moments, onDone);
+}
+
+function _mp2DoSavePlanToDB(analysisId, planId, planName, moments, onDone) {
+  _mp2SavesInFlight++;
+  fetch('/api/ad-groups-add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      analysis_id:    _mp2LastAnalysisId,
-      media_plan_id:  planId,
-      media_plan_name: planName,
-      moments:        moments,
+      moments_match_analysis_id:     analysisId,
+      ad_group_id:   planId,
+      ad_group_name: planName,
+      moments:         moments,
     })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) { if (onDone) onDone(data); })
-  .catch(function(err) { console.warn('mp2SavePlanToDB error:', err); if (onDone) onDone(null); });
+  .catch(function(err) { console.warn('mp2SavePlanToDB error:', err); if (onDone) onDone(null); })
+  .finally(function() {
+    _mp2SavesInFlight = Math.max(0, _mp2SavesInFlight - 1);
+    if (_mp2SavesInFlight === 0 && _mp2OnSavesComplete) {
+      var cb = _mp2OnSavesComplete;
+      _mp2OnSavesComplete = null;
+      cb();
+    }
+  });
+}
+
+function _mp2FlushPendingDbSaves() {
+  if (!_mp2LastAnalysisId || !_mp2PendingDbSaves.length) return;
+  var pending = _mp2PendingDbSaves.splice(0); // drain the queue
+  pending.forEach(function(s) {
+    _mp2DoSavePlanToDB(_mp2LastAnalysisId, s.planId, s.planName, s.moments, s.onDone);
+  });
 }
 
 // ── Inline validation helper ──────────────────────────────────────────────────
@@ -4978,7 +5134,7 @@ function aiSaveAIMediaPlan() {
 
   // ── Validation ──
   if (!planName) {
-    mp2ShowInputError(nameInput, errEl, 'Please enter a name for this media plan');
+    mp2ShowInputError(nameInput, errEl, 'Please enter a name for this Moments Group');
     return;
   }
 
@@ -5025,7 +5181,7 @@ function aiSaveAIMediaPlan() {
     avgCpm:      '$' + avgCpm,
     programs:    [],
     episodes:    [],
-    _dbRaw:      { media_plan_id: planId, media_plan_name: planName, moments: dbMoments }
+    _dbRaw:      { ad_group_id: planId, ad_group_name: planName, moments: dbMoments }
   });
 
   var newIdx = _mp2CurrentAnalysisPlans.length - 1;
@@ -5044,7 +5200,7 @@ function aiSaveAIMediaPlan() {
   if (nameInput) nameInput.value = '';
 }
 
-// ── Save from Build Media Plan sidebar ───────────────────────────────────────
+// ── Save from Build Moments Group sidebar ───────────────────────────────────────
 function mp2SaveBuilderMediaPlan() {
   var nameInput = document.getElementById('mp2-plan-name-input');
   var errEl     = document.getElementById('mp2-plan-name-err');
@@ -5052,7 +5208,7 @@ function mp2SaveBuilderMediaPlan() {
 
   // ── Validation ──
   if (!planName) {
-    mp2ShowInputError(nameInput, errEl, 'Please enter a name for this media plan');
+    mp2ShowInputError(nameInput, errEl, 'Please enter a name for this Moments Group');
     return;
   }
 
@@ -5096,7 +5252,7 @@ function mp2SaveBuilderMediaPlan() {
     impressions: fmtImpr,
     programs:    [],
     episodes:    [],
-    _dbRaw:      { media_plan_id: planId, media_plan_name: planName, moments: dbMoments }
+    _dbRaw:      { ad_group_id: planId, ad_group_name: planName, moments: dbMoments }
   });
 
   var newIdx = _mp2CurrentAnalysisPlans.length - 1;
@@ -5104,9 +5260,9 @@ function mp2SaveBuilderMediaPlan() {
   // ── Persist to DB ──
   mp2SavePlanToDB(planId, planName, dbMoments, function(res) {
     if (res && res.ok) {
-      console.log('Builder media plan saved to DB:', planId);
+      console.log('Builder Moments Group saved to DB:', planId);
     } else {
-      console.warn('Builder media plan DB save failed (kept in memory)');
+      console.warn('Builder Moments Group DB save failed (kept in memory)');
     }
   });
 
@@ -5152,7 +5308,7 @@ function mp2DeleteAnalysisPlan(idx, e) {
   var plan = _mp2CurrentAnalysisPlans[idx];
   if (!plan) return;
   mp2ShowConfirmModal(
-    'Delete media plan?',
+    'Delete Moments Group?',
     'Are you sure you want to delete <strong>' + plan.name.replace(/</g,'&lt;') + '</strong>? This cannot be undone.',
     function() {
       _mp2CurrentAnalysisPlans.splice(idx, 1);
@@ -5160,12 +5316,12 @@ function mp2DeleteAnalysisPlan(idx, e) {
       // PATCH DB with remaining plans
       if (_mp2LastAnalysisId) {
         var remaining = _mp2CurrentAnalysisPlans.map(function(p) {
-          return p._dbRaw || { media_plan_id: p.id, media_plan_name: p.name, moments: [] };
+          return p._dbRaw || { ad_group_id: p.id, ad_group_name: p.name, moments: [] };
         });
         fetch('/api/moments-match?moments_match_analysis_id=' + _mp2LastAnalysisId, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ media_plans: remaining })
+          body: JSON.stringify({ moments_groups: remaining })
         }).catch(function(err) { console.warn('mp2DeleteAnalysisPlan DB error:', err); });
       }
     }
@@ -5230,7 +5386,7 @@ function mp2OpenPlanDetailModal(idx, event) {
     + '<div style="padding:14px 20px;border-top:1px solid var(--border)">'
     +   '<button onclick="mp2SelectDistributePlan(' + idx + ')" style="width:100%;height:38px;display:flex;align-items:center;justify-content:center;gap:8px;background:#0f172a;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .13s" onmouseover="this.style.opacity=\'.88\'" onmouseout="this.style.opacity=\'1\'">'
     +     MERGE_ICO
-    +     'Select this Media Plan and Distribute to DSP'
+    +     'Select this Moments Group and Distribute to DSP'
     +   '</button>'
     + '</div>'
     + '</div>';
@@ -5248,7 +5404,64 @@ function mp2SelectDistributePlan(idx) {
 
 function mp2SaveAndDistribute() {
   if (_mp2DistributePlanIdx === null) return;
-  mp2ActivateDSP(_mp2DistributePlanIdx);
+  var plan         = _mp2CurrentAnalysisPlans[_mp2DistributePlanIdx];
+  var campaignDbId = mp2SelectedCampaign && mp2SelectedCampaign.dbId;
+
+  // If there's no campaign linked to this analysis, fall back to DSP modal
+  if (!campaignDbId || !plan) {
+    mp2ActivateDSP(_mp2DistributePlanIdx);
+    return;
+  }
+
+  // ── Link the wizard's selected creatives to the campaign in DB ──────────────
+  var creativeIds = (mp2LibrarySelectedItems || []).map(function(c) {
+    return c.dbId ? parseInt(c.dbId)
+      : (c.id    ? parseInt(String(c.id).replace('dbcr', '')) : null);
+  }).filter(function(id) { return id && !isNaN(id); });
+
+  if (creativeIds.length && campaignDbId) {
+    fetch('/api/creatives-link', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ campaign_id: campaignDbId, creative_ids: creativeIds })
+    }).catch(function(e) { console.warn('creatives-link error:', e); });
+  }
+
+  var pendingMpId = (plan._dbRaw && plan._dbRaw.ad_group_id) || plan.id || null;
+
+  function _navigate() {
+    // ── Set pending deep-link state (read by campaign-management.js on load) ────
+    _cmPendingCampaignDbId = campaignDbId;
+    _cmPendingAnalysisId   = _mp2LastAnalysisId;
+    _cmPendingMpId         = pendingMpId;
+    if (typeof setPage === 'function') {
+      setPage('campaign-management', 'Campaign Management', true);
+    }
+  }
+
+  // ── Wait for any in-flight media-plan DB saves before navigating ─────────────
+  // Race condition: if the user clicks quickly, the POST to /api/ad-groups-add
+  // might not have completed yet, so Campaign Builder would fetch stale data.
+  var hasPendingQueue = _mp2PendingDbSaves.length > 0; // analysis_id not yet known
+  if (_mp2SavesInFlight > 0 || hasPendingQueue) {
+    // Show saving state on the button
+    var _distBtn = document.querySelector('button[onclick="mp2SaveAndDistribute()"]');
+    if (_distBtn) { _distBtn.textContent = 'Saving…'; _distBtn.disabled = true; }
+
+    // Safety timeout: navigate anyway after 5s to avoid the user getting stuck
+    var _navTimeout = setTimeout(function() {
+      _mp2OnSavesComplete = null;
+      _navigate();
+    }, 5000);
+
+    _mp2OnSavesComplete = function() {
+      clearTimeout(_navTimeout);
+      _navigate();
+    };
+    return;
+  }
+
+  _navigate();
 }
 
 function mp2RenderStripList(highlightIdx) {
@@ -5279,11 +5492,11 @@ function mp2RenderStripList(highlightIdx) {
     + (_noCampaign ? '<div style="text-align:center;font-size:9px;color:var(--faint);margin-top:5px;line-height:1.3">No campaign associated to this analysis yet</div>' : '')
     + '</div>';
 
-  var header = '<div style="flex-shrink:0;padding:16px 16px 10px"><div style="font-size:12px;font-weight:600;color:var(--text)">Saved Media Plans</div></div>';
+  var header = '<div style="flex-shrink:0;padding:16px 16px 10px"><div style="font-size:12px;font-weight:600;color:var(--text)">Saved Moments Groups</div></div>';
 
   if (_mp2CurrentAnalysisPlans.length === 0) {
     zone.innerHTML = header
-      + '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet</div>'
+      + '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved Moments Groups yet</div>'
       + distributeBtn;
     return;
   }
@@ -5327,7 +5540,7 @@ function mp2RenderStripList(highlightIdx) {
           +   ' style="position:absolute;top:5px;right:24px;border:none;background:none;cursor:pointer;color:var(--faint);display:flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;opacity:0;transition:opacity .12s,color .12s"'
           +   ' onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--faint)\'">'+EYE_ICO+'</button>'
 
-          // plan name
+          // Moments Group name
           + '<div style="font-size:11px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:40px;margin-bottom:3px">' + mp.name + '</div>'
           // stats
           + '<div style="font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + statsStr + '</div>'
@@ -5360,7 +5573,7 @@ function mp2RenderAIPlansPanel(highlightIdx) {
   if (!panel) return;
 
   if (savedMediaPlansV2.length === 0) {
-    panel.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet.</div>';
+    panel.innerHTML = '<div style="padding:40px 0;text-align:center;color:var(--faint);font-size:12px">No saved Moments Groups yet.</div>';
     return;
   }
 
@@ -5422,17 +5635,17 @@ function aiAddMoreFromInventory() {
 }
 
 function csTx2GenerateAIMediaPlan() {
-  var panel = document.getElementById('tx2-sub-content-ai-media-plan');
+  var panel = document.getElementById('tx2-sub-content-ai-ad-group');
   if (!panel) return;
   panel.innerHTML =
     '<div style="display:flex;flex-direction:column;flex:1;min-height:0;padding:10px">'
     + '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">'
     + '<div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:#e11d8f;border-radius:50%;animation:cs-spin .7s linear infinite"></div>'
-    + '<div style="font-size:12px;color:var(--muted)">Generating your AI media plan…</div>'
+    + '<div style="font-size:12px;color:var(--muted)">Generating your AI Moments Group…</div>'
     + '</div>'
     + '</div>';
   setTimeout(function() {
-    aiInitPlanVariantsFromAPI();   // load/refresh from MOCK_AI_MEDIA_PLANS
+    aiInitPlanVariantsFromAPI();   // load/refresh from MOCK_AI_AD_GROUPS
     aiRenderResultsPanel();
   }, 1800);
 }
@@ -5673,7 +5886,7 @@ function inv2RenderFilters() {
     +   '<span id="inv-filter-badge" style="display:none;position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:var(--accent);color:#fff;border-radius:50%;font-size:9px;font-weight:700;align-items:center;justify-content:center">0</span>'
     + '</button>'
     + '<div id="inv-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;flex:1"></div>'
-    // Right: view toggles + media plan icon
+    // Right: view toggles + Moments Group icon
     + '<div style="display:flex;gap:4px;flex-shrink:0">'
     +   '<button id="inv-view-gallery" class="inv-view-btn inv-view-btn--act" onclick="inv2ToggleView(\'gallery\')" title="Gallery view">'
     +     '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>'
@@ -5682,7 +5895,7 @@ function inv2RenderFilters() {
     +     '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M1 3h12M1 7h12M1 11h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
     +   '</button>'
     +   '<div style="width:1px;background:var(--border);margin:2px 2px"></div>'
-    +   '<button id="inv-mp-btn" class="inv-view-btn" onclick="inv2ToggleMediaPlan()" title="Media Plan">'
+    +   '<button id="inv-mp-btn" class="inv-view-btn" onclick="inv2ToggleMediaPlan()" title="Moments Group">'
     +     '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M4 5h6M4 7.5h4M4 10h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
     +   '</button>'
     + '</div>';
@@ -5710,7 +5923,7 @@ function inv2ToggleSelect(id) {
   if (el) el.classList.toggle('inv-item--sel', !!invSelected[id]);
   var cb = document.getElementById('inv-cb-' + id);
   if (cb) cb.checked = !!invSelected[id];
-  // auto-open media plan on first selection
+  // auto-open Moments Group on first selection
   var anySelected = Object.keys(invSelected).length > 0;
   if (anySelected && !inv2MediaPlanVisible) { inv2MediaPlanVisible = true; }
   inv2RenderMediaPlan();
@@ -5738,7 +5951,7 @@ function inv2ToggleSelectEpisode(epId, show, episode, channel, scene, imgSeed, i
 }
 
 function inv2RenderMediaPlan() {
-  var panel = document.getElementById('inv-media-plan');
+  var panel = document.getElementById('inv-ad-group');
   if (!panel) return;
   // update mp button state
   var mpBtn = document.getElementById('inv-mp-btn');
@@ -5750,8 +5963,8 @@ function inv2RenderMediaPlan() {
   var totalItems  = selPrograms.length + selEpKeys.length;
   if (totalItems === 0) {
     panel.innerHTML =
-      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;flex-shrink:0">Media Plan</div>'
-      + '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px">Select shows or episodes to build your media plan</div>';
+      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;flex-shrink:0">Moments Group</div>'
+      + '<div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px">Select shows or episodes to build your Moments Group</div>';
     return;
   }
   var totalImp = selPrograms.reduce(function(s,p){ return s + p.impressionsNum; }, 0)
@@ -5760,7 +5973,7 @@ function inv2RenderMediaPlan() {
                    + selEpKeys.reduce(function(s,k){ return s + (invSelectedEpisodes[k].impressionsNum || 0) * 1000 * 20; }, 0);
   panel.innerHTML =
     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
-    +   '<span>Media Plan <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + totalItems + '</span></span>'
+    +   '<span>Moments Group <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + totalItems + '</span></span>'
     +   '<span style="font-size:10px;color:var(--faint);cursor:pointer;font-weight:400" onclick="inv2ClearSelection()">Clear all</span>'
     + '</div>'
     + '<div style="flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column;gap:7px">'
@@ -5820,19 +6033,19 @@ function inv2RenderMediaPlan() {
     +   '<div style="display:flex;gap:6px">'
     +     '<input id="inv-mp-save-name" type="text" placeholder="Plan name…"'
     +       ' style="flex:1;min-width:0;height:30px;border:1px solid var(--border-md);border-radius:6px;padding:0 9px;font-size:12px;font-family:inherit;color:var(--text);background:var(--bg);outline:none"/>'
-    +     '<button onclick="inv2SaveMediaPlan()"'
+    +     '<button onclick="inv2SaveAdGroup()"'
     +       ' style="height:30px;padding:0 11px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:500;cursor:pointer;flex-shrink:0;font-family:inherit">Save</button>'
     +   '</div>'
     + '</div>';
 }
 
-function inv2SaveMediaPlan() {
+function inv2SaveAdGroup() {
   var selPrograms = INV_PROGRAMS_V2.filter(function(p){ return invSelected[p.id]; });
   var selEpKeys   = Object.keys(invSelectedEpisodes);
   var totalItems  = selPrograms.length + selEpKeys.length;
   if (totalItems === 0) return;
   var nameInput = document.getElementById('mp2-plan-name-input') || document.getElementById('inv-mp-save-name');
-  var planName  = (nameInput && nameInput.value.trim()) || ('Media Plan ' + (savedMediaPlansV2.length + 1));
+  var planName  = (nameInput && nameInput.value.trim()) || ('Moments Group ' + (savedMediaPlansV2.length + 1));
   var now       = new Date();
   var dateStr   = now.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()] + ' ' + now.getFullYear();
   var CPM_MAP = { 'Prime Time': 25, 'Daytime': 15, 'Late Night': 18, 'Morning': 12, 'Early Fringe': 20 };
@@ -5854,7 +6067,7 @@ function inv2SaveMediaPlan() {
   });
   if (nameInput) nameInput.value = '';
   // Flash confirm
-  var btn = document.querySelector('#inv-media-plan button[onclick="inv2SaveMediaPlan()"]');
+  var btn = document.querySelector('#inv-ad-group button[onclick="inv2SaveAdGroup()"]');
   if (btn) { btn.textContent = '✓'; setTimeout(function(){ btn.textContent = 'Save'; }, 1200); }
 }
 
@@ -7727,10 +7940,9 @@ function mp2ToggleMomentCard(name) {
     delete mp2SelectedMoments[name];
   } else {
     mp2SelectedMoments[name] = true;
-    // Auto-open the sidebar cart if closed
-    var strip = document.getElementById('mp2-asset-strip');
-    if (strip && strip.style.display !== 'flex') mp2ToggleSidebar('plan');
   }
+  // Always open the Plan Builder sidebar on card click (force open, never toggle-close)
+  mp2OpenSidebarPlan();
   var safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
   var card = document.getElementById('mp2-mcard-' + safeId);
   if (card) card.classList.toggle('mp2-mcard--sel', !!mp2SelectedMoments[name]);
@@ -7758,8 +7970,8 @@ function mp2RenderMomentsMediaPlan() {
 
   if (names.length === 0) {
     body.innerHTML =
-      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Media Plan</div>'
-      + '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your media plan</div>';
+      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Moments Group</div>'
+      + '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your Moments Group</div>';
     var totalsEl = document.getElementById('mp2-strip-plan-totals');
     if (totalsEl) totalsEl.style.display = 'none';
     return;
@@ -7794,7 +8006,7 @@ function mp2RenderMomentsMediaPlan() {
   // ── Render moment cards in body ──
   body.innerHTML =
     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">'
-    + '<span>Build Media Plan <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + names.length + '</span></span>'
+    + '<span>Build Moments Group <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + names.length + '</span></span>'
     + '<span style="font-size:10px;color:var(--faint);cursor:pointer;font-weight:400" onclick="mp2ClearMomentSelection()">Clear all</span>'
     + '</div>'
     + '<div style="display:flex;flex-direction:column;gap:7px">'

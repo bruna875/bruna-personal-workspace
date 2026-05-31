@@ -463,7 +463,7 @@ function txShowAssetsView(name, score, assetsCount) {
   container.style.position      = 'relative';
 
   container.innerHTML =
-    // Single top bar: back breadcrumb + spacer + filter chips + filter btn + media plan btn
+    // Single top bar: back breadcrumb + spacer + filter chips + filter btn + Moments Group btn
     '<div style="display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;flex-shrink:0;min-width:0">'
     +   '<span class="tx-bc-link" onclick="txBackToMoments()" style="display:flex;align-items:center;gap:4px;flex-shrink:0">'
     +     '<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M8 2.5L4.5 6.5 8 10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -479,7 +479,7 @@ function txShowAssetsView(name, score, assetsCount) {
     +     'Filters'
     +     '<span id="inv-filter-badge" style="display:none;position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:var(--accent);color:#fff;border-radius:50%;font-size:9px;font-weight:700;align-items:center;justify-content:center">0</span>'
     +   '</button>'
-    +   '<button id="inv-mp-btn" class="inv-view-btn" onclick="inv2ToggleMediaPlan()" title="Media Plan" style="flex-shrink:0">'
+    +   '<button id="inv-mp-btn" class="inv-view-btn" onclick="inv2ToggleMediaPlan()" title="Moments Group" style="flex-shrink:0">'
     +     '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M4 5h6M4 7.5h4M4 10h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
     +   '</button>'
     + '</div>'
@@ -496,7 +496,7 @@ function txShowAssetsView(name, score, assetsCount) {
 function txBackToMoments() {
   txDrillDownAllAssets = [];
   txDrillDownName = '';
-  // In Media Planner v2, go back to the card grid instead of the old table
+  // In Moments Match v2, go back to the card grid instead of the old table
   if (typeof activeId !== 'undefined' && activeId === 'media-planner-v2') {
     if (typeof mp2RenderMoments === 'function') mp2RenderMoments();
     return;
@@ -513,7 +513,7 @@ function txBackToMoments() {
   var TH = 'padding:9px 12px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);border-bottom:1px solid var(--border);';
   var cartBtn = isInventoryV2
     ? '<div style="display:flex;align-items:center;justify-content:flex-end;padding-bottom:10px;flex-shrink:0">'
-      + '<button id="inv-mp-btn" class="inv-view-btn" onclick="invToggleMediaPlan()" title="Media Plan">'
+      + '<button id="inv-mp-btn" class="inv-view-btn" onclick="invToggleMediaPlan()" title="Moments Group">'
       + '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>'
       + '</button></div>'
     : '';

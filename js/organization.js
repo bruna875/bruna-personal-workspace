@@ -277,7 +277,7 @@ function orgEditOpen() {
   var types = ['Publisher', 'Agency', 'Brand', 'Brand Direct', 'Super Organization'];
   var typeOpts = types.map(function(t) { return { val: t, label: t }; });
   var bodyHtml = UI.field('Organization Name', UI.input('oe-name', 'text', '', org.name), true)
-    + UI.field('Type', UI.select('oe-type', typeOpts, org.type), true)
+    + UI.field('Type', UI.customSelect('oe-type', typeOpts, org.type), true)
     + UI.field('Email', UI.input('oe-email', 'email', '', org.email || ''));
   UI.openModal({
     id:          'org-edit-modal',
@@ -293,9 +293,15 @@ function orgEditClose() { UI.closeModal('org-edit-modal'); }
 function orgEditSave() {
   var org = APP_ORGS.find(function(o) { return o.dbId === selectedClientOrgId; });
   if (!org) return;
-  org.name  = document.getElementById('oe-name').value.trim()  || org.name;
-  org.type  = document.getElementById('oe-type').value;
-  org.email = document.getElementById('oe-email').value.trim();
+
+  var newName  = document.getElementById('oe-name').value.trim()  || org.name;
+  var newType  = document.getElementById('oe-type').value;
+  var newEmail = document.getElementById('oe-email').value.trim();
+
+  // Optimistic UI update
+  org.name  = newName;
+  org.type  = newType;
+  org.email = newEmail;
   var nameEl = document.getElementById('orgVal');
   if (nameEl) nameEl.textContent = org.name;
   var typeEl = document.getElementById('orgTypeVal');
@@ -303,4 +309,21 @@ function orgEditSave() {
   orgEditClose();
   setPage('organization', 'Organization', true);
   history.replaceState({ id: 'organization', label: 'Organization' }, '', '/organization/' + _orgSlug(org.name));
+
+  // Persist to DB
+  fetch('/api/organizations-update', {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      client_org_id: org.dbId,
+      client_name:   newName,
+      client_type:   newType,
+      client_email:  newEmail || null,
+    }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.ok) console.error('orgEditSave DB error:', data.error);
+  })
+  .catch(function(err) { console.error('orgEditSave fetch error:', err); });
 }

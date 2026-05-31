@@ -10,6 +10,11 @@ var _dspClients     = [];     // [{dbId, name}]
 var _dspAdvertisers = [];     // [{advertiser_id, advertiser_name}]
 var _dspConnectItem = null;   // library item being connected (modal)
 var _dspFormValues  = {};
+var _dspAdvRows     = [];     // [{uid, advertiser, advertiserId}] for Advertiser Preset
+var _dspAdvRowSearch = '';    // search filter for advertiser rows
+var _dspAdvRowUid   = 0;      // counter for unique row IDs
+var _dspDrawerTab   = 'partner'; // active tab: 'partner' | 'advertiser'
+var _dspPendingLibIds = [];      // library_ids selected from library modal, not yet connected
 
 // ── Brand colors per DSP/SSP name ─────────────────────────────────────────────
 var _dspColors = {
@@ -100,7 +105,7 @@ function renderDspSsp() {
     + '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);gap:16px">'
     +   '<div style="flex-shrink:0">'
     +     '<div style="font-size:13px;font-weight:600;color:var(--text)">Integrations</div>'
-    +     '<div style="font-size:11px;color:var(--faint);margin-top:1px"><span id="dsp-count">—</span> platforms available</div>'
+    +     '<div style="font-size:11px;color:var(--faint);margin-top:1px"><span id="dsp-count">—</span> active connections</div>'
     +   '</div>'
     +   '<div id="dsp-header-filters" style="display:flex;align-items:center;gap:10px"></div>'
     + '</div>'
@@ -140,22 +145,6 @@ function _dspRefreshFilters() {
       + '</div>';
   }
 
-  // Advertiser select — only visible when a client is selected
-  if (_dspClientId) {
-    var filteredAdvs = _dspAdvertisers.filter(function(a) {
-      return a.client_org_id === _dspClientId;
-    });
-    var advOpts = [{val: '', label: 'All advertisers'}].concat(
-      filteredAdvs.map(function(a) { return {val: String(a.advertiser_id), label: a.advertiser_name}; })
-    );
-    html +=
-      '<div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>'
-      + '<span style="font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap">Advertiser</span>'
-      + '<div style="width:180px">'
-      +   UI.customSelect('dsp-adv-cs', advOpts, _dspAdvId ? String(_dspAdvId) : '', 'dspSetAdv')
-      + '</div>';
-  }
-
   el.innerHTML = html;
 }
 
@@ -176,8 +165,9 @@ function _dspLoad() {
 }
 
 function dspSetClient(val) {
-  _dspClientId = val ? parseInt(val) : null;
-  _dspAdvId    = null; // reset advertiser when client changes
+  _dspClientId      = val ? parseInt(val) : null;
+  _dspAdvId         = null;
+  _dspPendingLibIds = [];
   _dspRefreshFilters();
   _dspLoad();
 }
@@ -194,65 +184,200 @@ function dspApplySearch(q) {
 
 // ── Render grid ───────────────────────────────────────────────────────────────
 function _dspRender() {
-  var countEl = document.getElementById('dsp-count');
-  if (countEl) countEl.textContent = _dspLibrary.length;
-
   // Map connected library IDs → connection
   var connectedMap = {};
   _dspConnections.forEach(function(c) { connectedMap[c.library_id] = c; });
 
-  // Advertiser filter: filter connections
-  var visibleConnMap = connectedMap;
-  if (_dspAdvId) {
-    visibleConnMap = {};
-    _dspConnections.forEach(function(c) {
-      if (c.advertiser_id === _dspAdvId) visibleConnMap[c.library_id] = c;
+  // Remove from pending any IDs that are now connected
+  _dspPendingLibIds = _dspPendingLibIds.filter(function(id) { return !connectedMap[id]; });
+
+  var countEl = document.getElementById('dsp-count');
+  if (countEl) countEl.textContent = _dspConnections.length;
+
+  // Search filter (applied only to active cards)
+  var q = (_dspSearch || '').toLowerCase().trim();
+
+  var connected = _dspLibrary.filter(function(l) { return !!connectedMap[l.library_id]; });
+  if (q) {
+    connected = connected.filter(function(l) {
+      return l.name.toLowerCase().indexOf(q) >= 0
+          || (l.type     || '').toLowerCase().indexOf(q) >= 0
+          || (l.category || '').toLowerCase().indexOf(q) >= 0;
     });
   }
 
-  // Search filter
-  var q = (_dspSearch || '').toLowerCase().trim();
-  var library = q
-    ? _dspLibrary.filter(function(l) {
-        return l.name.toLowerCase().indexOf(q) >= 0
-            || (l.type     || '').toLowerCase().indexOf(q) >= 0
-            || (l.category || '').toLowerCase().indexOf(q) >= 0;
-      })
-    : _dspLibrary;
+  // Pending: selected from library modal but not yet connected
+  var pending = _dspLibrary.filter(function(l) {
+    return !connectedMap[l.library_id] && _dspPendingLibIds.indexOf(l.library_id) >= 0;
+  });
 
-  var connected = library.filter(function(l) { return !!visibleConnMap[l.library_id]; });
-  var available = library.filter(function(l) { return !visibleConnMap[l.library_id]; });
-
-  var html = '';
-
-  if (connected.length) {
-    html += '<div style="margin-bottom:24px">'
-      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">Connected</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">'
-      + connected.map(function(l) { return _dspCardHtml(l, visibleConnMap[l.library_id]); }).join('')
-      + '</div>'
-      + '</div>';
-  }
-
-  if (available.length) {
-    html += '<div>'
-      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">'
-      + (connected.length ? 'Available' : 'All Platforms')
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">'
-      + available.map(function(l) { return _dspCardHtml(l, null); }).join('')
-      + '</div>'
-      + '</div>';
-  }
-
-  if (!html) {
-    html = '<div style="padding:40px;text-align:center;color:var(--faint);font-size:13px">'
-      + (q ? 'No results for "' + q + '".' : 'No platforms in library.')
-      + '</div>';
-  }
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+  html += connected.map(function(l) { return _dspCardHtml(l, connectedMap[l.library_id]); }).join('');
+  html += pending.map(function(l) { return _dspPendingCardHtml(l); }).join('');
+  html += _dspAddMoreCardHtml();
+  html += '</div>';
 
   var body = document.getElementById('dsp-body');
   if (body) body.innerHTML = html;
+}
+
+// ── "Add more partners" dashed card ──────────────────────────────────────────
+function _dspAddMoreCardHtml() {
+  return '<div onclick="dspOpenLibraryModal()" '
+    + 'style="border-radius:10px;border:2px dashed var(--border);background:transparent;cursor:pointer;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;'
+    + 'padding:28px 20px;min-height:110px;transition:border-color .15s,background .15s" '
+    + 'onmouseover="this.style.borderColor=\'var(--accent)\';this.style.background=\'var(--subtle)\'" '
+    + 'onmouseout="this.style.borderColor=\'var(--border)\';this.style.background=\'transparent\'">'
+    + '<div style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border-md);'
+    +   'display:flex;align-items:center;justify-content:center;color:var(--muted)">'
+    +   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>'
+    + '</div>'
+    + '<div style="text-align:center">'
+    +   '<div style="font-size:13px;font-weight:600;color:var(--text)">Add more partners</div>'
+    +   '<div style="font-size:11px;color:var(--muted);margin-top:3px">Browse the platform library</div>'
+    + '</div>'
+    + '</div>';
+}
+
+// ── Pending card (selected from library, not yet connected) ───────────────────
+function _dspPendingCardHtml(lib) {
+  var typeBadge = '<span style="display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.04em;'
+    + (lib.type === 'DSP' ? 'background:#eff6ff;color:#2563eb' : 'background:#f0fdf4;color:#16a34a')
+    + '">' + lib.type + '</span>';
+  var catBadge = lib.category
+    ? '<span style="display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:4px;font-size:9px;font-weight:600;background:var(--subtle);color:var(--muted)">' + lib.category + '</span>'
+    : '';
+  return '<div style="border-radius:10px;overflow:hidden;border:2px solid var(--accent);background:var(--surface)">'
+    + '<div style="padding:14px;display:flex;flex-direction:column;gap:10px">'
+    +   '<div style="display:flex;align-items:center;gap:10px;min-width:0">'
+    +     _dspLogoHtml(lib.name, 40)
+    +     '<div style="min-width:0;flex:1">'
+    +       '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + lib.name + '</div>'
+    +       '<div style="display:flex;align-items:center;gap:4px;margin-top:3px">' + typeBadge + catBadge + '</div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:flex-end">'
+    +     '<button onclick="event.stopPropagation();dspOpenConnect(' + lib.library_id + ')" '
+    +       'style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 14px;border:none;border-radius:6px;background:var(--accent);font-size:11px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit;transition:opacity .12s" '
+    +       'onmouseover="this.style.opacity=\'.85\'" onmouseout="this.style.opacity=\'1\'">'
+    +       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>'
+    +       'Add Presets'
+    +     '</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+// ── Library modal ─────────────────────────────────────────────────────────────
+function dspOpenLibraryModal() {
+  var connectedMap = {};
+  _dspConnections.forEach(function(c) { connectedMap[c.library_id] = c; });
+  var available = _dspLibrary.filter(function(l) { return !connectedMap[l.library_id]; });
+
+  var backdrop = document.createElement('div');
+  backdrop.id = 'dsp-lib-modal-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px;animation:dsp-fade-in .18s ease';
+  backdrop.addEventListener('click', function(e) { if (e.target === backdrop) dspCloseLibraryModal(); });
+
+  var modal = document.createElement('div');
+  modal.id = 'dsp-lib-modal';
+  modal.style.cssText = 'background:var(--surface);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.22);width:100%;max-width:780px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden';
+
+  modal.innerHTML =
+    '<div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'
+    +   '<div>'
+    +     '<div style="font-size:16px;font-weight:700;color:var(--text)">Partner Library</div>'
+    +     '<div style="font-size:12px;color:var(--muted);margin-top:2px">Select platforms to add to your workspace</div>'
+    +   '</div>'
+    +   '<button onclick="dspCloseLibraryModal()" style="width:30px;height:30px;border:none;background:transparent;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:7px;transition:background .12s" onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'transparent\'">'
+    +     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+    +   '</button>'
+    + '</div>'
+    + '<div id="dsp-lib-modal-body" style="flex:1;overflow-y:auto;padding:20px">'
+    +   _dspLibModalBodyHtml(available)
+    + '</div>'
+    + '<div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0">'
+    +   '<button onclick="dspCloseLibraryModal()" style="height:34px;padding:0 18px;border:1px solid var(--border-md);border-radius:8px;background:transparent;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;font-family:inherit">Cancel</button>'
+    +   '<button onclick="dspLibraryModalDone()" id="dsp-lib-modal-add-btn" style="height:34px;padding:0 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">'
+    +     _dspLibModalBtnLabel()
+    +   '</button>'
+    + '</div>';
+
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+}
+
+function _dspLibModalBodyHtml(available) {
+  if (!available || !available.length) {
+    return '<div style="padding:40px;text-align:center;color:var(--faint);font-size:13px">All platforms are already connected.</div>';
+  }
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'
+    + available.map(function(l) { return _dspLibCardHtml(l, _dspPendingLibIds.indexOf(l.library_id) >= 0); }).join('')
+    + '</div>';
+}
+
+function _dspLibModalBtnLabel() {
+  var n = _dspPendingLibIds.length;
+  return n > 0 ? 'Add Selected (' + n + ')' : 'Add Selected';
+}
+
+function _dspLibCardHtml(lib, selected) {
+  var typeBadge = '<span style="display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.04em;'
+    + (lib.type === 'DSP' ? 'background:#eff6ff;color:#2563eb' : 'background:#f0fdf4;color:#16a34a')
+    + '">' + lib.type + '</span>';
+  var catBadge = lib.category
+    ? '<span style="display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:4px;font-size:9px;font-weight:600;background:var(--subtle);color:var(--muted)">' + lib.category + '</span>'
+    : '';
+  var checkIcon = selected
+    ? '<div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+      + '</div>'
+    : '<div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--border-md);flex-shrink:0"></div>';
+  return '<div onclick="dspLibraryToggleCard(' + lib.library_id + ')" '
+    + 'style="border-radius:10px;border:2px solid ' + (selected ? 'var(--accent)' : 'var(--border)') + ';background:' + (selected ? 'var(--subtle)' : 'var(--surface)') + ';cursor:pointer;padding:14px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,background .15s" '
+    + 'onmouseover="if(!this.dataset.sel){this.style.borderColor=\'var(--border-md)\';this.style.background=\'var(--bg)\'}" '
+    + 'onmouseout="if(!this.dataset.sel){this.style.borderColor=\'var(--border)\';this.style.background=\'var(--surface)\'}" '
+    + (selected ? 'data-sel="1"' : '') + '>'
+    +   '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+    +     '<div style="display:flex;align-items:center;gap:10px;min-width:0">'
+    +       _dspLogoHtml(lib.name, 38)
+    +       '<div style="min-width:0">'
+    +         '<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + lib.name + '</div>'
+    +         '<div style="display:flex;align-items:center;gap:4px;margin-top:3px">' + typeBadge + catBadge + '</div>'
+    +       '</div>'
+    +     '</div>'
+    +     checkIcon
+    +   '</div>'
+    +   (lib.description ? '<div style="font-size:11px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + lib.description + '</div>' : '')
+    + '</div>';
+}
+
+function dspLibraryToggleCard(libraryId) {
+  var idx = _dspPendingLibIds.indexOf(libraryId);
+  if (idx >= 0) { _dspPendingLibIds.splice(idx, 1); }
+  else           { _dspPendingLibIds.push(libraryId); }
+
+  // Re-render modal body
+  var connectedMap = {};
+  _dspConnections.forEach(function(c) { connectedMap[c.library_id] = c; });
+  var available = _dspLibrary.filter(function(l) { return !connectedMap[l.library_id]; });
+  var body = document.getElementById('dsp-lib-modal-body');
+  if (body) body.innerHTML = _dspLibModalBodyHtml(available);
+
+  // Update CTA label
+  var btn = document.getElementById('dsp-lib-modal-add-btn');
+  if (btn) btn.textContent = _dspLibModalBtnLabel();
+}
+
+function dspLibraryModalDone() {
+  dspCloseLibraryModal();
+  _dspRender();
+}
+
+function dspCloseLibraryModal() {
+  var el = document.getElementById('dsp-lib-modal-backdrop');
+  if (el) el.remove();
 }
 
 // ── Single card ───────────────────────────────────────────────────────────────
@@ -342,31 +467,19 @@ function dspOpenConnect(libraryId) {
   _dspFormValues = (existingConn && existingConn.preset_values) ? Object.assign({}, existingConn.preset_values) : {};
   if (existingConn && existingConn.seat_id) _dspFormValues._seat_id = existingConn.seat_id;
 
-  // Only show connection-scope fields in the drawer
-  var fields = (_dspConnectItem.preset_fields || []).filter(function(f) { return f.scope !== 'campaign'; });
-  var color  = _dspColor(_dspConnectItem.name);
-
-  var fieldsHtml = fields.map(function(f) {
-    var preVal = _dspFormValues[f.key] || '';
-    if (f.type === 'select') {
-      return '<div>'
-        + '<label style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px">'
-        + f.label + (f.required ? ' <span style="color:var(--accent)">*</span>' : '') + '</label>'
-        + '<select id="dsp-field-' + f.key + '" style="width:100%;height:36px;padding:0 10px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box">'
-        + (f.options || []).map(function(o) { return '<option value="' + o + '"' + (o === preVal ? ' selected' : '') + '>' + o + '</option>'; }).join('')
-        + '</select>'
-        + '</div>';
-    }
-    return '<div>'
-      + '<label style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px">'
-      + f.label + (f.required ? ' <span style="color:var(--accent)">*</span>' : '') + '</label>'
-      + '<input id="dsp-field-' + f.key + '" type="' + (f.type === 'password' ? 'password' : 'text') + '" '
-      + 'value="' + (f.type === 'password' ? '' : preVal) + '" '
-      + 'placeholder="' + (f.placeholder || '') + '" autocomplete="off" '
-      + 'style="width:100%;height:36px;padding:0 12px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box;transition:border-color .15s" '
-      + 'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
-      + '</div>';
-  }).join('');
+  // Initialise advertiser rows from existing connection or start with one blank row
+  _dspAdvRowSearch = '';
+  _dspAdvRows = [];
+  _dspDrawerTab = 'partner';
+  var savedRows = (_dspFormValues.advertiser_rows && Array.isArray(_dspFormValues.advertiser_rows))
+    ? _dspFormValues.advertiser_rows : [];
+  if (savedRows.length) {
+    savedRows.forEach(function(r) {
+      _dspAdvRows.push({ uid: ++_dspAdvRowUid, advertiser: r.advertiser || '', advertiserId: r.advertiserId || '' });
+    });
+  } else {
+    _dspAdvRows.push({ uid: ++_dspAdvRowUid, advertiser: '', advertiserId: '' });
+  }
 
   // Inject CSS for slide animation (once)
   if (!document.getElementById('dsp-drawer-style')) {
@@ -392,6 +505,15 @@ function dspOpenConnect(libraryId) {
   drawer.id = 'dsp-connect-drawer';
   drawer.style.cssText = 'position:fixed;top:0;right:0;bottom:0;z-index:9500;width:420px;max-width:100vw;background:var(--surface);box-shadow:-8px 0 40px rgba(0,0,0,.14);display:flex;flex-direction:column;animation:dsp-slide-in .25s cubic-bezier(.32,.72,0,1)';
 
+  var INP = 'width:100%;height:36px;padding:0 12px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box;transition:border-color .15s';
+  var LBL = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
+  var SEC = 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px';
+
+  // Tab bar style helper
+  var _tabStyle = function(active) {
+    return 'display:inline-flex;align-items:center;height:36px;padding:0 16px;border:none;background:none;font-size:12px;font-weight:' + (active ? '600' : '500') + ';color:' + (active ? 'var(--accent)' : 'var(--muted)') + ';cursor:pointer;font-family:inherit;border-bottom:2px solid ' + (active ? 'var(--accent)' : 'transparent') + ';transition:color .15s,border-color .15s;white-space:nowrap';
+  };
+
   drawer.innerHTML =
     // ── Drawer header ──
     '<div style="padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">'
@@ -408,10 +530,43 @@ function dspOpenConnect(libraryId) {
     + (_dspConnectItem.description
         ? '<div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6;flex-shrink:0">' + _dspConnectItem.description + '</div>'
         : '')
-    // ── Form fields ──
-    + '<div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Partner Preset</div>'
-    + (fieldsHtml || '<div style="font-size:12px;color:var(--muted);text-align:center;padding:24px 0">No configuration required.</div>')
+    // ── Tab bar ──
+    + '<div id="dsp-tab-bar" style="display:flex;align-items:flex-end;border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0">'
+    +   '<button id="dsp-tab-partner" onclick="dspDrawerSetTab(\'partner\')" style="' + _tabStyle(true) + '">Partner Preset</button>'
+    +   '<button id="dsp-tab-advertiser" onclick="dspDrawerSetTab(\'advertiser\')" style="' + _tabStyle(false) + '">Advertiser Preset</button>'
+    + '</div>'
+    // ── Tab panels ──
+    // Partner Preset panel
+    + '<div id="dsp-panel-partner" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">'
+    +   '<div><label style="' + LBL + '">Partner ID</label>'
+    +     '<input id="dsp-partner-id" type="text" value="' + (_dspFormValues.partner_id || '') + '" placeholder="e.g. 12345" autocomplete="off" style="' + INP + '" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'"></div>'
+    +   '<div><label style="' + LBL + '">Seat ID</label>'
+    +     '<input id="dsp-seat-id" type="text" value="' + (_dspFormValues.seat_id || _dspFormValues._seat_id || '') + '" placeholder="e.g. seat-abc-001" autocomplete="off" style="' + INP + '" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'"></div>'
+    +   '<div><label style="' + LBL + '">API Token</label>'
+    +     '<input id="dsp-api-token" type="password" value="" placeholder="Paste token…" autocomplete="new-password" style="' + INP + '" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'"></div>'
+    + '</div>'
+    // Advertiser Preset panel (hidden initially)
+    + '<div id="dsp-panel-advertiser" style="flex:1;overflow-y:auto;padding:20px;display:none;flex-direction:column;gap:0">'
+    // Search bar
+    +   '<div style="position:relative;margin-bottom:12px">'
+    +     '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--faint)" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+    +     '<input id="dsp-adv-search" type="text" placeholder="Search advertisers…" oninput="dspAdvRowSearch(this.value)" style="' + INP + ';padding-left:32px" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
+    +   '</div>'
+    // Rows header
+    +   '<div style="display:grid;grid-template-columns:1fr 1fr 28px;gap:8px;margin-bottom:6px">'
+    +     '<span style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em">Advertiser</span>'
+    +     '<span style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em">Advertiser ID</span>'
+    +     '<span></span>'
+    +   '</div>'
+    // Rows container
+    +   '<div id="dsp-adv-rows" style="display:flex;flex-direction:column;gap:6px">'
+    +     _dspAdvRowsHtml()
+    +   '</div>'
+    // Add row button
+    +   '<button onclick="dspAddAdvRow()" style="margin-top:12px;border:none;background:none;padding:0;font-size:12px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;transition:opacity .12s" onmouseover="this.style.opacity=\'.7\'" onmouseout="this.style.opacity=\'1\'">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>'
+    +     'Add Row'
+    +   '</button>'
     + '</div>'
     // ── Footer ──
     + '<div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-shrink:0">'
@@ -444,23 +599,98 @@ function dspCloseConnect() {
   _dspConnectItem = null;
 }
 
+// ── Tab switcher ──────────────────────────────────────────────────────────────
+function dspDrawerSetTab(tab) {
+  _dspDrawerTab = tab;
+  var panels = ['partner', 'advertiser'];
+  panels.forEach(function(p) {
+    var panel = document.getElementById('dsp-panel-' + p);
+    var btn   = document.getElementById('dsp-tab-' + p);
+    if (!panel || !btn) return;
+    var active = (p === tab);
+    panel.style.display = active ? 'flex' : 'none';
+    btn.style.fontWeight   = active ? '600' : '500';
+    btn.style.color        = active ? 'var(--accent)' : 'var(--muted)';
+    btn.style.borderBottom = active ? '2px solid var(--accent)' : '2px solid transparent';
+  });
+}
+
+// ── Advertiser row helpers ────────────────────────────────────────────────────
+function _dspAdvSelectHtml(uid, selected) {
+  var advs = _dspAdvertisers.filter(function(a) { return a.client_org_id === _dspClientId; });
+  var opts = '<option value="">— select —</option>'
+    + advs.map(function(a) {
+        return '<option value="' + a.advertiser_name + '"' + (a.advertiser_name === selected ? ' selected' : '') + '>'
+          + a.advertiser_name + '</option>';
+      }).join('');
+  return '<select onchange="_dspAdvRowChange(' + uid + ',\'advertiser\',this.value)" '
+    + 'style="width:100%;height:36px;padding:0 8px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box;cursor:pointer">'
+    + opts + '</select>';
+}
+
+function _dspAdvRowHtml(row) {
+  return '<div id="dsp-adv-row-' + row.uid + '" style="display:grid;grid-template-columns:1fr 1fr 28px;gap:8px;align-items:center">'
+    + _dspAdvSelectHtml(row.uid, row.advertiser)
+    + '<input type="text" value="' + (row.advertiserId || '') + '" placeholder="Advertiser ID" '
+    +   'oninput="_dspAdvRowChange(' + row.uid + ',\'advertiserId\',this.value)" '
+    +   'style="width:100%;height:36px;padding:0 10px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box;transition:border-color .15s" '
+    +   'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
+    + '<button onclick="dspRemoveAdvRow(' + row.uid + ')" '
+    +   'style="width:28px;height:28px;border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--faint);transition:border-color .12s,color .12s;flex-shrink:0" '
+    +   'onmouseover="this.style.borderColor=\'#ef4444\';this.style.color=\'#ef4444\'" '
+    +   'onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--faint)\'">'
+    +   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+    + '</button>'
+    + '</div>';
+}
+
+function _dspAdvRowsHtml() {
+  var q = (_dspAdvRowSearch || '').toLowerCase();
+  return _dspAdvRows
+    .filter(function(r) { return !q || (r.advertiser || '').toLowerCase().indexOf(q) >= 0 || (r.advertiserId || '').toLowerCase().indexOf(q) >= 0; })
+    .map(_dspAdvRowHtml).join('') || '<div style="font-size:12px;color:var(--faint);padding:8px 0">No results</div>';
+}
+
+function _dspAdvRowChange(uid, field, val) {
+  var row = _dspAdvRows.find(function(r) { return r.uid === uid; });
+  if (row) row[field] = val;
+}
+
+function dspAddAdvRow() {
+  _dspAdvRows.push({ uid: ++_dspAdvRowUid, advertiser: '', advertiserId: '' });
+  var container = document.getElementById('dsp-adv-rows');
+  if (container) container.innerHTML = _dspAdvRowsHtml();
+}
+
+function dspRemoveAdvRow(uid) {
+  _dspAdvRows = _dspAdvRows.filter(function(r) { return r.uid !== uid; });
+  var container = document.getElementById('dsp-adv-rows');
+  if (container) container.innerHTML = _dspAdvRowsHtml();
+}
+
+function dspAdvRowSearch(val) {
+  _dspAdvRowSearch = val || '';
+  var container = document.getElementById('dsp-adv-rows');
+  if (container) container.innerHTML = _dspAdvRowsHtml();
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
 function dspSubmitConnect() {
   if (!_dspConnectItem || !_dspClientId) return;
-  var fields  = _dspConnectItem.preset_fields || [];
-  var values  = {};
-  var missing = [];
+  var values = {};
 
-  fields.forEach(function(f) {
-    var el = document.getElementById('dsp-field-' + f.key);
-    var v  = el ? el.value.trim() : '';
-    if (f.required && !v) { missing.push(f.label); return; }
-    if (v) values[f.key] = v;
-  });
+  // Partner Preset fields
+  var partnerId = (document.getElementById('dsp-partner-id') || {}).value || '';
+  var seatId    = (document.getElementById('dsp-seat-id')    || {}).value || '';
+  var apiToken  = (document.getElementById('dsp-api-token')  || {}).value || '';
+  if (partnerId) values.partner_id = partnerId;
+  if (seatId)    values.seat_id    = seatId;
+  if (apiToken)  values.api_token  = apiToken;
 
-  if (missing.length) {
-    alert('Required fields missing: ' + missing.join(', '));
-    return;
-  }
+  // Advertiser Preset rows (persist all, including unsaved partial rows)
+  values.advertiser_rows = _dspAdvRows
+    .filter(function(r) { return r.advertiser || r.advertiserId; })
+    .map(function(r) { return { advertiser: r.advertiser, advertiserId: r.advertiserId }; });
 
   var btn = document.getElementById('dsp-connect-submit');
   if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
@@ -472,7 +702,7 @@ function dspSubmitConnect() {
       library_id:    _dspConnectItem.library_id,
       client_org_id: _dspClientId,
       advertiser_id: _dspAdvId || null,
-      seat_id:       values['seat_id'] || values['partner_id'] || values['member_id'] || values['entity_id'] || values['publisher_id'] || values['site_id'] || null,
+      seat_id:       seatId || partnerId || null,
       preset_values: values,
       connected_by:  'Bruna M.',
     }),

@@ -3271,22 +3271,4 @@ function sdtInjectStyles() {
   document.head.appendChild(s);
 }
 
-// ── OLV Analysis — placeholder ────────────────────────────────────────────────
-function renderOlvAnalysis() {
-  var ca = document.getElementById('content-area');
-  if (!ca) return;
-  ca.innerHTML = '<div class="page-header"><div>'
-    + '<div class="ptitle">OLV Analysis</div>'
-    + '<div class="psub">Online Video analysis and inventory intelligence — coming soon.</div>'
-    + '</div></div>'
-    + '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
-    + 'min-height:320px;gap:16px;color:var(--faint)">'
-    + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">'
-    + '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'
-    + '</svg>'
-    + '<div style="font-size:15px;font-weight:500;color:var(--muted);letter-spacing:-.2px">OLV Analysis</div>'
-    + '<div style="font-size:13px;color:var(--faint);text-align:center;max-width:340px;line-height:1.6">'
-    + 'Online Video inventory analysis and moment detection will be available here.'
-    + '</div>'
-    + '</div>';
-}
+// renderOlvAnalysis moved to olv-analysis.js

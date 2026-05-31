@@ -25,6 +25,7 @@ var ico = {
   // Integration
   dsp:       '<svg ' + _li + '><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>',
   merge:     '<svg ' + _li + '><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>',
+  split:     '<svg ' + _li + '><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 1 1.172-2.872L21 3"/><path d="m3 3 7.828 7.828"/></svg>',
   smartphone:'<svg ' + _li + '><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>',
   castconn:  '<svg ' + _li + '><path d="M2 8C6.477 8 10.522 9.477 13.657 12.012"/><path d="M2 12c2.523 0 4.813.797 6.657 2.143"/><rect width="20" height="15" x="2" y="3" rx="2"/><path d="M2 20h.01"/></svg>',
   api:       '<svg ' + _li + '><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>',

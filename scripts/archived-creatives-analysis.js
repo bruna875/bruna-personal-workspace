@@ -48,14 +48,14 @@ export default async function handler(req, res) {
           COALESCE(a.advertiser_name, a2.advertiser_name) AS advertiser_name,
           COALESCE(a.client_org_id,  a2.client_org_id)  AS client_org_id,
           cr.creative_name,
-          mp.media_plan_name
+          mp.ad_group_name
         FROM creatives_analysis ca
         LEFT JOIN campaigns            c  ON ca.campaign_id   = c.campaign_id
         LEFT JOIN advertisers          a  ON ca.advertiser_id = a.advertiser_id
         LEFT JOIN advertisers          a2 ON c.advertiser_id  = a2.advertiser_id
         LEFT JOIN client_organizations o  ON COALESCE(a.client_org_id, a2.client_org_id) = o.client_org_id
         LEFT JOIN creatives            cr ON ca.creative_id   = cr.creative_id
-        LEFT JOIN media_plans          mp ON ca.mediaplan_id  = mp.media_plan_id
+        LEFT JOIN ad_groups          mp ON ca.mediaplan_id  = mp.ad_group_id
         ${where}
         ORDER BY ca.created_at DESC
       `;

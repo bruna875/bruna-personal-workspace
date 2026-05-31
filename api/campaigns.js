@@ -46,7 +46,11 @@ export default async function handler(req, res) {
     try {
       const { campaign_id } = req.query;
       if (!campaign_id) return res.status(400).json({ error: 'Missing campaign_id' });
-      await sql`DELETE FROM campaigns WHERE campaign_id = ${parseInt(campaign_id)}`;
+      const id = parseInt(campaign_id);
+      // Clear FK references before deleting
+      await sql`UPDATE moments_match SET campaign_id = NULL WHERE campaign_id = ${id}`;
+      await sql`UPDATE creatives    SET campaign_id = NULL WHERE campaign_id = ${id}`;
+      await sql`DELETE FROM campaigns WHERE campaign_id = ${id}`;
       return res.status(200).json({ ok: true });
     } catch (err) {
       console.error('campaigns DELETE error:', err);
@@ -65,7 +69,9 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name,
+        (SELECT COUNT(*) FROM creatives    cr WHERE cr.campaign_id = c.campaign_id)::int AS creative_count,
+        (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = c.campaign_id)::int AS analysis_count
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -76,7 +82,9 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name,
+        (SELECT COUNT(*) FROM creatives    cr WHERE cr.campaign_id = c.campaign_id)::int AS creative_count,
+        (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = c.campaign_id)::int AS analysis_count
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -87,7 +95,9 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name,
+        (SELECT COUNT(*) FROM creatives    cr WHERE cr.campaign_id = c.campaign_id)::int AS creative_count,
+        (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = c.campaign_id)::int AS analysis_count
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -126,8 +136,9 @@ export default async function handler(req, res) {
         spent:        '—',
         start:        fmtDate(r.start_date),
         end:          fmtDate(r.end_date),
-        creatives:    0,
-        moments:      0,
+        creatives:     r.creative_count  || 0,
+        analysisCount: r.analysis_count  || 0,
+        moments:       0,
         partnerIds:   pIds,
         partners:     pIds.map(id => partnerMap[id] ? partnerMap[id].name : String(id)),
         createdBy:    r.created_by || '—',

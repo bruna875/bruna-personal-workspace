@@ -16,12 +16,18 @@ export default async function handler(req, res) {
     const campaignId = parseInt(body.campaign_id || body.id);
     if (!campaignId) return res.status(400).json({ error: 'Missing campaign id' });
 
-    // ── Assign analysis_id to campaign ─────────────────────────────────────
-    if (body.analysis_id !== undefined) {
+    // ── Assign moments_match_analysis_id to campaign ──────────────────────
+    if (body.moments_match_analysis_id !== undefined) {
+      const body_analysis_id = body.moments_match_analysis_id;
       // Ensure column exists (safe no-op after first run)
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS analysis_id INTEGER`;
-      const aid = body.analysis_id ? parseInt(body.analysis_id) : null;
-      await sql`UPDATE campaigns SET analysis_id = ${aid} WHERE campaign_id = ${campaignId}`;
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS moments_match_analysis_id INTEGER`;
+      const aid = body_analysis_id ? parseInt(body_analysis_id) : null;
+      await sql`UPDATE campaigns SET moments_match_analysis_id = ${aid} WHERE campaign_id = ${campaignId}`;
+      // Also write the campaign_id back onto the moments_match row so the
+      // Previous Moments Match table can JOIN and display the campaign name.
+      if (aid) {
+        await sql`UPDATE moments_match SET campaign_id = ${campaignId} WHERE moments_match_analysis_id = ${aid}`;
+      }
       return res.status(200).json({ ok: true });
     }
 

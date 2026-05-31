@@ -1,5 +1,5 @@
-// js/ai-media-plans-api.js
-// Mock API — 5 AI-generated Media Plans per analysis.
+// js/ai-ad-groups-api.js
+// Mock API — 5 AI-generated Ad Groups per analysis.
 // Plans trace a concave-down arch on the scatter chart (x=imp, y=budget):
 //   higher budget → MORE impressions AND LOWER CPM (volume/scale discounts)
 //   lower  budget → fewer impressions AND HIGHER CPM (targeted/boutique)
@@ -10,7 +10,7 @@
 //
 // est_dollar_value = round(est_cpm * est_impressions / 1000)
 
-var MOCK_AI_MEDIA_PLANS = [
+var MOCK_AI_AD_GROUPS = [
 
   // ─────────────────────────────────────────────────────────────
   //  PLAN 1 — Efficiency
@@ -19,7 +19,7 @@ var MOCK_AI_MEDIA_PLANS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN001',
-    plan_name:   'Efficiency',
+    ad_group_name:   'Efficiency',
     plan_type:   'efficiency',
     description: 'Targeted placements for lean budgets — fewer impressions, higher engagement per view',
     budget_k:    80,
@@ -95,7 +95,7 @@ var MOCK_AI_MEDIA_PLANS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN002',
-    plan_name:   'Value',
+    ad_group_name:   'Value',
     plan_type:   'value',
     description: 'Broad VoD reach at mid-range CPM — strong score-to-cost ratio',
     budget_k:    130,
@@ -171,7 +171,7 @@ var MOCK_AI_MEDIA_PLANS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN003',
-    plan_name:   'Optimized',
+    ad_group_name:   'Optimized',
     plan_type:   'optimized',
     description: 'Balanced mix of formats and audience quality — recommended starting point',
     budget_k:    190,
@@ -247,7 +247,7 @@ var MOCK_AI_MEDIA_PLANS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN004',
-    plan_name:   'Scale',
+    ad_group_name:   'Scale',
     plan_type:   'scale',
     description: 'High-volume multi-format buy — Live events and broad VoD for maximum audience size',
     budget_k:    255,
@@ -323,7 +323,7 @@ var MOCK_AI_MEDIA_PLANS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN005',
-    plan_name:   'Premium',
+    ad_group_name:   'Premium',
     plan_type:   'premium',
     description: 'Maximum reach through tentpole Live events — highest volume, lowest blended CPM',
     budget_k:    320,

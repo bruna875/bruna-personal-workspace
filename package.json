@@ -20,5 +20,9 @@
   "homepage": "https://github.com/bruna875/bruna-personal-workspace#readme",
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "puppeteer": "^25.1.0"
   }
 }

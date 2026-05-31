@@ -3,6 +3,90 @@
 var msTab = 'new-search';
 var msBrowseTab = 'episodes';
 
+// ── Checkbox dropdown filter state ───────────────────────────────────────────
+var _msTypeFilter    = [];   // [] = All Types
+var _msChannelFilter = [];   // [] = All Channels
+
+var _msDdAllLabels = { 'ms-type-dd': 'All Types', 'ms-channel-dd': 'All Channels' };
+var _msDdStateMap  = { 'ms-type-dd': '_msTypeFilter', 'ms-channel-dd': '_msChannelFilter' };
+
+function _msCbDdHtml(id, allLabel, items, stateVar) {
+  var state = window[stateVar] || [];
+  var lbl   = state.length === 0 ? allLabel : state.join(', ');
+  var chevron = '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1l4 4 4-4" stroke="#A8A8A0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var trigStyle = 'width:100%;box-sizing:border-box;padding:0 32px 0 11px;font-size:12px;border:1px solid var(--border-md);border-radius:5px;background:var(--surface);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s;height:36px;display:flex;align-items:center;cursor:pointer;position:relative;text-align:left';
+  var rows = '';
+  // "All" row + divider
+  rows += '<label style="display:flex;align-items:center;gap:8px;padding:6px 2px 8px;font-size:12px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border);margin-bottom:4px;user-select:none">'
+    + '<input type="checkbox" id="' + id + '-all" ' + (state.length === 0 ? 'checked' : '') + ' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0" onchange="msDdAllPick(\'' + id + '\',\'' + stateVar + '\',this.checked)">'
+    + allLabel + '</label>';
+  // Individual items (no dividers)
+  items.forEach(function(item) {
+    var checked = state.indexOf(item) >= 0;
+    rows += '<label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:12px;color:var(--text);cursor:pointer;user-select:none" onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'\'">'
+      + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0" onchange="msDdItemPick(\'' + id + '\',\'' + stateVar + '\',\'' + item + '\',this.checked)">'
+      + item + '</label>';
+  });
+  return '<div style="position:relative" id="' + id + '-wrap">'
+    + '<button type="button" id="' + id + '-btn" onclick="msDdToggle(\'' + id + '\')" style="' + trigStyle + '" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
+    +   '<span id="' + id + '-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (state.length === 0 ? 'color:var(--faint)' : '') + '">' + lbl + '</span>'
+    +   chevron
+    + '</button>'
+    + '<div id="' + id + '-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:900;padding:6px 8px">'
+    +   rows
+    + '</div>'
+    + '</div>';
+}
+
+function msDdToggle(id) {
+  var panel = document.getElementById(id + '-panel');
+  if (!panel) return;
+  var isOpen = panel.style.display !== 'none';
+  ['ms-type-dd', 'ms-channel-dd'].forEach(function(did) {
+    if (did !== id) { var p = document.getElementById(did + '-panel'); if (p) p.style.display = 'none'; }
+  });
+  panel.style.display = isOpen ? 'none' : '';
+  if (!isOpen) {
+    setTimeout(function() {
+      document.addEventListener('click', function _h(e) {
+        var wrap = document.getElementById(id + '-wrap');
+        if (wrap && !wrap.contains(e.target)) { panel.style.display = 'none'; document.removeEventListener('click', _h); }
+      });
+    }, 0);
+  }
+}
+
+function msDdAllPick(id, stateVar, checked) {
+  if (checked) {
+    window[stateVar] = [];
+    var panel = document.getElementById(id + '-panel');
+    if (panel) { var cbs = panel.querySelectorAll('input[type=checkbox]'); for (var i = 1; i < cbs.length; i++) cbs[i].checked = false; }
+  } else {
+    var allCb = document.getElementById(id + '-all'); if (allCb) allCb.checked = true;
+  }
+  _msDdUpdateLbl(id, stateVar);
+}
+
+function msDdItemPick(id, stateVar, val, checked) {
+  var state = window[stateVar] || [];
+  var idx = state.indexOf(val);
+  if (checked && idx < 0) state.push(val);
+  else if (!checked && idx >= 0) state.splice(idx, 1);
+  window[stateVar] = state;
+  var allCb = document.getElementById(id + '-all');
+  if (allCb) allCb.checked = state.length === 0;
+  _msDdUpdateLbl(id, stateVar);
+}
+
+function _msDdUpdateLbl(id, stateVar) {
+  var state = window[stateVar] || [];
+  var lbl = document.getElementById(id + '-lbl');
+  if (!lbl) return;
+  var allLabel = _msDdAllLabels[id] || 'All';
+  lbl.textContent  = state.length === 0 ? allLabel : state.join(', ');
+  lbl.style.color  = state.length === 0 ? 'var(--faint)' : 'var(--text)';
+}
+
 var MS_PREVIOUS = [
   { query: 'cooking & meal prep',        date: '20 May 2025', publisher: 'Paramount AUS', type: 'VoD',          channel: 'Food Network', episodes: 148, taxonomies: 12 },
   { query: 'family entertainment',       date: '17 May 2025', publisher: 'Disney',        type: 'VoD',          channel: 'Disney+',      episodes: 214, taxonomies: 7  },
@@ -51,30 +135,6 @@ function msSwitchTab(tab) {
 // ── New Search ──────────────────────────────────────────────────────────────
 
 function msNewSearchHtml() {
-  var publisherOpts = [
-    {val:'',          label:'All Publishers'},
-    {val:'paramount', label:'Paramount AUS'},
-    {val:'disney',    label:'Disney'},
-    {val:'fox',       label:'Fox Sports'},
-    {val:'nbc',       label:'NBC'},
-    {val:'abc',       label:'ABC'},
-    {val:'foodnet',   label:'Food Network'},
-  ];
-  var typeOpts = [
-    {val:'',        label:'All Types'},
-    {val:'vod',     label:'VoD'},
-    {val:'live',    label:'Live'},
-    {val:'organic', label:'Organic Pause'},
-  ];
-  var channelOpts = [
-    {val:'',          label:'All Channels'},
-    {val:'paramount', label:'Paramount'},
-    {val:'disney',    label:'Disney+'},
-    {val:'fox',       label:'Fox'},
-    {val:'nbc',       label:'NBC'},
-    {val:'abc',       label:'ABC'},
-  ];
-
   var LBL = 'font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block';
 
   return '<div id="ms-search-card" class="cs-card" style="padding:24px;margin-bottom:0">'
@@ -95,14 +155,13 @@ function msNewSearchHtml() {
     +     '<input id="ms-query" type="text" placeholder="e.g. cooking, family dinner, outdoor adventure…" style="width:100%;box-sizing:border-box;padding:11px 13px 11px 38px;font-size:13px;border:1px solid var(--border-md);border-radius:8px;background:var(--surface);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s" onfocus="this.style.borderColor=\'#e11d8f\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
     +   '</div>'
 
-    // Three selects
-    +   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:28px">'
-    +     '<div><span style="' + LBL + '">Publisher</span>'    + UI.customSelect('ms-publisher', publisherOpts, '', null) + '</div>'
-    +     '<div><span style="' + LBL + '">Content Type</span>' + UI.customSelect('ms-type',      typeOpts,      '', null) + '</div>'
-    +     '<div><span style="' + LBL + '">Channel</span>'      + UI.customSelect('ms-channel',   channelOpts,   '', null) + '</div>'
+    // Two checkbox dropdowns: Content Type + Channel (Publisher removed)
+    +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px">'
+    +     '<div><span style="' + LBL + '">Content Type</span>' + _msCbDdHtml('ms-type-dd',    'All Types',    ['VoD', 'Live', 'Organic Pause'], '_msTypeFilter') + '</div>'
+    +     '<div><span style="' + LBL + '">Channel</span>'      + _msCbDdHtml('ms-channel-dd', 'All Channels', ['Paramount AUS', 'Disney+', 'Fox Sports', 'NBC', 'ABC', 'Food Network', 'Discovery'], '_msChannelFilter') + '</div>'
     +   '</div>'
 
-    // CTA — same as Media Planner
+    // CTA — same as Moments Match
     +   '<div style="display:flex;justify-content:center">'
     +     '<button onclick="msRunSearch()" style="height:46px;padding:0 40px;display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:12px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 4px 18px rgba(225,29,143,.32);letter-spacing:.01em">'
     +       '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M9 3L11.2 9.2 17.5 11.5 11.2 13.8 9 20 6.8 13.8 0.5 11.5 6.8 9.2Z"/><path d="M18.5 3L20 7 24 8.5 20 10 18.5 14 17 10 13 8.5 17 7Z" opacity=".75"/></svg>'

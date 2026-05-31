@@ -16,6 +16,8 @@ body{font-family:'Geist',system-ui,sans-serif;background:var(--bg);font-size:13p
   --accent:#ED005E;
   --accent-light:#FDF0F4;
   --accent-muted:#F8C0D4;
+  --secondary:#0D1E36;
+  --secondary-light:#E8EDF5;
   --sw:220px;
   --sc:52px;
   --tr:.22s cubic-bezier(.4,0,.2,1)
