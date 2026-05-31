@@ -3520,6 +3520,10 @@ function _mp2DoRender() {
   if (typeof txInjectStyles === 'function') txInjectStyles();
   txCustomSelections = [];
   mp2SubTab('moments');
+  // When landing from Previous Analysis, open the Saved Moments Groups panel by default
+  if (_mp2AnalysisFromSaved) {
+    setTimeout(function() { mp2OpenSidebarList(); }, 0);
+  }
   // Fix sidebar height after DOM settles
   setTimeout(mp2FixSidebarHeight, 50);
 }
