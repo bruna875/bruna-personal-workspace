@@ -209,10 +209,12 @@ function _cs2CampaignForm() {
 
   var LB = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
 
-  // ── triggers (same logic as v1 _cmSetupChecklist) ──
+  // ── triggers — read from state so edit mode shows pre-populated values ──
+  var _geoText   = (typeof _cmGeoTriggerText === 'function') ? _cmGeoTriggerText() : (_cmDraftGeo.length ? _cmDraftGeo.join(', ') : 'Set geography');
+  var _hasGeo    = (_cmDraftGeo && _cmDraftGeo.length > 0);
   var geoTrigger = '<div style="position:relative">'
     + '<button type="button" id="cm-draft-geo-btn" onclick="cmDraftGeoToggle(event)" style="' + _CS_TRIG + '">'
-    +   '<span id="cm-draft-geo-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--faint);font-style:italic">Set geography</span>'
+    +   '<span id="cm-draft-geo-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (_hasGeo ? '' : ';color:var(--faint);font-style:italic') + '">' + _geoText + '</span>'
     +   _CS_ARW
     + '</button>'
     + '<div id="cm-draft-geo-panel" style="display:none">'
@@ -220,9 +222,12 @@ function _cs2CampaignForm() {
     + '</div>'
     + '</div>';
 
+  var _advLocked  = !_cmDraftClient;
+  var _advLabel   = _advLocked ? 'Select a client first' : (_cmDraftAdv || 'Not selected');
+  var _advLblStyle = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (_advLocked || !_cmDraftAdv ? 'color:var(--faint);font-style:italic' : '');
   var advTrigger = '<div style="position:relative">'
-    + '<button type="button" id="cm-draft-adv-btn" onclick="cmDraftAdvToggle(event)" style="' + _CS_TRIG + ';opacity:.45;cursor:not-allowed">'
-    +   '<span id="cm-draft-adv-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--faint);font-style:italic">Select a client first</span>'
+    + '<button type="button" id="cm-draft-adv-btn" onclick="cmDraftAdvToggle(event)" style="' + _CS_TRIG + (_advLocked ? ';opacity:.45;cursor:not-allowed' : '') + '">'
+    +   '<span id="cm-draft-adv-lbl" style="' + _advLblStyle + '">' + _advLabel + '</span>'
     +   _CS_ARW
     + '</button>'
     + '<div id="cm-draft-adv-panel" style="display:none">'
@@ -230,15 +235,18 @@ function _cs2CampaignForm() {
     + '</div>'
     + '</div>';
 
+  var _flightLabel = (_cmDraftFlight && _cmDraftFlight.start && _cmDraftFlight.end)
+    ? _cmDraftFlight.start + ' → ' + _cmDraftFlight.end
+    : (_cmDraftFlight && _cmDraftFlight.start ? _cmDraftFlight.start : 'Set flight dates');
   var flightTrigger = '<button type="button" onclick="cmDraftFlightOpen(this)" style="' + _CS_TRIG + ';justify-content:flex-start;gap:6px">'
     + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>'
-    + '<span id="cm-draft-flight-lbl">Set flight dates</span>'
+    + '<span id="cm-draft-flight-lbl">' + _flightLabel + '</span>'
     + '</button>';
 
   var clientTrigger = _appIsSuperOrg()
     ? '<div style="position:relative">'
       + '<button type="button" id="cm-draft-client-btn" onclick="cmDraftClientToggle(event)" style="' + _CS_TRIG + '">'
-      +   '<span id="cm-draft-client-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--faint);font-style:italic">Not selected</span>'
+      +   '<span id="cm-draft-client-lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' + (!_cmDraftClient ? ';color:var(--faint);font-style:italic' : '') + '">' + (_cmDraftClient || 'Not selected') + '</span>'
       +   _CS_ARW
       + '</button>'
       + '<div id="cm-draft-client-panel" style="display:none">'
@@ -271,7 +279,7 @@ function _cs2CampaignForm() {
     +         '<button type="button" onclick="cmSwitchNameMode(this,\'name\');_cs2RefreshSidebar()" style="height:20px;padding:0 7px;border:none;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;background:#fff;color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.1);transition:background .12s,color .12s">Name</button>'
     +         '<button type="button" onclick="cmSwitchNameMode(this,\'id\')" style="height:20px;padding:0 7px;border:none;border-radius:3px;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;background:transparent;color:#9ca3af;transition:background .12s,color .12s">ID</button>'
     +       '</div>'
-    +       '<input id="cm-draft-name" type="text" placeholder="Campaign name…" value="" style="flex:1;min-width:0;border:none;outline:none;font-size:12px;font-family:inherit;color:var(--text);background:transparent" oninput="_cmDraftCampaignName=this.value;_cs2RefreshSidebar();_cs2RefreshBreadcrumb()">'
+    +       '<input id="cm-draft-name" type="text" placeholder="Campaign name…" value="' + (_cmDraftCampaignName || '').replace(/"/g,'&quot;') + '" style="flex:1;min-width:0;border:none;outline:none;font-size:12px;font-family:inherit;color:var(--text);background:transparent" oninput="_cmDraftCampaignName=this.value;_cs2RefreshSidebar();_cs2RefreshBreadcrumb()">'
     +     '</div>'
     +   '</div>'
     + '</div>'
