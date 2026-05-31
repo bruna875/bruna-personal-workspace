@@ -386,7 +386,7 @@ function mp2SaveCurrentAnalysis() {
     if (btn) { btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save'; btn.disabled = false; }
     return;
   }
-  fetch('/api/moments-match?analysis_id=' + analysisId, {
+  fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ media_plans: _mp2CurrentAnalysisPlans.map(function(p) { return p._dbRaw || p; }) })
@@ -1339,7 +1339,7 @@ function mp2StepNav(dir, skip) {
         if (!anInput) return;
         var _baseName = _step3CampaignName + ' Moments Match';
         var _uniqueName = _baseName;
-        var _existing = (_mp2AnalysesCache || []).map(function(a) { return (a.analysis_name || '').toLowerCase(); });
+        var _existing = (_mp2AnalysesCache || []).map(function(a) { return (a.moments_match_analysis_name || '').toLowerCase(); });
         if (_existing.indexOf(_baseName.toLowerCase()) !== -1) {
           var _n2 = 2;
           while (_existing.indexOf((_baseName + ' ' + _n2).toLowerCase()) !== -1) { _n2++; }
@@ -1363,7 +1363,7 @@ function mp2StepNav(dir, skip) {
         // Find a unique name by incrementing suffix if name already exists in cache
         var _uniqueName = _baseName;
         if (_baseName) {
-          var _existing = (_mp2AnalysesCache || []).map(function(a) { return (a.analysis_name || '').toLowerCase(); });
+          var _existing = (_mp2AnalysesCache || []).map(function(a) { return (a.moments_match_analysis_name || '').toLowerCase(); });
           if (_existing.indexOf(_baseName.toLowerCase()) !== -1) {
             var _n = 2;
             while (_existing.indexOf((_baseName + ' ' + _n).toLowerCase()) !== -1) { _n++; }
@@ -2062,7 +2062,7 @@ function mp2LibSearch(q) {
   var term = (q || '').toLowerCase().trim();
   if (!_mp2AnalysesCache.length) return;
   var filtered = !term ? _mp2AnalysesCache : _mp2AnalysesCache.filter(function(a) {
-    return (a.analysis_name  || '').toLowerCase().indexOf(term) >= 0
+    return (a.moments_match_analysis_name  || '').toLowerCase().indexOf(term) >= 0
         || (a.campaign_name  || '').toLowerCase().indexOf(term) >= 0
         || (a.client_name    || '').toLowerCase().indexOf(term) >= 0
         || (a.advertiser_name|| '').toLowerCase().indexOf(term) >= 0;
@@ -2078,18 +2078,18 @@ function mp2PlansSearch(q) {
 }
 
 function mp2DeleteAnalysis(analysisId, btn) {
-  var rec = _mp2AnalysesCache.filter(function(a) { return a.analysis_id === analysisId; })[0] || {};
-  var aName = rec.analysis_name || ('Analysis #' + analysisId);
+  var rec = _mp2AnalysesCache.filter(function(a) { return a.moments_match_analysis_id === analysisId; })[0] || {};
+  var aName = rec.moments_match_analysis_name || ('Analysis #' + analysisId);
   mp2ShowConfirmModal(
     'Delete analysis?',
     'Deleting <strong>' + aName.replace(/</g,'&lt;') + '</strong> will also permanently remove all media plans associated with this analysis. This cannot be undone.',
     function() {
       if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
-      fetch('/api/moments-match?analysis_id=' + analysisId, { method: 'DELETE' })
+      fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, { method: 'DELETE' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.ok) {
-            _mp2AnalysesCache = _mp2AnalysesCache.filter(function(a) { return a.analysis_id !== analysisId; });
+            _mp2AnalysesCache = _mp2AnalysesCache.filter(function(a) { return a.moments_match_analysis_id !== analysisId; });
             delete _mp2ExpandedRows[analysisId];
             _mp2RenderAnalysisRows(_mp2AnalysesCache);
             var subtitle = document.getElementById('mp2-analyses-subtitle');
@@ -2160,22 +2160,22 @@ function mp2DeleteAnalysisPlanFromLib(analysisId, planIdx, planName) {
     'Delete media plan?',
     'Are you sure you want to delete <strong>' + (planName || 'this plan').replace(/</g,'&lt;') + '</strong>? This cannot be undone.',
     function() {
-      var rec = _mp2AnalysesCache.filter(function(a) { return a.analysis_id === analysisId; })[0];
-      if (!rec || !Array.isArray(rec.media_plans)) return;
-      rec.media_plans.splice(planIdx, 1);
+      var rec = _mp2AnalysesCache.filter(function(a) { return a.moments_match_analysis_id === analysisId; })[0];
+      if (!rec || !Array.isArray(rec.moments_groups)) return;
+      rec.moments_groups.splice(planIdx, 1);
       // Remove old sub-rows and re-insert
       document.querySelectorAll('.mp2-sub-' + analysisId).forEach(function(tr) { tr.remove(); });
       var anchor = document.getElementById('mp2-anchor-' + analysisId);
       if (anchor) {
-        var newHtml = _mp2SubRowsHtml(analysisId, rec.media_plans, true);
+        var newHtml = _mp2SubRowsHtml(analysisId, rec.moments_groups, true);
         anchor.insertAdjacentHTML('afterend', newHtml);
       }
       var countEl = document.getElementById('mp2-pcount-' + analysisId);
-      if (countEl) countEl.textContent = rec.media_plans.length;
-      fetch('/api/moments-match?analysis_id=' + analysisId, {
+      if (countEl) countEl.textContent = rec.moments_groups.length;
+      fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ media_plans: rec.media_plans })
+        body: JSON.stringify({ moments_groups: rec.moments_groups })
       }).catch(function(err) { console.warn('mp2DeleteAnalysisPlanFromLib DB error:', err); });
     }
   );
@@ -2186,7 +2186,7 @@ function mp2DeleteAnalysisPlanFromLib(analysisId, planIdx, planName) {
 // so column widths are inherited from the parent's table-layout:fixed automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 function _mp2SubRowsHtml(analysisId, plans, visible) {
-  var _cacheRec = (_mp2AnalysesCache || []).filter(function(a) { return a.analysis_id === analysisId; })[0] || {};
+  var _cacheRec = (_mp2AnalysesCache || []).filter(function(a) { return a.moments_match_analysis_id === analysisId; })[0] || {};
   var _campName = (_cacheRec.campaign_name || '').replace(/</g,'&lt;');
   var cls  = 'mp2-sub-' + analysisId;
   var disp = visible ? '' : 'display:none';
@@ -2287,21 +2287,21 @@ function _mp2RenderAnalysisRows(analyses) {
   var TDlc   = 'padding:11px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);text-align:center';
 
   tbody.innerHTML = analyses.map(function(a) {
-    var aid  = a.analysis_id;
+    var aid  = a.moments_match_analysis_id;
     var open = !!_mp2ExpandedRows[aid];
 
     var chevron = CHEVRON_R
       .replace('{ID}', aid)
       .replace('{ROT}', open ? 'rotate(90deg)' : 'rotate(0deg)');
 
-    var analysisLabel = (a.analysis_name || ('Analysis #' + aid)).replace(/</g,'&lt;');
-    var safeQuote     = (a.analysis_name || '').replace(/'/g,"\\'");
+    var analysisLabel = (a.moments_match_analysis_name || ('Analysis #' + aid)).replace(/</g,'&lt;');
+    var safeQuote     = (a.moments_match_analysis_name || '').replace(/'/g,"\\'");
 
     var dateStr = a.created_at
       ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       : '—';
 
-    var planCount = Array.isArray(a.media_plans) ? a.media_plans.length : 0;
+    var planCount = Array.isArray(a.moments_groups) ? a.moments_groups.length : 0;
 
     var deleteBtn = '<button onclick="event.stopPropagation();mp2DeleteAnalysis(' + aid + ',this)"'
       + ' style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;background:none;cursor:pointer;border-radius:6px;color:var(--faint);transition:color .15s,background .15s"'
@@ -2338,7 +2338,7 @@ function _mp2RenderAnalysisRows(analyses) {
       + '</tr>';
 
     // Sub-rows: siblings in the same table — alignment is automatic via table-layout:fixed
-    var subRows = _mp2SubRowsHtml(aid, a.media_plans, open);
+    var subRows = _mp2SubRowsHtml(aid, a.moments_groups, open);
 
     return mainRow + subRows;
   }).join('');
@@ -2429,7 +2429,7 @@ function mp2EditPlan(p) {
 
   Promise.all([planFetch, campFetch, crFetch])
     .then(function(results) {
-      var dbRows    = results[0].media_plans || [];
+      var dbRows    = results[0].moments_groups || [];
       var campData  = (results[1].campaigns || [])[0] || null;
       var creatives = results[2].creatives  || [];
 
@@ -3065,21 +3065,21 @@ function _mp2DoAnalyze() {
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (!data.analysis_id) return;
-        _mp2LastAnalysisId   = data.analysis_id;
+        if (!data.moments_match_analysis_id) return;
+        _mp2LastAnalysisId   = data.moments_match_analysis_id;
         _mp2LastAnalysisName = _analysisName || '';
         _mp2AnalysisFromSaved = false;
         history.replaceState(
-          { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: data.analysis_id, origin: 'new' },
+          { id: 'media-planner-v2', label: 'Media Planner', mp2View: 'analysis', analysisId: data.moments_match_analysis_id, origin: 'new' },
           '',
-          mp2AnalysisUrl(data.analysis_id, _analysisName, 'new')
+          mp2AnalysisUrl(data.moments_match_analysis_id, _analysisName, 'new')
         );
         // ── Step C: assign analysis_id back to the campaign ───────────────
         if (campaignId) {
           fetch('/api/campaigns-update', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ campaign_id: campaignId, analysis_id: data.analysis_id })
+            body: JSON.stringify({ campaign_id: campaignId, analysis_id: data.moments_match_analysis_id })
           }).catch(function(e) { console.warn('campaign analysis_id assign error:', e); });
         }
       });
@@ -3189,17 +3189,17 @@ function mp2ShowResults(analysisId) {
   if (analysisId) {
     _mp2LastAnalysisId = analysisId;
     ca.innerHTML = '<div style="padding:60px;text-align:center;color:var(--faint);font-size:12px">Loading analysis…</div>';
-    fetch('/api/moments-match?analysis_id=' + analysisId)
+    fetch('/api/moments-match?moments_match_analysis_id=' + analysisId)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var rec = (data.analyses || [])[0];
         if (!rec) throw new Error('Analysis not found');
-        _mp2LastAnalysisName = rec.analysis_name || '';
+        _mp2LastAnalysisName = rec.moments_match_analysis_name || '';
         // Restore moments snapshot from DB (avoids re-calling API on every load)
         mp2AnalysisMoments = (rec.moments && Array.isArray(rec.moments) && rec.moments.length) ? rec.moments : null;
         // Restore saved media plans for this analysis from DB
-        if (rec.media_plans && Array.isArray(rec.media_plans) && rec.media_plans.length) {
-          _mp2CurrentAnalysisPlans = rec.media_plans.map(function(p) {
+        if (rec.moments_groups && Array.isArray(rec.moments_groups) && rec.moments_groups.length) {
+          _mp2CurrentAnalysisPlans = rec.moments_groups.map(function(p) {
             var moms = (p.moments || []).map(function(m) {
               var impM = m.moment_est_impr >= 1000000
                 ? (m.moment_est_impr / 1000000).toFixed(1) + 'M'
@@ -3225,7 +3225,7 @@ function mp2ShowResults(analysisId) {
         mp2TaxInputType  = rec.asset_type === 'brief' ? 'text' : rec.asset_type === 'doc' ? 'doc' : 'video';
         _mp2BriefContent = rec.brief || '';
         _mp2DocName      = rec.doc   || '';
-        mp2TaxFileName   = rec.doc || rec.brief || (rec.analysis_name || ('Analysis #' + analysisId));
+        mp2TaxFileName   = rec.doc || rec.brief || (rec.moments_match_analysis_name || ('Analysis #' + analysisId));
         // Fetch campaign + creatives in parallel
         var campFetch = rec.campaign_id
           ? fetch('/api/campaigns?campaign_id=' + rec.campaign_id).then(function(r) { return r.json(); })
@@ -3520,6 +3520,10 @@ function _mp2DoRender() {
   if (typeof txInjectStyles === 'function') txInjectStyles();
   txCustomSelections = [];
   mp2SubTab('moments');
+  // When landing from Previous Analysis, open the Saved Moments Groups panel by default
+  if (_mp2AnalysisFromSaved) {
+    setTimeout(function() { mp2OpenSidebarList(); }, 0);
+  }
   // Fix sidebar height after DOM settles
   setTimeout(mp2FixSidebarHeight, 50);
 }
@@ -5158,7 +5162,7 @@ function mp2DeleteAnalysisPlan(idx, e) {
         var remaining = _mp2CurrentAnalysisPlans.map(function(p) {
           return p._dbRaw || { media_plan_id: p.id, media_plan_name: p.name, moments: [] };
         });
-        fetch('/api/moments-match?analysis_id=' + _mp2LastAnalysisId, {
+        fetch('/api/moments-match?moments_match_analysis_id=' + _mp2LastAnalysisId, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ media_plans: remaining })
@@ -6322,7 +6326,7 @@ function mp2FetchMomentImages(categories) {
         settled++;
         // Once all pending fetches settle, PATCH the DB with updated img_url values
         if (settled === pending.length && newlyFetched > 0 && _mp2LastAnalysisId) {
-          fetch('/api/moments-match?analysis_id=' + _mp2LastAnalysisId, {
+          fetch('/api/moments-match?moments_match_analysis_id=' + _mp2LastAnalysisId, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ moments: source })
