@@ -58,27 +58,32 @@ export default async function handler(req, res) {
       `, params);
 
       // ── Query campaigns (old table) — backward compat ────────────────────────
-      const v1Conditions = [], v1Params = [];
-      if (campaign_id)   { v1Conditions.push(`c.campaign_id   = $${v1Params.length + 1}`); v1Params.push(parseInt(campaign_id));   }
-      if (client_org_id) { v1Conditions.push(`c.client_org_id = $${v1Params.length + 1}`); v1Params.push(parseInt(client_org_id)); }
-      if (advertiser_id) { v1Conditions.push(`c.advertiser_id = $${v1Params.length + 1}`); v1Params.push(parseInt(advertiser_id)); }
-      const v1Where = v1Conditions.length ? `WHERE ${v1Conditions.join(' AND ')}` : '';
-      const v1Rows = await sql.query(`
-        SELECT
-          c.campaign_id, c.campaign_name, c.status AS campaign_status,
-          c.geo, c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
-          c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-          c.client_org_id, c.advertiser_id,
-          o.client_name, a.advertiser_name,
-          NULL::jsonb AS line_items,
-          (SELECT COUNT(*) FROM creatives    cr WHERE cr.campaign_id = c.campaign_id)::int AS creative_count,
-          (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = c.campaign_id)::int AS analysis_count
-        FROM campaigns c
-        LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id
-        LEFT JOIN advertisers          a ON c.advertiser_id = a.advertiser_id
-        ${v1Where}
-        ORDER BY c.created_at DESC
-      `, v1Params);
+      let v1Rows = [];
+      try {
+        const v1Conditions = [], v1Params = [];
+        if (campaign_id)   { v1Conditions.push(`c.campaign_id   = $${v1Params.length + 1}`); v1Params.push(parseInt(campaign_id));   }
+        if (client_org_id) { v1Conditions.push(`c.client_org_id = $${v1Params.length + 1}`); v1Params.push(parseInt(client_org_id)); }
+        if (advertiser_id) { v1Conditions.push(`c.advertiser_id = $${v1Params.length + 1}`); v1Params.push(parseInt(advertiser_id)); }
+        const v1Where = v1Conditions.length ? `WHERE ${v1Conditions.join(' AND ')}` : '';
+        v1Rows = await sql.query(`
+          SELECT
+            c.campaign_id, c.campaign_name, c.status AS campaign_status,
+            c.geo, c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
+            c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
+            c.client_org_id, c.advertiser_id,
+            o.client_name, a.advertiser_name,
+            NULL::jsonb AS line_items,
+            (SELECT COUNT(*) FROM creatives    cr WHERE cr.campaign_id = c.campaign_id)::int AS creative_count,
+            (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = c.campaign_id)::int AS analysis_count
+          FROM campaigns c
+          LEFT JOIN client_organizations o ON c.client_org_id = o.client_org_id
+          LEFT JOIN advertisers          a ON c.advertiser_id = a.advertiser_id
+          ${v1Where}
+          ORDER BY c.created_at DESC
+        `, v1Params);
+      } catch (v1Err) {
+        console.warn('campaigns-v2 GET: old campaigns table query failed (non-fatal):', v1Err.message);
+      }
 
       // ── Collect all partner IDs for name resolution ──────────────────────────
       const allPartnerIds = [...new Set([

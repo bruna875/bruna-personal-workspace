@@ -28,7 +28,8 @@ function cmLoadFromDB() {
   fetch('/api/campaigns-v2' + qs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (!data.campaigns || !data.campaigns.length) { CM_CAMPAIGNS = []; _cmDBLoaded = true; _cmRefreshTable(); return; }
+      if (data.error) { console.warn('campaigns-v2 API error:', data.error); return; }
+      if (!data.campaigns) { console.warn('campaigns-v2 API: unexpected response', data); return; }
       CM_CAMPAIGNS = data.campaigns;
       _cmDBLoaded = true;
       // Refresh table, count and tab nav if already rendered
