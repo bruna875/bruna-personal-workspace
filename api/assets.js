@@ -26,10 +26,12 @@ export default async function handler(req, res) {
         SELECT
           a.*,
           o.client_name,
-          adv.advertiser_name
+          adv.advertiser_name,
+          camp.campaign_name
         FROM assets a
-        LEFT JOIN client_organizations o   ON a.client_org_id = o.client_org_id
-        LEFT JOIN advertisers          adv ON a.advertiser_id = adv.advertiser_id
+        LEFT JOIN client_organizations o    ON a.client_org_id = o.client_org_id
+        LEFT JOIN advertisers          adv  ON a.advertiser_id = adv.advertiser_id
+        LEFT JOIN campaigns_v2         camp ON a.campaign_id   = camp.campaign_id
         ${where}
         ORDER BY a.created_at DESC
       `, params);

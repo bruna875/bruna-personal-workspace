@@ -55,12 +55,14 @@ export default async function handler(req, res) {
             at.media_type     AS ad_type_media_type,
             at.details_schema AS ad_type_details_schema,
             o.client_name,
-            adv.advertiser_name
+            adv.advertiser_name,
+            camp.campaign_name
           FROM creatives_v2 cv
-          LEFT JOIN assets               a   ON cv.asset_id      = a.asset_id
-          LEFT JOIN ad_types             at  ON cv.ad_type_id    = at.ad_type_id
-          LEFT JOIN client_organizations o   ON cv.client_org_id = o.client_org_id
-          LEFT JOIN advertisers          adv ON cv.advertiser_id = adv.advertiser_id
+          LEFT JOIN assets               a    ON cv.asset_id      = a.asset_id
+          LEFT JOIN ad_types             at   ON cv.ad_type_id    = at.ad_type_id
+          LEFT JOIN client_organizations o    ON cv.client_org_id = o.client_org_id
+          LEFT JOIN advertisers          adv  ON cv.advertiser_id = adv.advertiser_id
+          LEFT JOIN campaigns_v2         camp ON cv.campaign_id   = camp.campaign_id
           WHERE ${creativeClauses.join(' OR ')}
           ORDER BY cv.created_at DESC
         `, creativeParams);
@@ -122,12 +124,14 @@ export default async function handler(req, res) {
           at.media_type     AS ad_type_media_type,
           at.details_schema AS ad_type_details_schema,
           o.client_name,
-          adv.advertiser_name
+          adv.advertiser_name,
+          camp.campaign_name
         FROM creatives_v2 cv
-        LEFT JOIN assets               a   ON cv.asset_id      = a.asset_id
-        LEFT JOIN ad_types             at  ON cv.ad_type_id    = at.ad_type_id
-        LEFT JOIN client_organizations o   ON cv.client_org_id = o.client_org_id
-        LEFT JOIN advertisers          adv ON cv.advertiser_id = adv.advertiser_id
+        LEFT JOIN assets               a    ON cv.asset_id      = a.asset_id
+        LEFT JOIN ad_types             at   ON cv.ad_type_id    = at.ad_type_id
+        LEFT JOIN client_organizations o    ON cv.client_org_id = o.client_org_id
+        LEFT JOIN advertisers          adv  ON cv.advertiser_id = adv.advertiser_id
+        LEFT JOIN campaigns_v2         camp ON cv.campaign_id   = camp.campaign_id
         ${where}
         ORDER BY cv.created_at DESC
       `, params);
