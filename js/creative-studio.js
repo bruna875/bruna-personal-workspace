@@ -1681,55 +1681,83 @@ function csLoadLibraryFromDB() {
   var qs = (!isSuperOrg && orgId) ? '?client_org_id=' + orgId : '';
 
   Promise.all([
-    // creatives_v2 — new table with asset JOIN
+    // old creatives table — already fully mapped by API (has campaign name)
+    fetch('/api/creatives' + qs).then(function(r) { return r.json(); }).catch(function() { return { creatives: [] }; }),
+    // creatives_v2 — new table with asset + campaign JOIN
     fetch('/api/creatives-v2' + qs).then(function(r) { return r.json(); }).catch(function() { return { creatives: [] }; }),
     // assets — standalone assets table
     fetch('/api/assets' + qs).then(function(r) { return r.json(); }).catch(function() { return { assets: [] }; }),
   ]).then(function(results) {
-    var crV2   = results[0].creatives || [];
-    var assets = results[1].assets    || [];
+    var crV1   = results[0].creatives || [];
+    var crV2   = results[1].creatives || [];
+    var assets = results[2].assets    || [];
+
+    // IDs already in creatives_v2 — used to deduplicate old table rows
+    var v2Ids = {};
+    crV2.forEach(function(cr) { v2Ids[cr.creative_id] = true; });
+
+    // Map old creatives (skip any whose ID is already in v2)
+    var v1Items = crV1
+      .filter(function(cr) { return !v2Ids[cr.dbId]; })
+      .map(function(cr) {
+        return {
+          id:        cr.id,
+          dbId:      cr.dbId,
+          _source:   'creative_v1',
+          name:      cr.name       || '—',
+          assetName: cr.name       || '—',  // old table has no separate asset row
+          advertiser: cr.advertiser || '—',
+          client:    cr.client     || '—',
+          campaign:  cr.campaign   || null,
+          fileType:  cr.fileType   || '—',
+          mediaType: cr.mediaType  || '—',
+          templates: cr.templates  || [],
+          date:      cr.date       || '—',
+          thumb:     cr.thumb      || '',
+        };
+      });
 
     // Map creatives_v2 rows
-    var crItems = crV2.map(function(cr) {
+    var v2Items = crV2.map(function(cr) {
       return {
-        id:         'dbv2-' + cr.creative_id,
-        dbId:       cr.creative_id,
-        _source:    'creative_v2',
-        name:       cr.creative_name   || '—',
-        assetName:  cr.asset_name      || '—',
+        id:        'dbv2-' + cr.creative_id,
+        dbId:      cr.creative_id,
+        _source:   'creative_v2',
+        name:      cr.creative_name    || '—',
+        assetName: cr.asset_name       || '—',
         advertiser: cr.advertiser_name || '—',
-        client:     cr.client_name     || '—',
-        campaign:   cr.campaign_name   || null,
-        fileType:   cr.ad_type_name   || cr.asset_type || '—',
-        mediaType:  cr.ad_type_media_type || '—',
-        templates:  [],
-        date:       cr.created_at ? new Date(cr.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
-        thumb:      cr.asset_thumbnail || '',
+        client:    cr.client_name      || '—',
+        campaign:  cr.campaign_name    || null,
+        fileType:  cr.ad_type_name     || cr.asset_type || '—',
+        mediaType: cr.ad_type_media_type || '—',
+        templates: [],
+        date:      cr.created_at ? new Date(cr.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+        thumb:     cr.asset_thumbnail  || '',
       };
     });
 
     // Map assets rows
     var assetItems = assets.map(function(a) {
       return {
-        id:         'dbasset-' + a.asset_id,
-        dbId:       a.asset_id,
-        _source:    'asset',
-        name:       '—',
-        assetName:  a.asset_name      || '—',
+        id:        'dbasset-' + a.asset_id,
+        dbId:      a.asset_id,
+        _source:   'asset',
+        name:      '—',
+        assetName: a.asset_name       || '—',
         advertiser: a.advertiser_name || '—',
-        client:     a.client_name     || '—',
-        campaign:   a.campaign_name   || null,
-        fileType:   a.asset_type || '—',
-        mediaType:  '—',
-        templates:  [],
-        date:       a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
-        thumb:      a.asset_thumbnail || '',
+        client:    a.client_name      || '—',
+        campaign:  a.campaign_name    || null,
+        fileType:  a.asset_type       || '—',
+        mediaType: '—',
+        templates: [],
+        date:      a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+        thumb:     a.asset_thumbnail  || '',
       };
     });
 
     // Keep only entries added in this session (savedAt set), replace rest with DB data
     var sessionSaved = CS_LIBRARY.filter(function(c) { return c.savedAt; });
-    CS_LIBRARY = crItems.concat(assetItems).concat(sessionSaved);
+    CS_LIBRARY = v1Items.concat(v2Items).concat(assetItems).concat(sessionSaved);
     csRenderLibrary();
   }).catch(function(e) { console.warn('csLoadLibraryFromDB error:', e.message); });
 }
