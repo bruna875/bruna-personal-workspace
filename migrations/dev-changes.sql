@@ -55,3 +55,24 @@ SELECT setval(
     (SELECT COALESCE(MAX(campaign_id), 0) FROM campaigns)
   ) + 1
 );
+
+
+-- ── 2026-05-31: Rename ad_group_id / ad_group_name → moments_group_id / moments_group_name ──
+-- Renames the JSONB keys inside moments_match.moments_groups for naming consistency.
+-- Safe to re-run: if keys already renamed, the operation is a no-op per row.
+
+UPDATE moments_match
+SET moments_groups = (
+  SELECT jsonb_agg(
+    (elem - 'ad_group_id' - 'ad_group_name')
+    || jsonb_build_object(
+         'moments_group_id',   elem->'ad_group_id',
+         'moments_group_name', elem->'ad_group_name'
+       )
+  )
+  FROM jsonb_array_elements(moments_groups) AS elem
+)
+WHERE moments_groups IS NOT NULL
+  AND jsonb_typeof(moments_groups) = 'array'
+  AND jsonb_array_length(moments_groups) > 0
+  AND (moments_groups->0) ? 'ad_group_id';

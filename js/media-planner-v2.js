@@ -2304,8 +2304,8 @@ function _mp2SubRowsHtml(analysisId, plans, visible) {
     var chanSet = {};
     moms.forEach(function(m){ (m.moment_channels||[]).forEach(function(c){ chanSet[c]=1; }); });
     var chanCount = Object.keys(chanSet).length;
-    var pName     = (p.ad_group_name || 'Untitled').replace(/</g,'&lt;');
-    var safeQ     = (p.ad_group_name || 'Untitled').replace(/'/g,"\\'").replace(/</g,'&lt;');
+    var pName     = (p.moments_group_name || 'Untitled').replace(/</g,'&lt;');
+    var safeQ     = (p.moments_group_name || 'Untitled').replace(/'/g,"\\'").replace(/</g,'&lt;');
 
     var chanBadge = chanCount
       ? '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:16px;padding:0 5px;border-radius:9px;background:var(--bg);border:1px solid var(--border);font-size:10px;font-weight:600;color:var(--muted)">' + chanCount + '</span>'
@@ -2457,8 +2457,8 @@ function _mp2RenderPlanRows(plans) {
   tbody.innerHTML = plans.map(function(p, i) {
     var last = i === plans.length - 1;
     var fix  = last ? ';border-bottom:none' : '';
-    var planNameCell = p.ad_group_name
-      ? '<span style="font-weight:600;color:var(--text)">' + p.ad_group_name + '</span>'
+    var planNameCell = p.moments_group_name
+      ? '<span style="font-weight:600;color:var(--text)">' + p.moments_group_name + '</span>'
       : '<span style="font-size:11px;color:var(--faint);font-style:italic">—</span>';
     var folderLinkIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/></svg>';
     var campCell = p.campaign_name
@@ -2484,8 +2484,8 @@ function _mp2RenderPlanRows(plans) {
 }
 
 function mp2EditPlan(p) {
-  // Build API query: filter by ad_group_name (+ campaign_id if available)
-  var qs = 'ad_group_name=' + encodeURIComponent(p.ad_group_name || '');
+  // Build API query: filter by moments_group_name (+ campaign_id if available)
+  var qs = 'moments_group_name=' + encodeURIComponent(p.moments_group_name || '');
   if (p.campaign_id) qs += '&campaign_id=' + p.campaign_id;
 
   var planFetch = fetch('/api/ad-groups?' + qs).then(function(r) { return r.json(); });
@@ -2516,15 +2516,15 @@ function mp2EditPlan(p) {
           impressionsNum:   impNum,
           cpm:              r.est_cpm ? parseFloat(r.est_cpm) : 0,
           type:             det.moment_type  || mock.moment_type || '—',
-          _dbId:            r.ad_group_id,
+          _dbId:            r.moments_group_id,
           _momentId:        r.moment_id,
         };
       });
 
       // Build a synthetic savedMediaPlansV2-compatible plan object
       var syntheticPlan = {
-        id:          'db-' + (p.ad_group_name || 'plan').replace(/\s+/g, '-').toLowerCase(),
-        name:        p.ad_group_name || '—',
+        id:          'db-' + (p.moments_group_name || 'plan').replace(/\s+/g, '-').toLowerCase(),
+        name:        p.moments_group_name || '—',
         campaign:    campData ? campData.name       : (p.campaign_name   || ''),
         advertiser:  campData ? campData.advertiser  : (p.advertiser_name || ''),
         client:      campData ? campData.client      : (p.client_name     || ''),
@@ -3313,8 +3313,8 @@ function mp2ShowResults(analysisId) {
             var totalImpr = (p.moments || []).reduce(function(s, m) { return s + (Number(m.moment_est_impr) || 0); }, 0);
             var fmtImpr = totalImpr >= 1000000 ? (totalImpr / 1000000).toFixed(1) + 'M' : totalImpr ? Math.round(totalImpr / 1000) + 'K' : '';
             return {
-              id:          p.ad_group_id,
-              name:        p.ad_group_name || '(Untitled)',
+              id:          p.moments_group_id,
+              name:        p.moments_group_name || '(Untitled)',
               date:        '—',
               source:      'ai',
               moments:     moms,
@@ -4742,7 +4742,7 @@ function aiInitPlanVariantsFromAPI() {
     });
     return {
       plan_id:     plan.plan_id,
-      name:        plan.ad_group_name,
+      name:        plan.moments_group_name,
       budget:      plan.budget_k,
       impressions: plan.total_impressions_m,
       description: plan.description,
@@ -5084,8 +5084,8 @@ function _mp2DoSavePlanToDB(analysisId, planId, planName, moments, onDone) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       moments_match_analysis_id:     analysisId,
-      ad_group_id:   planId,
-      ad_group_name: planName,
+      moments_group_id:   planId,
+      moments_group_name: planName,
       moments:         moments,
     })
   })
@@ -5181,7 +5181,7 @@ function aiSaveAIMediaPlan() {
     avgCpm:      '$' + avgCpm,
     programs:    [],
     episodes:    [],
-    _dbRaw:      { ad_group_id: planId, ad_group_name: planName, moments: dbMoments }
+    _dbRaw:      { moments_group_id: planId, moments_group_name: planName, moments: dbMoments }
   });
 
   var newIdx = _mp2CurrentAnalysisPlans.length - 1;
@@ -5252,7 +5252,7 @@ function mp2SaveBuilderMediaPlan() {
     impressions: fmtImpr,
     programs:    [],
     episodes:    [],
-    _dbRaw:      { ad_group_id: planId, ad_group_name: planName, moments: dbMoments }
+    _dbRaw:      { moments_group_id: planId, moments_group_name: planName, moments: dbMoments }
   });
 
   var newIdx = _mp2CurrentAnalysisPlans.length - 1;
@@ -5316,7 +5316,7 @@ function mp2DeleteAnalysisPlan(idx, e) {
       // PATCH DB with remaining plans
       if (_mp2LastAnalysisId) {
         var remaining = _mp2CurrentAnalysisPlans.map(function(p) {
-          return p._dbRaw || { ad_group_id: p.id, ad_group_name: p.name, moments: [] };
+          return p._dbRaw || { moments_group_id: p.id, moments_group_name: p.name, moments: [] };
         });
         fetch('/api/moments-match?moments_match_analysis_id=' + _mp2LastAnalysisId, {
           method: 'PATCH',
@@ -5427,7 +5427,7 @@ function mp2SaveAndDistribute() {
     }).catch(function(e) { console.warn('creatives-link error:', e); });
   }
 
-  var pendingMpId = (plan._dbRaw && plan._dbRaw.ad_group_id) || plan.id || null;
+  var pendingMpId = (plan._dbRaw && plan._dbRaw.moments_group_id) || plan.id || null;
 
   function _navigate() {
     // ── Set pending deep-link state (read by campaign-management.js on load) ────

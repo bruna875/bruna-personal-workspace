@@ -152,7 +152,7 @@ var _cmOpenDetailId     = null; // tracks which campaign detail is open
 // ── Pending deep-link state (set by mp2SaveAndDistribute) ─────────────────────
 var _cmPendingCampaignDbId = null; // DB id of campaign to auto-open
 var _cmPendingAnalysisId   = null; // analysis_id to pre-select in step 2
-var _cmPendingMpId         = null; // ad_group_id to pre-select in step 2
+var _cmPendingMpId         = null; // moments_group_id to pre-select in step 2
 
 // ── Moments panel state ───────────────────────────────────────────────────────
 var _cmMomentMode        = null; // 'saved' | 'new'
@@ -1343,7 +1343,7 @@ function _cmMpPlansColHtml() {
   if (!allPlans.length) return _cmThreeColEmpty('No Moments Groups in this analysis');
   var q = (_cmMpPlansSearch || '').toLowerCase();
   var plans = q ? allPlans.filter(function(p, i) {
-    var name = (p.ad_group_name || p.name || '').toLowerCase();
+    var name = (p.moments_group_name || p.name || '').toLowerCase();
     return name.indexOf(q) >= 0;
   }) : allPlans;
   var search = '<div style="padding:8px 12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">'
@@ -1357,9 +1357,9 @@ function _cmMpPlansColHtml() {
       +   '<th style="padding:5px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);text-align:left">Moments Group</th>'
       + '</tr></thead>'
       + '<tbody>' + allPlans.map(function(p, i) {
-          if (q && (p.ad_group_name || p.name || '').toLowerCase().indexOf(q) < 0) return '';
+          if (q && (p.moments_group_name || p.name || '').toLowerCase().indexOf(q) < 0) return '';
           var isSel = _cmSelectedMp && _cmSelectedMp._idx === i;
-          var planName = p.ad_group_name || p.name || ('Moments Group ' + (i + 1));
+          var planName = p.moments_group_name || p.name || ('Moments Group ' + (i + 1));
           var momArr   = Array.isArray(p.moments) ? p.moments : (Array.isArray(p.items) ? p.items : []);
           var cb = '<input type="checkbox"' + (isSel ? ' checked' : '') + ' onchange="cmSelectMediaPlan(' + i + ')" '
             + 'style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">';
@@ -1568,7 +1568,7 @@ function cmLoadMediaPlanPanel() {
       if (_a) {
         _cmSelectedAnalysis = _a;
         if (_cmPendingMpId && Array.isArray(_a.moments_groups)) {
-          var _mpIdx = _a.moments_groups.findIndex(function(p) { return String(p.ad_group_id) === String(_cmPendingMpId); });
+          var _mpIdx = _a.moments_groups.findIndex(function(p) { return String(p.moments_group_id) === String(_cmPendingMpId); });
           if (_mpIdx >= 0) {
             _cmSelectedMp = Object.assign({}, _a.moments_groups[_mpIdx], { _idx: _mpIdx });
           }

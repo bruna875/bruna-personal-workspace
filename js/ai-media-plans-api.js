@@ -19,7 +19,7 @@ var MOCK_AI_AD_GROUPS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN001',
-    ad_group_name:   'Efficiency',
+    moments_group_name:   'Efficiency',
     plan_type:   'efficiency',
     description: 'Targeted placements for lean budgets — fewer impressions, higher engagement per view',
     budget_k:    80,
@@ -95,7 +95,7 @@ var MOCK_AI_AD_GROUPS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN002',
-    ad_group_name:   'Value',
+    moments_group_name:   'Value',
     plan_type:   'value',
     description: 'Broad VoD reach at mid-range CPM — strong score-to-cost ratio',
     budget_k:    130,
@@ -171,7 +171,7 @@ var MOCK_AI_AD_GROUPS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN003',
-    ad_group_name:   'Optimized',
+    moments_group_name:   'Optimized',
     plan_type:   'optimized',
     description: 'Balanced mix of formats and audience quality — recommended starting point',
     budget_k:    190,
@@ -247,7 +247,7 @@ var MOCK_AI_AD_GROUPS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN004',
-    ad_group_name:   'Scale',
+    moments_group_name:   'Scale',
     plan_type:   'scale',
     description: 'High-volume multi-format buy — Live events and broad VoD for maximum audience size',
     budget_k:    255,
@@ -323,7 +323,7 @@ var MOCK_AI_AD_GROUPS = [
   // ─────────────────────────────────────────────────────────────
   {
     plan_id:     'PLAN005',
-    ad_group_name:   'Premium',
+    moments_group_name:   'Premium',
     plan_type:   'premium',
     description: 'Maximum reach through tentpole Live events — highest volume, lowest blended CPM',
     budget_k:    320,
