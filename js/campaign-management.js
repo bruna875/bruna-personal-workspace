@@ -2371,8 +2371,18 @@ function cmOpenDetail(id, noPush) {
   _cmOpenDetailId = id;
   var body = document.getElementById('content');
   if (!body) return;
-  // Reset draft creatives state when opening a draft detail
-  if (c.status === 'draft') {
+
+  var isDraft = (c.status === 'draft' || c.status === 'planned');
+
+  // Draft/planned campaigns from campaigns_v2 → open in Campaign Setup V2
+  if (isDraft && c._source === 'v2') {
+    _cs2PendingCampaign = c;
+    setPage('campaign-setup-v2', c.name || 'Draft Campaign', noPush);
+    return;
+  }
+
+  // Reset draft creatives state when opening a draft detail (v1 flow)
+  if (isDraft) {
     _cmDraftCreatives = [];
     _cmLibSearch = '';
     _cmMomentMode = null;
@@ -2380,9 +2390,9 @@ function cmOpenDetail(id, noPush) {
     _cmMomentsSearchQuery = '';
   }
   try {
-    body.innerHTML = c.status === 'draft' ? _cmDraftDetail(c) : _cmPacingDetail(c);
+    body.innerHTML = isDraft ? _cmDraftDetail(c) : _cmPacingDetail(c);
     if (!noPush) {
-      var slug = c.status === 'draft' ? 'draft-campaign' : 'pacing-campaign';
+      var slug = isDraft ? 'draft-campaign' : 'pacing-campaign';
       history.pushState({ id: 'campaign-management', label: 'Campaign Management', cmCampaignId: id }, '', '/campaign-management/' + slug + '/' + id);
     }
   } catch(e) {

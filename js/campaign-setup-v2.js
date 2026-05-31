@@ -6,13 +6,59 @@ var cs2Campaign   = { name: '', client: '', advertiser: '', type: '', flightStar
 var cs2AdGroups   = [{ name: 'Line Item 1' }];
 var cs2CampaignId = null;  // set after first save to campaigns_v2
 
+// ── Pending edit — set before calling setPage to pre-load an existing campaign ─
+var _cs2PendingCampaign = null;
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 function renderCampaignSetupV2() {
-  // Reset state on fresh entry
-  cs2Selected   = { type: 'campaign' };
-  cs2Campaign   = { name: '', client: '', advertiser: '', type: '', flightStart: '', flightEnd: '', geo: '', mediaType: '' };
-  cs2AdGroups   = [];
-  cs2CampaignId = null;
+  var pending = _cs2PendingCampaign;
+  _cs2PendingCampaign = null;
+
+  if (pending) {
+    // ── Edit mode: pre-populate state from existing campaign ─────────────────
+    cs2Selected   = { type: 'campaign' };
+    cs2CampaignId = pending.dbId;
+    // Map line_items from DB format → CS2 ad-group objects
+    var rawItems = Array.isArray(pending.line_items) ? pending.line_items : [];
+    cs2AdGroups = rawItems.map(function(li) {
+      return {
+        name:       li.name        || 'Line Item',
+        mediaType:  li.media_type  || [],
+        deviceType: li.device_type || [],
+        geo:        li.geo         || [],
+        budget:     li.budget      != null ? li.budget   : null,
+        baseCpm:    li.base_cpm    != null ? li.base_cpm : null,
+        maxCpm:     li.max_cpm     != null ? li.max_cpm  : null,
+      };
+    });
+    if (!cs2AdGroups.length) cs2AdGroups = [{ name: 'Line Item 1' }];
+
+    // Pre-populate shared v1 state variables used by the form
+    var d = pending.campaign_details || {};
+    _cmDraftCampaignName   = pending.name !== '—' ? (pending.name || '') : '';
+    _cmCurrentClientOrgId  = pending.clientOrgId  || null;
+    _cmCurrentAdvertiserId = pending.advertiserId || null;
+    _cmDraftAdv            = pending.advertiser !== '—' ? (pending.advertiser || '') : '';
+    _cmDraftGeo            = Array.isArray(pending.geography) ? pending.geography.slice() : [];
+    _cmDraftFlight         = {
+      start: d.flight_start || d.start_date || '',
+      end:   d.flight_end   || d.end_date   || '',
+    };
+    if (!_appIsSuperOrg()) {
+      var _lo = (typeof _appDbOrgs !== 'undefined' && _appDbOrgs.length)
+        ? _appDbOrgs.find(function(o) { return o.dbId === selectedClientOrgId; }) : null;
+      _cmDraftClient        = _lo ? _lo.name : (pending.client !== '—' ? (pending.client || '') : '');
+      if (!_cmCurrentClientOrgId) _cmCurrentClientOrgId = selectedClientOrgId || null;
+    } else {
+      _cmDraftClient        = pending.client !== '—' ? (pending.client || '') : '';
+    }
+  } else {
+    // ── New campaign: reset all state ─────────────────────────────────────────
+    cs2Selected   = { type: 'campaign' };
+    cs2Campaign   = { name: '', client: '', advertiser: '', type: '', flightStart: '', flightEnd: '', geo: '', mediaType: '' };
+    cs2AdGroups   = [];
+    cs2CampaignId = null;
+  }
 
   // Hide the auto-injected breadcrumb and remove its space
   setTimeout(function() {
@@ -141,23 +187,24 @@ function _cs2PanelContent() {
 
 // ── Campaign Details form — mirrors v1 exactly ────────────────────────────────
 function _cs2CampaignForm() {
-  // Initialise shared v1 state for a new campaign
-  _cmDraftAdv             = '';
-  _cmDraftFlight          = { start: '', end: '' };
-  _cmDraftGeo             = [];
-  _cmDraftCampaignName    = '';
-  _cmDraftAddl.mediaType  = [];
-  _cmCurrentAdvertiserId  = null;
-  _cmNameMode             = 'name';
-  // For non-super-org users, pre-set client from current session org
-  if (!_appIsSuperOrg()) {
-    var _lockedOrg = (typeof _appDbOrgs !== 'undefined' && _appDbOrgs.length)
-      ? _appDbOrgs.find(function(o) { return o.dbId === selectedClientOrgId; }) : null;
-    _cmDraftClient        = _lockedOrg ? _lockedOrg.name : '';
-    _cmCurrentClientOrgId = selectedClientOrgId || null;
-  } else {
-    _cmDraftClient        = '';
-    _cmCurrentClientOrgId = null;
+  // For new campaigns only — editing campaigns have state pre-set by renderCampaignSetupV2
+  if (!cs2CampaignId) {
+    _cmDraftAdv             = '';
+    _cmDraftFlight          = { start: '', end: '' };
+    _cmDraftGeo             = [];
+    _cmDraftCampaignName    = '';
+    _cmDraftAddl.mediaType  = [];
+    _cmCurrentAdvertiserId  = null;
+    _cmNameMode             = 'name';
+    if (!_appIsSuperOrg()) {
+      var _lockedOrg = (typeof _appDbOrgs !== 'undefined' && _appDbOrgs.length)
+        ? _appDbOrgs.find(function(o) { return o.dbId === selectedClientOrgId; }) : null;
+      _cmDraftClient        = _lockedOrg ? _lockedOrg.name : '';
+      _cmCurrentClientOrgId = selectedClientOrgId || null;
+    } else {
+      _cmDraftClient        = '';
+      _cmCurrentClientOrgId = null;
+    }
   }
 
   var LB = 'display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px';
