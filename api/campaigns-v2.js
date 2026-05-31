@@ -236,8 +236,11 @@ export default async function handler(req, res) {
       const newAdv     = b.advertiser_id     !== undefined ? (b.advertiser_id ? parseInt(b.advertiser_id) : null)  : c.advertiser_id;
       const newStatus  = b.campaign_status   !== undefined && VALID_STATUSES.includes(b.campaign_status)
                            ? b.campaign_status : c.campaign_status;
-      const newDetails = b.campaign_details  !== undefined ? JSON.stringify(b.campaign_details)
-                           : (c.campaign_details ? JSON.stringify(c.campaign_details) : null);
+      // Merge campaign_details — preserve existing keys (e.g. moments_match_analysis_id, partner_ids)
+      const curDetails = c.campaign_details || {};
+      const newDetails = b.campaign_details !== undefined
+                           ? JSON.stringify({ ...curDetails, ...b.campaign_details })
+                           : JSON.stringify(curDetails);
       const newItems   = b.line_items        !== undefined ? JSON.stringify(b.line_items)
                            : JSON.stringify(c.line_items || []);
 
