@@ -2374,14 +2374,14 @@ function cmOpenDetail(id, noPush) {
 
   var isDraft = (c.status === 'draft' || c.status === 'planned');
 
-  // Draft/planned campaigns from campaigns_v2 → open in Campaign Setup V2
-  if (isDraft && c._source === 'v2') {
+  // All draft/planned campaigns open in Campaign Setup V2
+  if (isDraft) {
     _cs2PendingCampaign = c;
     setPage('campaign-setup-v2', c.name || 'Draft Campaign', noPush);
     return;
   }
 
-  // Reset draft creatives state when opening a draft detail (v1 flow)
+  // Reset draft creatives state when opening a draft detail (v1 flow — kept for safety)
   if (isDraft) {
     _cmDraftCreatives = [];
     _cmLibSearch = '';
