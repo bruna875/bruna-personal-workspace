@@ -30,6 +30,7 @@ function renderCampaignSetupV2() {
         baseCpm:           li.base_cpm          != null ? li.base_cpm : null,
         maxCpm:            li.max_cpm           != null ? li.max_cpm  : null,
         creative_ids:      Array.isArray(li.creative_ids)       ? li.creative_ids       : [],
+        asset_ids:         Array.isArray(li.asset_ids)          ? li.asset_ids          : [],
         moments_group_ids: Array.isArray(li.moments_group_ids)  ? li.moments_group_ids  : [],
       };
     });
@@ -532,6 +533,7 @@ function cs2Save() {
       base_cpm:          ag.baseCpm           != null ? ag.baseCpm : null,
       max_cpm:           ag.maxCpm            != null ? ag.maxCpm  : null,
       creative_ids:      ag.creative_ids      || [],
+      asset_ids:         ag.asset_ids         || [],
       moments_group_ids: ag.moments_group_ids || [],
     };
   });
@@ -608,7 +610,7 @@ function cs2SaveCampaignDetails() {
     campaign_status:  'draft',
     campaign_details: campaignDetails,
     line_items:       cs2AdGroups.map(function(ag) {
-      return { name: ag.name || '', media_type: ag.mediaType || [], device_type: ag.deviceType || [], geo: ag.geo || [], budget: ag.budget || null, base_cpm: ag.baseCpm || null, max_cpm: ag.maxCpm || null, creative_ids: ag.creative_ids || [], moments_group_ids: ag.moments_group_ids || [] };
+      return { name: ag.name || '', media_type: ag.mediaType || [], device_type: ag.deviceType || [], geo: ag.geo || [], budget: ag.budget || null, base_cpm: ag.baseCpm || null, max_cpm: ag.maxCpm || null, creative_ids: ag.creative_ids || [], asset_ids: ag.asset_ids || [], moments_group_ids: ag.moments_group_ids || [] };
     }),
   };
 
@@ -660,6 +662,7 @@ function cs2SaveLineItemDetails(idx) {
       base_cpm:          ag.baseCpm           != null ? ag.baseCpm : null,
       max_cpm:           ag.maxCpm            != null ? ag.maxCpm  : null,
       creative_ids:      ag.creative_ids      || [],
+      asset_ids:         ag.asset_ids         || [],
       moments_group_ids: ag.moments_group_ids || [],
     };
   });
@@ -885,24 +888,19 @@ function cs2LiGeoClear(idx) {
 
 function cs2LiLoadCreatives(idx) {
   var el = document.getElementById('cs2-creatives-list-' + idx);
-  // Filter by campaign_id if we have one, otherwise fall back to client/advertiser
-  var params = [];
-  if (cs2CampaignId) {
-    params.push('campaign_id=' + cs2CampaignId);
-  } else {
-    if (typeof _cmCurrentClientOrgId  !== 'undefined' && _cmCurrentClientOrgId)  params.push('client_org_id='  + _cmCurrentClientOrgId);
-    if (typeof _cmCurrentAdvertiserId !== 'undefined' && _cmCurrentAdvertiserId) params.push('advertiser_id=' + _cmCurrentAdvertiserId);
-    if (!params.length) {
-      if (el) el.innerHTML = '<div style="padding:24px;font-size:12px;color:var(--faint);text-align:center">Save the campaign first to load creatives.</div>';
-      return;
-    }
-  }
-  var qs = '?' + params.join('&');
-  fetch('/api/creatives-v2' + qs)
+  // Always use campaign-picker mode: pass client, advertiser, campaign
+  // The API returns a union of the three relevant buckets for both creatives and assets
+  var params = ['for_campaign_picker=1'];
+  if (typeof _cmCurrentClientOrgId  !== 'undefined' && _cmCurrentClientOrgId)  params.push('client_org_id='  + _cmCurrentClientOrgId);
+  if (typeof _cmCurrentAdvertiserId !== 'undefined' && _cmCurrentAdvertiserId) params.push('advertiser_id=' + _cmCurrentAdvertiserId);
+  if (cs2CampaignId) params.push('campaign_id=' + cs2CampaignId);
+
+  fetch('/api/creatives-v2?' + params.join('&'))
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!cs2AdGroups[idx]) return;
       cs2AdGroups[idx]._creativesV2 = d.creatives || [];
+      cs2AdGroups[idx]._assetsV2    = d.assets    || [];
       var elNow = document.getElementById('cs2-creatives-list-' + idx);
       if (elNow) elNow.innerHTML = cs2LiCreativesListHtml(idx);
     })
@@ -915,30 +913,43 @@ function cs2LiLoadCreatives(idx) {
 function cs2LiCreativesListHtml(idx) {
   var ag        = cs2AdGroups[idx] || {};
   var creatives = ag._creativesV2  || [];
-  var selected  = ag.creative_ids  || [];
-
-  if (!creatives.length) {
-    return '<div style="padding:24px;font-size:12px;color:var(--faint);text-align:center">No creatives found.</div>';
-  }
+  var assets    = ag._assetsV2     || [];
+  var selCr     = ag.creative_ids  || [];
+  var selAs     = ag.asset_ids     || [];
 
   var TH = 'padding:6px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border)';
   var TD = 'padding:8px 16px;border-bottom:1px solid var(--border);vertical-align:middle';
 
-  var rows = creatives.map(function(cr) {
-    var isSelected = selected.indexOf(cr.creative_id) >= 0;
+  function tableHtml(rows) {
+    return '<table style="width:100%;border-collapse:collapse">'
+      + '<thead><tr>'
+      + '<th style="' + TH + ';width:32px"></th>'
+      + '<th style="' + TH + ';width:56px"></th>'
+      + '<th style="' + TH + '">Name</th>'
+      + '<th style="' + TH + ';width:130px">Advertiser</th>'
+      + '</tr></thead>'
+      + '<tbody>' + rows + '</tbody>'
+      + '</table>';
+  }
+
+  function emptyRow(msg) {
+    return '<tr><td colspan="4" style="padding:20px;text-align:center;font-size:12px;color:var(--faint)">' + msg + '</td></tr>';
+  }
+
+  // ── Creatives section ────────────────────────────────────────────────────────
+  var crRows = !creatives.length ? emptyRow('No creatives found.') : creatives.map(function(cr) {
+    var isSelected = selCr.indexOf(cr.creative_id) >= 0;
     var cb = '<input type="checkbox"' + (isSelected ? ' checked' : '')
       + ' onclick="event.stopPropagation();cs2LiToggleCreative(' + idx + ',' + cr.creative_id + ')"'
       + ' style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">';
     var thumb = cr.asset_thumbnail
       ? '<img src="' + cr.asset_thumbnail + '" style="width:44px;height:24px;object-fit:cover;border-radius:3px;display:block">'
-      : '<div style="width:44px;height:24px;border-radius:3px;background:#e5e7eb"></div>';
+      : '<div style="width:44px;height:24px;border-radius:3px;background:#e5e7eb;display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
     var name = '<div style="font-size:12px;font-weight:500;color:var(--text)">' + (cr.creative_name || '—') + '</div>'
-      + '<div style="font-size:10px;color:var(--faint)">' + (cr.ad_type_name || '—') + '</div>';
+      + '<div style="font-size:10px;color:var(--faint)">' + (cr.ad_type_name || cr.asset_type || '—') + '</div>';
     var adv = '<div style="font-size:12px;color:var(--muted)">' + (cr.advertiser_name || '—') + '</div>';
-
     return '<tr onclick="cs2LiToggleCreative(' + idx + ',' + cr.creative_id + ')"'
-      + ' onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'"'
-      + ' style="cursor:pointer">'
+      + ' onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'" style="cursor:pointer">'
       + '<td style="' + TD + ';width:32px">' + cb + '</td>'
       + '<td style="' + TD + ';width:56px">' + thumb + '</td>'
       + '<td style="' + TD + '">' + name + '</td>'
@@ -946,15 +957,34 @@ function cs2LiCreativesListHtml(idx) {
       + '</tr>';
   }).join('');
 
-  return '<table style="width:100%;border-collapse:collapse">'
-    + '<thead><tr>'
-    + '<th style="' + TH + ';width:32px"></th>'
-    + '<th style="' + TH + ';width:56px"></th>'
-    + '<th style="' + TH + '">Creative</th>'
-    + '<th style="' + TH + ';width:130px">Advertiser</th>'
-    + '</tr></thead>'
-    + '<tbody>' + rows + '</tbody>'
-    + '</table>';
+  // ── Assets section ───────────────────────────────────────────────────────────
+  var asRows = !assets.length ? emptyRow('No assets found.') : assets.map(function(a) {
+    var isSelected = selAs.indexOf(a.asset_id) >= 0;
+    var cb = '<input type="checkbox"' + (isSelected ? ' checked' : '')
+      + ' onclick="event.stopPropagation();cs2LiToggleAsset(' + idx + ',' + a.asset_id + ')"'
+      + ' style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">';
+    var thumb = a.asset_thumbnail
+      ? '<img src="' + a.asset_thumbnail + '" style="width:44px;height:24px;object-fit:cover;border-radius:3px;display:block">'
+      : '<div style="width:44px;height:24px;border-radius:3px;background:#e5e7eb;display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>';
+    var name = '<div style="font-size:12px;font-weight:500;color:var(--text)">' + (a.asset_name || '—') + '</div>'
+      + '<div style="font-size:10px;color:var(--faint)">' + (a.asset_type || '—') + '</div>';
+    var adv = '<div style="font-size:12px;color:var(--muted)">' + (a.advertiser_name || '—') + '</div>';
+    return '<tr onclick="cs2LiToggleAsset(' + idx + ',' + a.asset_id + ')"'
+      + ' onmouseover="this.style.background=\'var(--subtle)\'" onmouseout="this.style.background=\'\'" style="cursor:pointer">'
+      + '<td style="' + TD + ';width:32px">' + cb + '</td>'
+      + '<td style="' + TD + ';width:56px">' + thumb + '</td>'
+      + '<td style="' + TD + '">' + name + '</td>'
+      + '<td style="' + TD + ';width:130px">' + adv + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var SH = 'padding:8px 16px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);background:var(--subtle);border-bottom:1px solid var(--border);border-top:1px solid var(--border)';
+
+  return '<div style="font-size:11px;color:var(--faint);padding:10px 16px 4px">Showing: client/advertiser creatives (linked or unlinked to this campaign) + global pool</div>'
+    + '<div style="' + SH + '">Creatives</div>'
+    + tableHtml(crRows)
+    + '<div style="' + SH + '">Assets</div>'
+    + tableHtml(asRows);
 }
 
 function cs2LiToggleCreative(idx, creativeId) {
@@ -964,6 +994,17 @@ function cs2LiToggleCreative(idx, creativeId) {
   var pos = ag.creative_ids.indexOf(creativeId);
   if (pos >= 0) ag.creative_ids.splice(pos, 1);
   else          ag.creative_ids.push(creativeId);
+  var el = document.getElementById('cs2-creatives-list-' + idx);
+  if (el) el.innerHTML = cs2LiCreativesListHtml(idx);
+}
+
+function cs2LiToggleAsset(idx, assetId) {
+  var ag = cs2AdGroups[idx];
+  if (!ag) return;
+  if (!ag.asset_ids) ag.asset_ids = [];
+  var pos = ag.asset_ids.indexOf(assetId);
+  if (pos >= 0) ag.asset_ids.splice(pos, 1);
+  else          ag.asset_ids.push(assetId);
   var el = document.getElementById('cs2-creatives-list-' + idx);
   if (el) el.innerHTML = cs2LiCreativesListHtml(idx);
 }
@@ -994,7 +1035,7 @@ function cs2LiLoadMomentsGroups(idx) {
     ? '?moments_match_analysis_id=' + analysisId
     : '?campaign_id=' + cs2CampaignId;
 
-  fetch('/api/ad-groups-summary' + qs)
+  fetch('/api/moments-group-summary' + qs)
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!cs2AdGroups[idx]) return;

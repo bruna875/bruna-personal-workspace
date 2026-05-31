@@ -2427,7 +2427,7 @@ function mp2LoadPlansTable() {
 
   var _plansQs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
     ? '?client_org_id=' + selectedClientOrgId : '';
-  fetch('/api/ad-groups-summary' + _plansQs)
+  fetch('/api/moments-group-summary' + _plansQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var plans = data.plans || [];
