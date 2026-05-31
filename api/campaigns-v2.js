@@ -105,7 +105,8 @@ export default async function handler(req, res) {
       const v2Campaigns = rows.map(r => {
         const d        = r.campaign_details || {};
         const pIds     = Array.isArray(d.partner_ids) ? d.partner_ids : [];
-        const geo      = d.geo ? d.geo.split(',').map(g => g.trim()).filter(Boolean) : [];
+        const geo      = Array.isArray(d.geo) ? d.geo.filter(Boolean)
+                       : (d.geo ? d.geo.split(',').map(g => g.trim()).filter(Boolean) : []);
         return {
           id:            'db' + r.campaign_id,
           dbId:          r.campaign_id,
@@ -144,7 +145,8 @@ export default async function handler(req, res) {
         .filter(r => !v2Ids.has(r.campaign_id))
         .map(r => {
           const pIds = Array.isArray(r.partner_ids) ? r.partner_ids : [];
-          const geo  = r.geo ? r.geo.split(',').map(g => g.trim()).filter(Boolean) : [];
+          const geo  = Array.isArray(r.geo) ? r.geo.filter(Boolean)
+                     : (r.geo ? r.geo.split(',').map(g => g.trim()).filter(Boolean) : []);
           return {
             id:            'v1' + r.campaign_id,
             dbId:          r.campaign_id,
