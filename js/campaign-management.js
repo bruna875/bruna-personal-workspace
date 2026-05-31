@@ -25,7 +25,7 @@ function cmLoadFromDB() {
   var qs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
     ? '?client_org_id=' + selectedClientOrgId
     : '';
-  fetch('/api/campaigns' + qs)
+  fetch('/api/campaigns-v2' + qs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.campaigns || !data.campaigns.length) { CM_CAMPAIGNS = []; _cmDBLoaded = true; _cmRefreshTable(); return; }
@@ -77,7 +77,7 @@ function cmDeleteCampaign(dbId, btn) {
   document.getElementById('cm-delete-confirm-btn').addEventListener('click', function() {
     modal.remove();
     var row = btn ? btn.closest('tr') : null;
-    fetch('/api/campaigns?campaign_id=' + dbId, { method: 'DELETE' })
+    fetch('/api/campaigns-v2?campaign_id=' + dbId, { method: 'DELETE' })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.ok) {

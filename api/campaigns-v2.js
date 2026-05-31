@@ -2,6 +2,28 @@ import { neon } from '@neondatabase/serverless';
 
 const VALID_STATUSES = ['draft','planned','pacing','underpacing','failed','completed'];
 
+function fmtNumber(n) {
+  if (!n) return '—';
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1000)    return (n / 1000).toFixed(0) + 'K';
+  return String(n);
+}
+function fmtBudget(n) {
+  if (!n) return '—';
+  if (n >= 1000000) return '$' + (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1000)    return '$' + (n / 1000).toFixed(0) + 'K';
+  return '$' + n;
+}
+function fmtRange(min, max, fmt) {
+  if (!min) return '—';
+  if (!max)  return fmt(min);
+  return fmt(min) + ' – ' + fmt(max);
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
@@ -21,7 +43,12 @@ export default async function handler(req, res) {
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
       const rows = await sql.query(`
-        SELECT cv.*, o.client_name, a.advertiser_name
+        SELECT
+          cv.*,
+          o.client_name,
+          a.advertiser_name,
+          (SELECT COUNT(*) FROM creatives_v2 cr WHERE cr.campaign_id = cv.campaign_id)::int AS creative_count,
+          (SELECT COUNT(*) FROM moments_match mm WHERE mm.campaign_id = cv.campaign_id)::int AS analysis_count
         FROM campaigns_v2 cv
         LEFT JOIN client_organizations o ON cv.client_org_id = o.client_org_id
         LEFT JOIN advertisers          a ON cv.advertiser_id = a.advertiser_id
@@ -29,7 +56,58 @@ export default async function handler(req, res) {
         ORDER BY cv.created_at DESC
       `, params);
 
-      return res.status(200).json({ campaigns: rows });
+      // Resolve partner names from campaign_details.partner_ids
+      const allPartnerIds = [...new Set(rows.flatMap(r => {
+        const d = r.campaign_details || {};
+        return Array.isArray(d.partner_ids) ? d.partner_ids : [];
+      }))];
+      let partnerMap = {};
+      if (allPartnerIds.length) {
+        const pRows = await sql`
+          SELECT conn.connection_id, lib.name
+          FROM dsp_ssp_connections conn
+          JOIN dsp_ssp_library lib ON lib.library_id = conn.library_id
+          WHERE conn.connection_id = ANY(${allPartnerIds})
+        `;
+        pRows.forEach(p => { partnerMap[p.connection_id] = p.name; });
+      }
+
+      const campaigns = rows.map(r => {
+        const d        = r.campaign_details || {};
+        const pIds     = Array.isArray(d.partner_ids) ? d.partner_ids : [];
+        const geo      = d.geo ? d.geo.split(',').map(g => g.trim()).filter(Boolean) : [];
+        return {
+          id:            'db' + r.campaign_id,
+          dbId:          r.campaign_id,
+          clientOrgId:   r.client_org_id   || null,
+          advertiserId:  r.advertiser_id   || null,
+          name:          r.campaign_name   || '—',
+          client:        r.client_name     || '—',
+          advertiser:    r.advertiser_name || '—',
+          geography:     geo,
+          status:        r.campaign_status || 'draft',
+          pacing:        null,
+          impressions:   '—',
+          goal:          fmtRange(d.impr || d.impression_goal, d.impr_max || d.impression_goal_max, fmtNumber),
+          budget:        fmtRange(d.budget, d.budget_max, fmtBudget),
+          spent:         '—',
+          start:         fmtDate(d.flight_start || d.start_date),
+          end:           fmtDate(d.flight_end   || d.end_date),
+          creatives:     r.creative_count  || 0,
+          analysisCount: r.analysis_count  || 0,
+          moments:       0,
+          partnerIds:    pIds,
+          partners:      pIds.map(id => partnerMap[id] || String(id)),
+          createdBy:     d.created_by || r.created_by || '—',
+          createdOn:     fmtDate(r.created_at),
+          // raw fields for Campaign Setup V2
+          campaign_details: r.campaign_details,
+          line_items:       r.line_items,
+          moments_match_analysis_id: d.moments_match_analysis_id || null,
+        };
+      });
+
+      return res.status(200).json({ campaigns });
     } catch (err) {
       console.error('campaigns-v2 GET error:', err);
       return res.status(500).json({ error: err.message });
@@ -115,7 +193,11 @@ export default async function handler(req, res) {
     try {
       const { campaign_id } = req.query;
       if (!campaign_id) return res.status(400).json({ error: 'Missing campaign_id' });
-      await sql`DELETE FROM campaigns_v2 WHERE campaign_id = ${parseInt(campaign_id)}`;
+      const id = parseInt(campaign_id);
+      // Clear FK references before deleting
+      await sql`UPDATE moments_match  SET campaign_id = NULL WHERE campaign_id = ${id}`;
+      await sql`UPDATE creatives_v2   SET campaign_id = NULL WHERE campaign_id = ${id}`;
+      await sql`DELETE FROM campaigns_v2 WHERE campaign_id = ${id}`;
       return res.status(200).json({ ok: true });
     } catch (err) {
       console.error('campaigns-v2 DELETE error:', err);
