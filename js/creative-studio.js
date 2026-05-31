@@ -1410,16 +1410,18 @@ function csEditorSave() {
   assetsToSave.forEach(function(asset, i) {
     if (!asset) return;
     CS_LIBRARY.unshift({
-      id: 'cr' + (savedAt + i) + Math.random().toString(36).slice(2),
-      name: asset.name,
+      id:        'cr' + (savedAt + i) + Math.random().toString(36).slice(2),
+      _source:   'creative_v2',
+      name:      asset.name,
+      assetName: asset.name,
       advertiser: advName,
-      campaign: campName,
-      fileType: asset.type,
+      campaign:  campName,
+      fileType:  asset.type,
       mediaType: 'CTV',
       templates: asset.templates || [],
-      date: date,
-      thumb: asset.thumb,
-      savedAt: savedAt + i,
+      date:      date,
+      thumb:     asset.thumb,
+      savedAt:   savedAt + i,
     });
   });
   var overlay = document.getElementById('cs-editor-overlay');
@@ -1674,19 +1676,62 @@ function csLibOpenEditor(crId) {
 
 // ── Creative Library DB loader ────────────────────────────────────────────────
 function csLoadLibraryFromDB() {
-  var qs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
-    ? '?client_org_id=' + selectedClientOrgId
-    : '';
-  fetch('/api/creatives' + qs)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.creatives) return;
-      // Keep only entries added in this session (savedAt set), replace rest with DB data
-      var sessionSaved = CS_LIBRARY.filter(function(c) { return c.savedAt; });
-      CS_LIBRARY = data.creatives.concat(sessionSaved);
-      csRenderLibrary();
-    })
-    .catch(function(e) { console.warn('creatives API unavailable:', e.message); });
+  var isSuperOrg = (typeof _appIsSuperOrg === 'function' && _appIsSuperOrg());
+  var orgId = (typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId) ? selectedClientOrgId : null;
+  var qs = (!isSuperOrg && orgId) ? '?client_org_id=' + orgId : '';
+
+  Promise.all([
+    // creatives_v2 — new table with asset JOIN
+    fetch('/api/creatives-v2' + qs).then(function(r) { return r.json(); }).catch(function() { return { creatives: [] }; }),
+    // assets — standalone assets table
+    fetch('/api/assets' + qs).then(function(r) { return r.json(); }).catch(function() { return { assets: [] }; }),
+  ]).then(function(results) {
+    var crV2   = results[0].creatives || [];
+    var assets = results[1].assets    || [];
+
+    // Map creatives_v2 rows
+    var crItems = crV2.map(function(cr) {
+      return {
+        id:         'dbv2-' + cr.creative_id,
+        dbId:       cr.creative_id,
+        _source:    'creative_v2',
+        name:       cr.creative_name  || '—',
+        assetName:  cr.asset_name     || '—',
+        advertiser: cr.advertiser_name || '—',
+        client:     cr.client_name    || '—',
+        campaign:   null,  // campaign not resolved here; campaign_id available if needed
+        fileType:   cr.ad_type_name   || cr.asset_type || '—',
+        mediaType:  cr.ad_type_media_type || '—',
+        templates:  [],
+        date:       cr.created_at ? new Date(cr.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+        thumb:      cr.asset_thumbnail || '',
+      };
+    });
+
+    // Map assets rows
+    var assetItems = assets.map(function(a) {
+      return {
+        id:         'dbasset-' + a.asset_id,
+        dbId:       a.asset_id,
+        _source:    'asset',
+        name:       '—',         // no creative_name; asset has no creative wrapper
+        assetName:  a.asset_name || '—',
+        advertiser: a.advertiser_name || '—',
+        client:     a.client_name    || '—',
+        campaign:   null,
+        fileType:   a.asset_type || '—',
+        mediaType:  '—',
+        templates:  [],
+        date:       a.created_at ? new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+        thumb:      a.asset_thumbnail || '',
+      };
+    });
+
+    // Keep only entries added in this session (savedAt set), replace rest with DB data
+    var sessionSaved = CS_LIBRARY.filter(function(c) { return c.savedAt; });
+    CS_LIBRARY = crItems.concat(assetItems).concat(sessionSaved);
+    csRenderLibrary();
+  }).catch(function(e) { console.warn('csLoadLibraryFromDB error:', e.message); });
 }
 
 // ── Creative Library ──────────────────────────────────────────────────────────
@@ -1731,10 +1776,22 @@ function csRenderLibrary() {
   var rows = sorted.map(function(cr) {
     var thumb = '<td style="' + TD + ';padding-right:6px;width:60px">'
       + '<div style="width:56px;height:32px;border-radius:4px;overflow:hidden;background:#e5e7eb">'
-      + '<img src="' + (cr.thumb||'') + '" style="width:100%;height:100%;object-fit:cover;display:block"></div></td>';
+      + (cr.thumb ? '<img src="' + cr.thumb + '" style="width:100%;height:100%;object-fit:cover;display:block">'
+                  : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>')
+      + '</div></td>';
+
+    var _srcBadge = cr._source === 'asset'
+      ? '<span style="font-size:9px;font-weight:600;border-radius:3px;padding:1px 5px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;margin-left:4px">Asset</span>'
+      : cr._source === 'creative_v2'
+      ? '<span style="font-size:9px;font-weight:600;border-radius:3px;padding:1px 5px;background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;margin-left:4px">v2</span>'
+      : '';
+
+    var assetNameCell = '<td style="' + TD + ';max-width:160px">'
+      + '<div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+      + (cr.assetName || '—') + '</div></td>';
 
     var name = '<td style="' + TD + '">'
-      + '<div style="font-weight:600;color:var(--text);font-size:12px">' + (cr.name||'—') + '</div>'
+      + '<div style="font-weight:600;color:var(--text);font-size:12px;display:flex;align-items:center">' + (cr.name||'—') + _srcBadge + '</div>'
       + '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + (cr.fileType||'') + '</div></td>';
 
     var adv = '<td style="' + TD + ';font-size:12px">' + (cr.advertiser||'—') + '</td>';
@@ -1768,19 +1825,20 @@ function csRenderLibrary() {
       + '</td>';
 
     return '<tr style="cursor:pointer" onclick="csLibOpenEditor(\'' + crIdSafe + '\')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + thumb + name + camp + adv + client + mt + tpl + date + actions + '</tr>';
+      + thumb + assetNameCell + name + camp + adv + client + mt + tpl + date + actions + '</tr>';
   }).join('');
 
   var cols = [
-    { label: '',            width: '60px'  },
-    { label: 'Creative'                    },
-    { label: 'Campaign',    width: '180px' },
-    { label: 'Advertiser',  width: '130px' },
-    { label: 'Client',      width: '130px' },
-    { label: 'Media',       width: '80px'  },
-    { label: 'Templates'                   },
-    { label: 'Date',        width: '110px' },
-    { label: '',            width: '70px',  align: 'right' },
+    { label: '',             width: '60px'  },
+    { label: 'Asset Name',   width: '160px' },
+    { label: 'Creative'                     },
+    { label: 'Campaign',     width: '180px' },
+    { label: 'Advertiser',   width: '130px' },
+    { label: 'Client',       width: '130px' },
+    { label: 'Media',        width: '80px'  },
+    { label: 'Templates'                    },
+    { label: 'Date',         width: '110px' },
+    { label: '',             width: '70px',  align: 'right' },
   ];
 
   var searchBar = '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'
