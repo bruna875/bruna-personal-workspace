@@ -386,7 +386,7 @@ function mp2SaveCurrentAnalysis() {
     if (btn) { btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save'; btn.disabled = false; }
     return;
   }
-  fetch('/api/moments-match?analysis_id=' + analysisId, {
+  fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ media_plans: _mp2CurrentAnalysisPlans.map(function(p) { return p._dbRaw || p; }) })
@@ -2085,7 +2085,7 @@ function mp2DeleteAnalysis(analysisId, btn) {
     'Deleting <strong>' + aName.replace(/</g,'&lt;') + '</strong> will also permanently remove all media plans associated with this analysis. This cannot be undone.',
     function() {
       if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
-      fetch('/api/moments-match?analysis_id=' + analysisId, { method: 'DELETE' })
+      fetch('/api/moments-match?moments_match_analysis_id=' + analysisId, { method: 'DELETE' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.ok) {
@@ -3189,7 +3189,7 @@ function mp2ShowResults(analysisId) {
   if (analysisId) {
     _mp2LastAnalysisId = analysisId;
     ca.innerHTML = '<div style="padding:60px;text-align:center;color:var(--faint);font-size:12px">Loading analysis…</div>';
-    fetch('/api/moments-match?analysis_id=' + analysisId)
+    fetch('/api/moments-match?moments_match_analysis_id=' + analysisId)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var rec = (data.analyses || [])[0];
@@ -5162,7 +5162,7 @@ function mp2DeleteAnalysisPlan(idx, e) {
         var remaining = _mp2CurrentAnalysisPlans.map(function(p) {
           return p._dbRaw || { media_plan_id: p.id, media_plan_name: p.name, moments: [] };
         });
-        fetch('/api/moments-match?analysis_id=' + _mp2LastAnalysisId, {
+        fetch('/api/moments-match?moments_match_analysis_id=' + _mp2LastAnalysisId, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ media_plans: remaining })
@@ -6326,7 +6326,7 @@ function mp2FetchMomentImages(categories) {
         settled++;
         // Once all pending fetches settle, PATCH the DB with updated img_url values
         if (settled === pending.length && newlyFetched > 0 && _mp2LastAnalysisId) {
-          fetch('/api/moments-match?analysis_id=' + _mp2LastAnalysisId, {
+          fetch('/api/moments-match?moments_match_analysis_id=' + _mp2LastAnalysisId, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ moments: source })
