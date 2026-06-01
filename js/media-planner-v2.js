@@ -1677,7 +1677,7 @@ function mp2ShowUpload() {
     { label: 'Campaign',       width: '220px'                      },
     { label: 'Client',         width: '120px'                      },
     { label: 'Advertiser',     width: '120px'                      },
-    { label: 'Media Plans',    width: '90px',  align: 'center'     },
+    { label: 'Moments Groups', width: '90px',  align: 'center'     },
     { label: 'Date',           width: '100px'                      },
     { label: '',               width: '44px'                       },
   ];
