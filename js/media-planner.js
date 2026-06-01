@@ -546,7 +546,7 @@ var DSP_PARAMS = {
   'The Trade Desk': [
     { id: 'ttd-advertiser',label: 'Advertiser ID',       placeholder: 'e.g. ttd_adv_001',   required: true },
     { id: 'ttd-campaign',  label: 'Campaign ID',         placeholder: 'e.g. ttd_camp_001',  required: true },
-    { id: 'ttd-adgroup',   label: 'Ad Group Name',       placeholder: 'e.g. CTV_Moments_Q3',required: true },
+    { id: 'ttd-adgroup',   label: 'Moments Group Name',  placeholder: 'e.g. CTV_Moments_Q3',required: true },
     { id: 'ttd-start',     label: 'Flight Start',        placeholder: '',  type: 'date',    required: true },
     { id: 'ttd-end',       label: 'Flight End',          placeholder: '',  type: 'date',    required: true },
     { id: 'ttd-cpm',       label: 'Target CPM (USD)',    placeholder: 'e.g. 18',            required: false }
