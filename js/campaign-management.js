@@ -2262,14 +2262,9 @@ function renderCampaignManagement() {
   setTimeout(cmLoadFromDB, 0);
 
   var newCampBtn =
-    '<div style="display:flex;align-items:center;gap:8px">'
-    + '<button onclick="cmCreateNewCampaign()" style="height:30px;padding:0 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">'
+    '<button onclick="cmCreateNewCampaign()" style="height:30px;padding:0 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">'
     + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-    + 'New Campaign (v1)</button>'
-    + '<button onclick="setPage(\'campaign-setup-v2\',\'Campaign Setup V2\')" style="height:30px;padding:0 14px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background=\'var(--accent)\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--accent)\'">'
-    + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-    + 'New Campaign (v2)</button>'
-    + '</div>';
+    + 'New Campaign</button>';
 
   var searchBox =
     '<div style="padding:12px 20px;border-bottom:1px solid var(--border)">'
