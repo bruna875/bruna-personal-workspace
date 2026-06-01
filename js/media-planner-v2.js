@@ -1605,7 +1605,7 @@ function mp2RenderNewPlanAIResults() {
     +   '<input id="ai-plan-name" class="ai-input" placeholder="Media plan name…" style="flex:1;height:38px">'
     +   '<button onclick="aiSaveAIMediaPlan()" style="height:38px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d8f,#f43f5e);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(225,29,143,.25);white-space:nowrap">'
     +     '<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#fff" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>'
-    +     'Save as Media Plan'
+    +     'Save Moments Group'
     +   '</button>'
     + '</div>'
     + '</div>';
@@ -3433,7 +3433,7 @@ function _mp2DoRender() {
     // ── Build Media Plan zone ──
     + '<div id="mp2-strip-plan" style="display:flex;flex-direction:column;flex:1;overflow:hidden">'
     +   '<div id="mp2-strip-plan-body" style="flex:1;overflow-y:auto;padding:16px 16px 12px">'
-    +     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Media Plan</div>'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Moments Group</div>'
     +     '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your media plan</div>'
     +   '</div>'
     +   '<div style="flex-shrink:0">'
@@ -3445,7 +3445,7 @@ function _mp2DoRender() {
     +         '<button onclick="mp2GeneratePlanName()" title="Generate name with AI" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;color:var(--faint);transition:color .13s" onmouseover="this.style.color=\'var(--text)\'" onmouseout="this.style.color=\'var(--faint)\'">' + WAND_ICON + '</button>'
     +         '<span id="mp2-plan-name-err" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;font-size:10px;color:#ef4444;background:#fff;border:1px solid #fca5a5;border-radius:5px;padding:3px 8px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 6px rgba(239,68,68,.12)"></span>'
     +       '</div>'
-    +       (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="mp2SaveBuilderMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:' + (_lk ? 'var(--bg)' : 'var(--accent)') + ';color:' + (_lk ? 'var(--faint)' : '#fff') + ';border:' + (_lk ? '1px solid var(--border)' : 'none') + ';border-radius:8px;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';opacity:' + (_lk ? '.6' : '1') + ';transition:opacity .13s,background .2s"' + (_lk ? '' : ' onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'"') + '>Save as Media Plan</button>'; })()
+    +       (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="mp2SaveBuilderMediaPlan()" style="width:100%;height:34px;font-size:12px;font-weight:600;font-family:inherit;background:' + (_lk ? 'var(--bg)' : 'var(--accent)') + ';color:' + (_lk ? 'var(--faint)' : '#fff') + ';border:' + (_lk ? '1px solid var(--border)' : 'none') + ';border-radius:8px;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';opacity:' + (_lk ? '.6' : '1') + ';transition:opacity .13s,background .2s"' + (_lk ? '' : ' onmouseenter="this.style.opacity=\'.88\'" onmouseleave="this.style.opacity=\'1\'"') + '>Save Moments Group</button>'; })()
     +     '</div>'
     +   '</div>'
     + '</div>'
@@ -3453,7 +3453,7 @@ function _mp2DoRender() {
     // ── Saved Media Plans zone ──
     + '<div id="mp2-strip-list" style="display:none;flex-direction:column;flex:1;overflow:hidden">'
     +   '<div style="flex-shrink:0;padding:16px 16px 12px">'
-    +     '<div style="font-size:12px;font-weight:600;color:var(--text)">Saved Media Plans</div>'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--text)">Saved Moments Groups</div>'
     +   '</div>'
     +   '<div style="flex:1;overflow-y:auto;padding:0 16px 16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px">No saved media plans yet</div>'
     + '</div>'
@@ -3483,11 +3483,11 @@ function _mp2DoRender() {
     +   '</button>'
     +   '<div id="mp2-nav-right-group" style="display:flex;align-items:center;margin-left:auto;justify-content:flex-start;flex-shrink:0">'
     +     '<span style="width:1px;align-self:stretch;background:var(--border);margin:-5px 6px -5px 0;flex-shrink:0"></span>'
-    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Build Media Plan">'
+    +     '<button id="mp2-asset-toggle" onclick="mp2ToggleSidebar(\'plan\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;height:28px;padding:0 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Build Moments Group">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><path d="M7 14v4"/><path d="M5 16h4"/></svg>'
     +       '<span id="mp2-mp-badge" style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:10px;padding:0 5px;min-width:14px;text-align:center;display:none"></span>'
     +     '</button>'
-    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Saved Media Plans">'
+    +     '<button id="mp2-list-toggle" onclick="mp2ToggleSidebar(\'list\')" onmouseover="if(!this.dataset.act)this.style.background=\'var(--bg)\'" onmouseout="if(!this.dataset.act)this.style.background=\'transparent\'" style="display:inline-flex;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s" title="Saved Moments Groups">'
     +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8a2 2 0 0 1 2-2h1l2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 10v6l-2-2-2 2v-6"/></svg>'
     +     '</button>'
     +     '<button id="mp2-sidebar-close" onclick="mp2CloseSidebar()" title="Close panel" style="display:none;align-items:center;justify-content:center;height:28px;width:28px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .13s,color .13s;margin-left:auto" onmouseover="this.style.background=\'var(--bg)\';this.style.color=\'var(--text)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--muted)\'">'
@@ -4881,7 +4881,7 @@ function aiRenderResultsPanel() {
     +     '<div style="width:1px;height:22px;background:var(--border-md);flex-shrink:0"></div>'
 
     // Save as Media Plan
-    +     (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="aiSaveAIMediaPlan()" style="flex-shrink:0;height:100%;padding:0 13px;display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:' + (_lk ? 'var(--faint)' : 'var(--text)') + ';font-size:12px;font-weight:500;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';font-family:inherit;white-space:nowrap;opacity:' + (_lk ? '.4' : '1') + ';transition:background .13s"' + (_lk ? '' : ' onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'"') + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Save as Media Plan</button>'; })()
+    +     (function(){ var _lk=_mp2IsLocked(); return '<button ' + (_lk ? 'disabled ' : '') + 'onclick="aiSaveAIMediaPlan()" style="flex-shrink:0;height:100%;padding:0 13px;display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:' + (_lk ? 'var(--faint)' : 'var(--text)') + ';font-size:12px;font-weight:500;cursor:' + (_lk ? 'not-allowed' : 'pointer') + ';font-family:inherit;white-space:nowrap;opacity:' + (_lk ? '.4' : '1') + ';transition:background .13s"' + (_lk ? '' : ' onmouseenter="this.style.background=\'var(--bg)\'" onmouseleave="this.style.background=\'transparent\'"') + '><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2h8l2 2v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4"/><path d="M5 13V8h4v5M4 2v3h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Save Moments Group</button>'; })()
 
     +   '</div>'
     + '</div>'
@@ -5279,7 +5279,7 @@ function mp2RenderStripList(highlightIdx) {
     + (_noCampaign ? '<div style="text-align:center;font-size:9px;color:var(--faint);margin-top:5px;line-height:1.3">No campaign associated to this analysis yet</div>' : '')
     + '</div>';
 
-  var header = '<div style="flex-shrink:0;padding:16px 16px 10px"><div style="font-size:12px;font-weight:600;color:var(--text)">Saved Media Plans</div></div>';
+  var header = '<div style="flex-shrink:0;padding:16px 16px 10px"><div style="font-size:12px;font-weight:600;color:var(--text)">Saved Moments Groups</div></div>';
 
   if (_mp2CurrentAnalysisPlans.length === 0) {
     zone.innerHTML = header
@@ -7758,7 +7758,7 @@ function mp2RenderMomentsMediaPlan() {
 
   if (names.length === 0) {
     body.innerHTML =
-      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Media Plan</div>'
+      '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Build Moments Group</div>'
       + '<div style="display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:12px;padding:20px 8px">Click a moment card to add it to your media plan</div>';
     var totalsEl = document.getElementById('mp2-strip-plan-totals');
     if (totalsEl) totalsEl.style.display = 'none';
@@ -7794,7 +7794,7 @@ function mp2RenderMomentsMediaPlan() {
   // ── Render moment cards in body ──
   body.innerHTML =
     '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">'
-    + '<span>Build Media Plan <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + names.length + '</span></span>'
+    + '<span>Build Moments Group <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;margin-left:4px">' + names.length + '</span></span>'
     + '<span style="font-size:10px;color:var(--faint);cursor:pointer;font-weight:400" onclick="mp2ClearMomentSelection()">Clear all</span>'
     + '</div>'
     + '<div style="display:flex;flex-direction:column;gap:7px">'
