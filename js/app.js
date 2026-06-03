@@ -144,9 +144,7 @@ var PAGES = {
   // ── WIP ──
   'sdt-content-form':      renderSdtContentForm,
   'taxonomy-showcase':     renderTaxonomyShowcase,
-  'media-planner':         renderInventoryExplorerV2,
-  // ── Experimental ──
-  'campaign-setup-v2':     renderCampaignSetupV2
+  'media-planner':         renderInventoryExplorerV2
 };
 
 // ── Nav section collapse state — both sections open by default ──
@@ -289,8 +287,7 @@ function pageFromPath() {
     'dsp-ssp':                   'DSP / SSP Connections',
     'vod-livestream-feeds':      'VoD/Live/OLV Stream',
     'api-docs':                  'API Documentation',
-    'moments-match':             'Moments Match',
-    'campaign-setup-v2':         'Campaign Setup V2'
+    'moments-match':             'Moments Match'
   };
   if (directLabels[base]) return { id: base, label: directLabels[base] };
   var found = null;
