@@ -114,7 +114,7 @@ var NAV_CONFIG = [
     dividerBefore: true,
     items: [
       { id: 'vod-livestream-feeds',      label: 'VoD/Live/OLV Stream',        icon: ico.castconn },
-      { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.split    },
+      { id: 'dsp-ssp',                   label: 'DSP / SSP Connections',    icon: ico.dsp      },
       { id: 'api-docs',                  label: 'API Documentation',        icon: ico.api      }
     ]
   }
