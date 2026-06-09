@@ -37,9 +37,19 @@ function renderMomentsBuilder() {
 
 function _mbShell() {
   return UI.pageHeader({ title: 'Custom Moments Builder', subtitle: 'Select content to discover the most relevant contextual moments across all taxonomy dimensions' })
-    + '<div style="display:flex;flex-direction:column;gap:16px">'
-    +   _mbInputCard()
-    +   '<div id="mb-results">' + (_mbScored ? _mbResultsHtml() : '') + '</div>'
+    + '<div style="display:flex;gap:20px;align-items:flex-start">'
+
+    +   '<!-- main -->'
+    +   '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px">'
+    +     _mbInputCard()
+    +     '<div id="mb-results">' + (_mbScored ? _mbResultsHtml() : '') + '</div>'
+    +   '</div>'
+
+    +   '<!-- sidebar -->'
+    +   '<div id="mb-sidebar" style="width:260px;flex-shrink:0;position:sticky;top:0;height:calc(100vh - 80px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
+    +     _mbSidebarHtml()
+    +   '</div>'
+
     + '</div>';
 }
 
@@ -288,11 +298,99 @@ function mbToggleItem(key) {
   if (_mbSelected[key]) delete _mbSelected[key];
   else _mbSelected[key] = true;
 
-  // Re-render just this chip
-  var parts = key.split(':');
-  var type  = parts[0];
+  // Re-render chip panel
+  var type  = key.split(':')[0];
   var panel = document.getElementById('mb-tax-panel');
   if (panel && _mbTaxTab === type) panel.innerHTML = _mbTaxPanelHtml(type);
+
+  // Re-render sidebar
+  var sb = document.getElementById('mb-sidebar');
+  if (sb) sb.innerHTML = _mbSidebarHtml();
+}
+
+function mbRemoveItem(key) {
+  delete _mbSelected[key];
+  var type  = key.split(':')[0];
+  var panel = document.getElementById('mb-tax-panel');
+  if (panel && _mbTaxTab === type) panel.innerHTML = _mbTaxPanelHtml(type);
+  var sb = document.getElementById('mb-sidebar');
+  if (sb) sb.innerHTML = _mbSidebarHtml();
+}
+
+function mbClearAll() {
+  _mbSelected = {};
+  var panel = document.getElementById('mb-tax-panel');
+  if (panel) panel.innerHTML = _mbTaxPanelHtml(_mbTaxTab);
+  var sb = document.getElementById('mb-sidebar');
+  if (sb) sb.innerHTML = _mbSidebarHtml();
+}
+
+function _mbSidebarHtml() {
+  var keys   = Object.keys(_mbSelected);
+  var total  = keys.length;
+
+  // Group by type
+  var grouped = {};
+  MB_TAX_TABS.forEach(function(t) { grouped[t.id] = []; });
+
+  keys.forEach(function(key) {
+    var parts = key.split(':');
+    var type  = parts[0];
+    var id    = parts.slice(1).join(':');
+    if (!grouped[type]) grouped[type] = [];
+    // Find item name from scored data
+    var name = id;
+    if (_mbScored && _mbScored[type]) {
+      var found = _mbScored[type].find(function(i) { return i.id === id; });
+      if (found) name = found.name;
+    }
+    grouped[type].push({ key: key, name: name });
+  });
+
+  var headerHtml = '<div style="padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">'
+    + '<div style="display:flex;align-items:center;gap:8px">'
+    +   '<span style="font-size:13px;font-weight:600;color:var(--text)">Selected</span>'
+    +   (total > 0 ? '<span style="font-size:10px;font-weight:600;color:#fff;background:var(--accent);border-radius:20px;padding:1px 7px">' + total + '</span>' : '')
+    + '</div>'
+    + (total > 0 ? '<button onclick="mbClearAll()" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:inherit;padding:2px 6px;border-radius:5px;transition:color .12s" onmouseenter="this.style.color=\'#ef4444\'" onmouseleave="this.style.color=\'var(--muted)\'">Clear all</button>' : '')
+    + '</div>';
+
+  if (total === 0) {
+    return headerHtml
+      + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:10px">'
+      +   '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" style="color:var(--border-md)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'
+      +   '<div style="font-size:12px;color:var(--faint);line-height:1.5">Analyze some content<br>then click items to select them</div>'
+      + '</div>';
+  }
+
+  var listHtml = '<div style="flex:1;overflow-y:auto;padding:8px 0">';
+  MB_TAX_TABS.forEach(function(t) {
+    var items = grouped[t.id];
+    if (!items.length) return;
+    listHtml += '<div style="padding:6px 16px 4px">'
+      + '<div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin-bottom:4px">' + t.label.toUpperCase() + '</div>'
+      + items.map(function(item) {
+          return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+            + '<span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _mbEsc(item.name) + '</span>'
+            + '<button onclick="mbRemoveItem(\'' + _mbEsc(item.key) + '\')" style="width:16px;height:16px;flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--faint);padding:0;display:flex;align-items:center;justify-content:center;border-radius:3px;transition:color .12s" onmouseenter="this.style.color=\'#ef4444\'" onmouseleave="this.style.color=\'var(--faint)\'">'
+            +   '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+            + '</button>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+  });
+  listHtml += '</div>';
+
+  var footerHtml = '<div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">'
+    + '<button onclick="mbSaveMomentsGroup()" style="width:100%;height:36px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Save as Moments Group</button>'
+    + '</div>';
+
+  return headerHtml + listHtml + footerHtml;
+}
+
+function mbSaveMomentsGroup() {
+  // Placeholder — will wire to DB
+  alert('Save as Moments Group — coming soon!');
 }
 
 function mbShowAll(type) {
