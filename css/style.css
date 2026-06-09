@@ -467,3 +467,10 @@ tr:hover .link-btn,.link-btn.has-link{opacity:1;color:var(--accent)}
 .tb-admin-dd-item:hover{background:var(--subtle);color:var(--accent)}
 .tb-admin-dd-item svg{color:var(--muted);flex-shrink:0}
 .tb-admin-dd-item:hover svg{color:var(--accent)}
+
+/* ── tx2 wizard components ─────────────────────────────────────────────── */
+.tx2-seg{display:flex;align-items:center;gap:6px;flex:1;justify-content:center;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;transition:background .13s,color .13s;user-select:none}
+.tx2-seg:hover{color:var(--text)}
+.tx2-seg--act{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.tx2-upload-zone{border:2px dashed var(--border-md);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;color:var(--faint)}
+.tx2-upload-zone:hover{border-color:var(--accent);background:var(--subtle)}

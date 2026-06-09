@@ -55,15 +55,22 @@ function _mbShell() {
 
 // ── Input card ────────────────────────────────────────────────────────────────
 function _mbInputCard() {
-  return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px">'
-    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
-    +     '<div style="font-size:13px;font-weight:600;color:var(--text)">Content Input</div>'
-    +     '<div id="mb-input-pills">' + _mbInputTypePills() + '</div>'
+  return '<div class="cs-card" style="padding:20px 24px">'
+
+    // Segmented type selector — same pattern as Moments Match step 3
+    +   '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px" id="mb-input-pills">'
+    +     _mbSegBtn('text',    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', 'Brief')
+    +     _mbSegBtn('upload',  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>', 'New Image')
+    +     _mbSegBtn('library', '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>', 'From Library')
     +   '</div>'
+
+    // Input area
     +   '<div id="mb-input-area">' + _mbInputArea() + '</div>'
-    +   '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">'
-    +     '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="height:38px;padding:0 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">'
-    +       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+
+    // Footer: analyze button + status
+    +   '<div style="display:flex;align-items:center;gap:12px;margin-top:12px">'
+    +     '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="height:36px;padding:0 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
     +       'Analyze'
     +     '</button>'
     +     '<div id="mb-status" style="font-size:12px;color:var(--muted)"></div>'
@@ -71,38 +78,31 @@ function _mbInputCard() {
     + '</div>';
 }
 
-function _mbInputTypePills() {
-  var tabs = [
-    { id: 'text',    label: 'Free Text' },
-    { id: 'upload',  label: 'Upload Image' },
-    { id: 'library', label: 'From Library' },
-  ];
-  return '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px">'
-    + tabs.map(function(t) {
-        var act = t.id === _mbInputTab;
-        return '<button onclick="mbSwitchInput(\'' + t.id + '\')" style="height:28px;padding:0 12px;border-radius:6px;border:none;font-size:12px;font-weight:' + (act ? '600' : '400') + ';font-family:inherit;cursor:pointer;background:' + (act ? 'var(--surface)' : 'transparent') + ';color:' + (act ? 'var(--text)' : 'var(--muted)') + ';box-shadow:' + (act ? '0 1px 3px rgba(0,0,0,.08)' : 'none') + ';transition:all .13s">' + t.label + '</button>';
-      }).join('')
+function _mbSegBtn(id, icon, label) {
+  var act = id === _mbInputTab;
+  return '<div class="tx2-seg' + (act ? ' tx2-seg--act' : '') + '" id="mb-seg-' + id + '" onclick="mbSwitchInput(\'' + id + '\')">'
+    + icon
+    + '<span>' + label + '</span>'
     + '</div>';
 }
 
 function _mbInputArea() {
   if (_mbInputTab === 'text') {
-    return '<textarea id="mb-text-input" placeholder="Describe the content, scene, mood, or context you want to match — e.g. \'A family barbecue on a summer afternoon with kids playing in the backyard\'…" style="width:100%;box-sizing:border-box;height:88px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:8px;resize:none;outline:none;line-height:1.5;transition:border-color .15s" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'"></textarea>';
+    return '<textarea id="mb-text-input" placeholder="Describe the content, scene, mood, or context — e.g. \'A family barbecue on a summer afternoon with kids playing in the backyard\'…" style="width:100%;box-sizing:border-box;height:90px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:8px;resize:none;outline:none;line-height:1.5;transition:border-color .15s" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'"></textarea>';
   }
   if (_mbInputTab === 'upload') {
-    return '<div id="mb-upload-zone" style="border:2px dashed var(--border-md);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s" onclick="document.getElementById(\'mb-file-input\').click()" onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.background=\'var(--subtle)\'" onmouseleave="this.style.borderColor=\'var(--border-md)\';this.style.background=\'\'">'
+    return '<div class="tx2-upload-zone" style="padding:24px 20px" onclick="document.getElementById(\'mb-file-input\').click()">'
       + '<input type="file" id="mb-file-input" accept="image/*" style="display:none">'
-      + '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint);margin-bottom:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
-      + '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px">Drop image here or click to browse</div>'
-      + '<div id="mb-file-name" style="font-size:11px;color:var(--faint)">JPG, PNG, WebP</div>'
+      + '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
+      + '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">Drop image here or click to browse</div>'
+      + '<div id="mb-file-name" style="font-size:11px;color:var(--faint)">JPG, PNG, WebP — up to 20 MB</div>'
       + '</div>';
   }
   if (_mbInputTab === 'library') {
-    return '<div style="padding:20px;text-align:center;background:var(--bg);border-radius:8px;border:1px solid var(--border)">'
-      + '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint);margin-bottom:8px"><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><circle cx="11" cy="11" r="2"/></svg>'
-      + '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Pick an asset from Creative Studio</div>'
-      + '<button onclick="mbOpenLibraryPicker()" style="height:32px;padding:0 16px;background:var(--surface);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:500;font-family:inherit;cursor:pointer;color:var(--text)">Browse Library</button>'
-      + '<div id="mb-library-selected" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>'
+    return '<div class="tx2-upload-zone" style="padding:24px 20px" onclick="mbOpenLibraryPicker()">'
+      + '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
+      + '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">Select asset from Creative Studio</div>'
+      + '<div id="mb-library-selected" style="font-size:11px;color:var(--faint)">Click to browse library</div>'
       + '</div>';
   }
   return '';
@@ -111,9 +111,11 @@ function _mbInputArea() {
 // ── Analyze ───────────────────────────────────────────────────────────────────
 function mbSwitchInput(tab) {
   _mbInputTab = tab;
-  // Re-render pills
-  var pillsEl = document.getElementById('mb-input-pills');
-  if (pillsEl) pillsEl.innerHTML = _mbInputTypePills();
+  // Update segment active state
+  ['text','upload','library'].forEach(function(id) {
+    var el = document.getElementById('mb-seg-' + id);
+    if (el) el.className = 'tx2-seg' + (id === tab ? ' tx2-seg--act' : '');
+  });
   // Re-render input area
   var areaEl = document.getElementById('mb-input-area');
   if (areaEl) areaEl.innerHTML = _mbInputArea();
