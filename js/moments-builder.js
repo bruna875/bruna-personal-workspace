@@ -59,7 +59,14 @@ function _mbInputCard() {
     +   '<textarea id="mb-text-input" placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" onkeydown="if(event.ctrlKey&&event.key===\'Enter\')mbAnalyze()" style="width:100%;box-sizing:border-box;min-height:130px;padding:16px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;border:none;outline:none;resize:none;line-height:1.6;display:block"></textarea>'
     +   '<div style="height:1px;background:var(--border)"></div>'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">'
-    +     '<div id="mb-status" style="font-size:12px;color:var(--muted)"></div>'
+    +     '<div style="display:flex;align-items:center;gap:10px">'
+    +       '<input type="file" id="mb-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="mbOnFileSelect(this)">'
+    +       '<label for="mb-file-input" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px;transition:color .13s,background .13s" onmouseenter="this.style.color=\'var(--text)\';this.style.background=\'var(--bg)\'" onmouseleave="this.style.color=\'var(--muted)\';this.style.background=\'transparent\'">'
+    +         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12h4M10 16h4"/></svg>'
+    +         '<span id="mb-file-label">Upload Doc or PDF</span>'
+    +       '</label>'
+    +       '<div id="mb-status" style="font-size:12px;color:var(--muted)"></div>'
+    +     '</div>'
     +     '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="height:34px;padding:0 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Analyze</button>'
     +   '</div>'
     + '</div>';
@@ -124,6 +131,13 @@ function _mbBindUpload() {
 
 var _mbUploadFile = null;
 var _mbLibraryImageUrl = null;
+
+function mbOnFileSelect(input) {
+  var f = input.files && input.files[0];
+  var lbl = document.getElementById('mb-file-label');
+  if (lbl) lbl.textContent = f ? f.name : 'Upload Doc or PDF';
+  _mbUploadFile = f || null;
+}
 
 function mbOpenLibraryPicker() {
   // Placeholder — will integrate with Creative Studio later
