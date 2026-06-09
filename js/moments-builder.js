@@ -55,26 +55,11 @@ function _mbShell() {
 
 // ── Input card ────────────────────────────────────────────────────────────────
 function _mbInputCard() {
-  return '<div class="cs-card" style="padding:20px 24px">'
-
-    // Segmented type selector — same pattern as Moments Match step 3
-    +   '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px" id="mb-input-pills">'
-    +     _mbSegBtn('text',    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', 'Brief')
-    +     _mbSegBtn('upload',  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>', 'New Image')
-    +     _mbSegBtn('library', '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>', 'From Library')
-    +   '</div>'
-
-    // Input area
-    +   '<div id="mb-input-area">' + _mbInputArea() + '</div>'
-
-    // Footer: analyze button + status
-    +   '<div style="display:flex;align-items:center;gap:12px;margin-top:12px">'
-    +     '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="height:36px;padding:0 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">'
-    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
-    +       'Analyze'
-    +     '</button>'
-    +     '<div id="mb-status" style="font-size:12px;color:var(--muted)"></div>'
-    +   '</div>'
+  return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:10px">'
+    +   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+    +   '<input id="mb-text-input" type="text" placeholder="Describe content, scene, mood or context — e.g. \'family barbecue on a summer afternoon\'" onkeydown="if(event.key===\'Enter\')mbAnalyze()" style="flex:1;border:none;outline:none;font-size:13px;font-family:inherit;color:var(--text);background:transparent;min-width:0">'
+    +   '<div id="mb-status" style="font-size:12px;color:var(--muted);white-space:nowrap"></div>'
+    +   '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="flex-shrink:0;height:34px;padding:0 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Analyze</button>'
     + '</div>';
 }
 
@@ -147,22 +132,10 @@ function mbOpenLibraryPicker() {
 async function mbAnalyze() {
   if (_mbLoading) return;
 
-  var body = {};
-
-  if (_mbInputTab === 'text') {
-    var ta = document.getElementById('mb-text-input');
-    var txt = ta ? ta.value.trim() : '';
-    if (!txt) { _mbSetStatus('Enter some text first.', true); return; }
-    body = { input_type: 'text', text: txt };
-
-  } else if (_mbInputTab === 'upload') {
-    if (!_mbUploadFile) { _mbSetStatus('Select an image first.', true); return; }
-    body = await _mbFileToBody(_mbUploadFile);
-
-  } else if (_mbInputTab === 'library') {
-    if (!_mbLibraryImageUrl) { _mbSetStatus('Select an asset from the library first.', true); return; }
-    body = { input_type: 'image', image_url: _mbLibraryImageUrl };
-  }
+  var ta  = document.getElementById('mb-text-input');
+  var txt = ta ? ta.value.trim() : '';
+  if (!txt) { _mbSetStatus('Enter some text first.', true); return; }
+  var body = { input_type: 'text', text: txt };
 
   _mbLoading = true;
   _mbSetStatus('Analyzing with Groq…', false, true);
