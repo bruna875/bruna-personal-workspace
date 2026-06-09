@@ -22,10 +22,17 @@ var MB_TAX_TABS = [
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 function renderMomentsBuilder() {
-  var ca = document.getElementById('content-area');
-  if (!ca) return;
-  ca.innerHTML = _mbShell();
-  _mbBindUpload();
+  // Reset state on every page load
+  _mbInputTab = 'text';
+  _mbScored   = null;
+  _mbThemes   = [];
+  _mbSelected = {};
+  _mbShowAll  = {};
+  _mbUploadFile = null;
+
+  setTimeout(function() { _mbBindUpload(); }, 0);
+
+  return _mbShell();
 }
 
 function _mbShell() {
@@ -41,7 +48,7 @@ function _mbInputCard() {
   return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px">'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
     +     '<div style="font-size:13px;font-weight:600;color:var(--text)">Content Input</div>'
-    +     _mbInputTypePills()
+    +     '<div id="mb-input-pills">' + _mbInputTypePills() + '</div>'
     +   '</div>'
     +   '<div id="mb-input-area">' + _mbInputArea() + '</div>'
     +   '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">'
@@ -94,20 +101,12 @@ function _mbInputArea() {
 // ── Analyze ───────────────────────────────────────────────────────────────────
 function mbSwitchInput(tab) {
   _mbInputTab = tab;
-  var card = document.getElementById('mb-input-area');
-  if (card) card.innerHTML = _mbInputArea();
-  // Re-bind upload
-  _mbBindUpload();
   // Re-render pills
-  var wrap = document.querySelector('#content-area .tbwrap, #content-area');
-  // Just re-render the pill area inside the card header
-  var pills = document.querySelector('[onclick^="mbSwitchInput"]');
-  if (pills && pills.parentElement) {
-    pills.parentElement.innerHTML = _mbInputTypePills() + pills.parentElement.innerHTML.replace(/^.*<\/div>/, '');
-  }
-  // Simpler: full re-render of input card
-  var inputCard = document.querySelector('#content-area > div > div:first-child');
-  if (inputCard) inputCard.outerHTML = _mbInputCard();
+  var pillsEl = document.getElementById('mb-input-pills');
+  if (pillsEl) pillsEl.innerHTML = _mbInputTypePills();
+  // Re-render input area
+  var areaEl = document.getElementById('mb-input-area');
+  if (areaEl) areaEl.innerHTML = _mbInputArea();
   _mbBindUpload();
 }
 
