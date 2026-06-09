@@ -56,7 +56,7 @@ function _mbShell() {
 // ── Input card ────────────────────────────────────────────────────────────────
 function _mbInputCard() {
   return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden">'
-    +   '<textarea id="mb-text-input" placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" onkeydown="if(event.ctrlKey&&event.key===\'Enter\')mbAnalyze()" style="width:100%;box-sizing:border-box;min-height:130px;padding:16px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;border:none;outline:none;resize:none;line-height:1.6;display:block"></textarea>'
+    +   '<textarea id="mb-text-input" placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" onkeydown="if(event.ctrlKey&&event.key===\'Enter\')mbAnalyze()" style="width:100%;box-sizing:border-box;height:60px;padding:12px 14px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;border:none;outline:none;resize:none;line-height:1.6;display:block"></textarea>'
     +   '<div style="height:1px;background:var(--border)"></div>'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">'
     +     '<div style="display:flex;align-items:center;gap:10px">'
