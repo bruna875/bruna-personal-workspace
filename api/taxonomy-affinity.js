@@ -23,7 +23,25 @@ export default async function handler(req, res) {
 
     // ── 1. Extract themes from input via Groq ──────────────────────────────────
     let themes = [];
-    const THEME_PROMPT = `Analyze this content and return a JSON array of 20-30 highly specific semantic themes, concepts, emotions, objects, locations, brands, activities, and moods present or strongly implied. Be specific and varied. Return ONLY a JSON array of strings, no explanation.`;
+    const THEME_PROMPT = `Analyze the content and return ONLY a JSON array of 20-30 specific themes, concepts, emotions, objects, locations, brands, activities, and moods present or implied. Example: ["outdoor adventure","family","summer","joy","mountains","hiking","nature"]. Return ONLY the JSON array, nothing else.`;
+
+    function parseThemes(raw) {
+      // Strip markdown fences
+      let s = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'');
+      // Try direct parse
+      try {
+        const p = JSON.parse(s);
+        if (Array.isArray(p)) return p;
+        // Maybe wrapped: { themes: [...] } or first array value
+        const vals = Object.values(p);
+        for (const v of vals) { if (Array.isArray(v)) return v; }
+        return [];
+      } catch {
+        // Fallback: extract all quoted strings
+        const matches = s.match(/"([^"]{2,60})"/g) || [];
+        return matches.map(m => m.replace(/"/g,''));
+      }
+    }
 
     if (input_type === 'text' && text) {
       const resp = await groq.chat.completions.create({
@@ -32,12 +50,10 @@ export default async function handler(req, res) {
           { role: 'system', content: THEME_PROMPT },
           { role: 'user',   content: text }
         ],
-        response_format: { type: 'json_object' },
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: 600
       });
-      const parsed = JSON.parse(resp.choices[0].message.content);
-      themes = Array.isArray(parsed) ? parsed : (parsed.themes || parsed.items || Object.values(parsed)[0] || []);
+      themes = parseThemes(resp.choices[0].message.content);
 
     } else if (input_type === 'image' && (image_url || image_base64)) {
       const imgContent = image_url
@@ -54,18 +70,10 @@ export default async function handler(req, res) {
           ]
         }],
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: 600
       });
-      try {
-        // Strip markdown code fences if present
-        let content = resp.choices[0].message.content.trim();
-        content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-        const parsed = JSON.parse(content);
-        themes = Array.isArray(parsed) ? parsed : (parsed.themes || parsed.items || Object.values(parsed)[0] || []);
-      } catch {
-        // Fallback: extract quoted strings
-        themes = (resp.choices[0].message.content.match(/"([^"]+)"/g) || []).map(s => s.replace(/"/g, ''));
-      }
+      themes = parseThemes(resp.choices[0].message.content);
+
     } else {
       return res.status(400).json({ error: 'text or image required' });
     }

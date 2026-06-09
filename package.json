@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/bruna875/bruna-personal-workspace#readme",
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0"
+    "@neondatabase/serverless": "^1.1.0",
+    "groq-sdk": "^1.2.1"
   }
 }
