@@ -55,11 +55,16 @@ function _mbShell() {
 
 // ── Input card ────────────────────────────────────────────────────────────────
 function _mbInputCard() {
-  return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:10px">'
-    +   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
-    +   '<input id="mb-text-input" type="text" placeholder="Describe content, scene, mood or context — e.g. \'family barbecue on a summer afternoon\'" onkeydown="if(event.key===\'Enter\')mbAnalyze()" style="flex:1;border:none;outline:none;font-size:13px;font-family:inherit;color:var(--text);background:transparent;min-width:0">'
-    +   '<div id="mb-status" style="font-size:12px;color:var(--muted);white-space:nowrap"></div>'
-    +   '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="flex-shrink:0;height:34px;padding:0 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Analyze</button>'
+  return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.04)">'
+    +   '<div style="font-size:10px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Content Brief</div>'
+    +   '<div style="display:flex;align-items:center;gap:10px">'
+    +     '<div style="flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:0 12px;height:38px;transition:border-color .15s;box-shadow:0 1px 3px rgba(0,0,0,.04)" onfocuswithin="this.style.borderColor=\'var(--accent)\'">'
+    +       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--faint);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+    +       '<input id="mb-text-input" type="text" placeholder="Describe the content, scene, mood or context — e.g. \'family barbecue on a summer afternoon\'" onkeydown="if(event.key===\'Enter\')mbAnalyze()" onfocus="this.parentElement.style.borderColor=\'var(--accent)\'" onblur="this.parentElement.style.borderColor=\'var(--border)\'" style="flex:1;border:none;outline:none;font-size:13px;font-family:inherit;color:var(--text);background:transparent;min-width:0">'
+    +     '</div>'
+    +     '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="flex-shrink:0;height:38px;padding:0 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Analyze</button>'
+    +   '</div>'
+    +   '<div id="mb-status" style="font-size:12px;color:var(--muted);margin-top:8px;min-height:16px"></div>'
     + '</div>';
 }
 
