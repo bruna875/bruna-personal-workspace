@@ -197,16 +197,16 @@ function mbSwitchTaxTab(id) {
 }
 
 // ── Quadrant scatter plot ─────────────────────────────────────────────────────
-// Colors by taxonomy type (for points + legend)
+// Colors by taxonomy type — from UI Kit CHART_COLORS_FULL palette
 var MB_TYPE_COLORS = {
-  iab:          '#3b82f6',
-  emotion:      '#e11d8f',
-  sentiment:    '#8b5cf6',
-  object:       '#f59e0b',
-  location:     '#10b981',
-  logo:         '#ef4444',
-  face:         '#06b6d4',
-  brand_safety: '#64748b',
+  iab:          '#5890D4', // Sky-Blue
+  emotion:      '#E04CA0', // Hot Pink
+  sentiment:    '#9870CC', // Violet
+  object:       '#F4A234', // Amber
+  location:     '#48BC6C', // Green
+  logo:         '#F47843', // Warm Orange
+  face:         '#38BCBC', // Teal
+  brand_safety: '#6878CC', // Cornflower
 };
 
 function _mbQuadrantFamilies() {
@@ -247,20 +247,21 @@ function _mbScatterSvg(signals, families) {
 
   var svg = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block;background:#fff">';
 
-  // Subtle grid lines
-  svg += '<line x1="' + CX + '" y1="0" x2="' + CX + '" y2="' + H + '" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="6,5"/>';
-  svg += '<line x1="0" y1="' + CY + '" x2="' + W + '" y2="' + CY + '" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="6,5"/>';
+  // Axis lines — thin solid
+  svg += '<line x1="' + CX + '" y1="0" x2="' + CX + '" y2="' + H + '" stroke="#e5e7eb" stroke-width="0.75"/>';
+  svg += '<line x1="0" y1="' + CY + '" x2="' + W + '" y2="' + CY + '" stroke="#e5e7eb" stroke-width="0.75"/>';
 
   // Quadrant family labels — top-left, top-right, bottom-right, bottom-left
   var labelDefs = [
-    { x: 12,      y: 16,   anchor: 'start' },   // top-left
-    { x: W-12,    y: 16,   anchor: 'end'   },   // top-right
-    { x: W-12,    y: H-10, anchor: 'end'   },   // bottom-right
-    { x: 12,      y: H-10, anchor: 'start' },   // bottom-left
+    { x: 10,   y: 14,   anchor: 'start' },
+    { x: W-10, y: 14,   anchor: 'end'   },
+    { x: W-10, y: H-8,  anchor: 'end'   },
+    { x: 10,   y: H-8,  anchor: 'start' },
   ];
   families.forEach(function(f, i) {
     var lp = labelDefs[i];
-    svg += '<text x="' + lp.x + '" y="' + lp.y + '" font-size="11" font-weight="700" fill="#9ca3af" font-family="Geist,sans-serif" text-anchor="' + lp.anchor + '">' + _mbEsc(f.label) + '</text>';
+    var lbl = f.label.length > 18 ? f.label.slice(0,18)+'…' : f.label;
+    svg += '<text x="' + lp.x + '" y="' + lp.y + '" font-size="9" font-weight="600" fill="#c0c4cc" font-family="Geist,sans-serif" text-anchor="' + lp.anchor + '" letter-spacing=".3">' + _mbEsc(lbl.toUpperCase()) + '</text>';
   });
 
   // Points (render small/low first so large appear on top)
@@ -290,12 +291,12 @@ function _mbScatterSvg(signals, families) {
     var sel  = !!_mbSelected[sig.key];
     var c    = MB_TYPE_COLORS[sig.typeId] || '#8b5cf6';
 
-    // Label for top signals (score >= 70)
-    if (sig.score >= 70) {
-      var lbl  = (sig.name.length>15 ? sig.name.slice(0,15)+'…' : sig.name);
-      var tx   = px+r+4, anchor = 'start';
-      if (tx + lbl.length*5.2 > W-6) { tx = px-r-4; anchor = 'end'; }
-      svg += '<text x="' + tx.toFixed(1) + '" y="' + (py+3.5).toFixed(1) + '" font-size="9" fill="#6b7280" font-family="Geist,sans-serif" text-anchor="' + anchor + '" pointer-events="none">' + _mbEsc(lbl) + '</text>';
+    // Label for top signals (score >= 75)
+    if (sig.score >= 75) {
+      var lbl  = (sig.name.length>13 ? sig.name.slice(0,13)+'…' : sig.name);
+      var tx   = px+r+3, anchor = 'start';
+      if (tx + lbl.length*4.8 > W-6) { tx = px-r-3; anchor = 'end'; }
+      svg += '<text x="' + tx.toFixed(1) + '" y="' + (py+3).toFixed(1) + '" font-size="8.5" fill="#9ca3af" font-family="Geist,sans-serif" text-anchor="' + anchor + '" pointer-events="none">' + _mbEsc(lbl) + '</text>';
     }
 
     var tipData = _mbEsc(sig.name) + '|' + _mbEsc(sig.type) + '|' + sig.score + '|' + pods;
