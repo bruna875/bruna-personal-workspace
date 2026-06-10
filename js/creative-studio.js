@@ -1733,8 +1733,10 @@ function csRenderLibrary() {
       + '<div style="width:56px;height:32px;border-radius:4px;overflow:hidden;background:#e5e7eb">'
       + '<img src="' + (cr.thumb||'') + '" style="width:100%;height:100%;object-fit:cover;display:block"></div></td>';
 
+    var _crName = (cr.name||'—');
+    var _crNameDisplay = _crName.length > 92 ? _crName.slice(0, 92) + '…' : _crName;
     var name = '<td style="' + TD + '">'
-      + '<div style="font-weight:600;color:var(--text);font-size:12px">' + (cr.name||'—') + '</div>'
+      + '<div style="font-weight:600;color:var(--text);font-size:12px" title="' + _crName.replace(/"/g,'&quot;') + '">' + _crNameDisplay + '</div>'
       + '<div style="font-size:10px;color:var(--faint);margin-top:2px">' + (cr.fileType||'') + '</div></td>';
 
     var adv = '<td style="' + TD + ';font-size:12px">' + (cr.advertiser||'—') + '</td>';
