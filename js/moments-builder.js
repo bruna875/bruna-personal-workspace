@@ -196,54 +196,95 @@ function mbSwitchTaxTab(id) {
   if (panel) panel.innerHTML = id === 'overview' ? _mbOverviewHtml() : _mbTaxPanelHtml(id);
 }
 
-// ── Radar chart SVG ──────────────────────────────────────────────────────────
-function _mbRadarSvg() {
-  var dims = MB_TAX_TABS.filter(function(t) { return t.id !== 'overview'; });
-  var n = dims.length, cx = 130, cy = 130, r = 90;
+// ── Quadrant scatter plot ─────────────────────────────────────────────────────
+var Q_COLORS = ['#3b82f6','#10b981','#f59e0b','#e11d8f'];
+var Q_BG     = ['rgba(59,130,246,.05)','rgba(16,185,129,.05)','rgba(245,158,11,.05)','rgba(225,29,143,.05)'];
 
-  // Avg score top-10 per dimension, normalized 0-1
-  var vals = dims.map(function(d) {
-    var items = (_mbScored[d.id] || []).slice(0, 10);
-    if (!items.length) return 0;
-    return items.reduce(function(s, i) { return s + i.score; }, 0) / items.length / 100;
+function _mbQuadrantFamilies() {
+  var t = _mbThemes.slice();
+  if (!t.length) return [{label:'Category A',themes:[]},{label:'Category B',themes:[]},{label:'Category C',themes:[]},{label:'Category D',themes:[]}];
+  var n = t.length, q = Math.ceil(n / 4);
+  return [t.slice(0,q), t.slice(q,q*2), t.slice(q*2,q*3), t.slice(q*3)].map(function(g) {
+    var lbl = (g[0] || 'Group').replace(/^\w/, function(c){return c.toUpperCase();});
+    if (lbl.length > 22) lbl = lbl.slice(0,22)+'…';
+    return { label: lbl, themes: g };
   });
+}
 
-  function pt(i, frac) {
-    var angle = (i * 360 / n - 90) * Math.PI / 180;
-    return { x: cx + frac * r * Math.cos(angle), y: cy + frac * r * Math.sin(angle) };
+function _mbAssignQuadrant(sig, families) {
+  var sigText = (sig.name + ' ' + sig.type).toLowerCase();
+  var best = -1, bestN = 0;
+  families.forEach(function(f, fi) {
+    var n = f.themes.reduce(function(s, theme) {
+      return s + theme.toLowerCase().split(/\s+/).filter(function(w){ return w.length > 2 && sigText.includes(w); }).length;
+    }, 0);
+    if (n > bestN) { bestN = n; best = fi; }
+  });
+  if (best < 0) {
+    var seed = 0;
+    for (var i = 0; i < sig.name.length; i++) seed = (((seed << 5) - seed) + sig.name.charCodeAt(i)) & 0x7fff;
+    best = seed % 4;
   }
-  function ptStr(i, frac) { var p = pt(i, frac); return p.x.toFixed(1) + ',' + p.y.toFixed(1); }
+  return best;
+}
 
-  var svg = '<svg width="260" height="260" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">';
+function _mbScatterSvg(signals, families) {
+  var W = 600, H = 400, CX = W/2, CY = H/2, PAD = 50;
+  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block">';
 
-  // Grid rings
-  [0.25, 0.5, 0.75, 1].forEach(function(t) {
-    var pts = dims.map(function(_, i) { return ptStr(i, t); }).join(' ');
-    svg += '<polygon points="' + pts + '" fill="none" stroke="var(--border)" stroke-width="' + (t === 1 ? '1.5' : '1') + '"/>';
+  // Quadrant backgrounds
+  [[0,0],[CX,0],[0,CY],[CX,CY]].forEach(function(o,i){
+    svg += '<rect x="' + o[0] + '" y="' + o[1] + '" width="' + CX + '" height="' + CY + '" fill="' + Q_BG[i] + '"/>';
   });
 
-  // Axes
-  dims.forEach(function(_, i) {
-    var p = pt(i, 1);
-    svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p.x.toFixed(1) + '" y2="' + p.y.toFixed(1) + '" stroke="var(--border)" stroke-width="1"/>';
+  // Border + axes
+  svg += '<rect x=".5" y=".5" width="' + (W-1) + '" height="' + (H-1) + '" fill="none" stroke="var(--border)" stroke-width="1"/>';
+  svg += '<line x1="' + CX + '" y1="0" x2="' + CX + '" y2="' + H + '" stroke="var(--border-md)" stroke-width="1" stroke-dasharray="5,4"/>';
+  svg += '<line x1="0" y1="' + CY + '" x2="' + W + '" y2="' + CY + '" stroke="var(--border-md)" stroke-width="1" stroke-dasharray="5,4"/>';
+
+  // Quadrant family labels
+  [[12,16],[CX+12,16],[12,CY+16],[CX+12,CY+16]].forEach(function(p,i){
+    svg += '<text x="' + p[0] + '" y="' + p[1] + '" font-size="11" font-weight="700" fill="' + Q_COLORS[i] + '" font-family="Geist,sans-serif" opacity=".8">' + _mbEsc(families[i].label) + '</text>';
   });
 
-  // Data polygon fill
-  var dataPts = vals.map(function(v, i) { return ptStr(i, Math.max(0.04, v)); }).join(' ');
-  svg += '<polygon points="' + dataPts + '" fill="rgba(225,29,143,0.12)" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>';
+  // Scatter points (render low-score first so high-score dots appear on top)
+  var sorted = signals.slice().sort(function(a,b){ return a.score - b.score; });
+  var qCounts = [0,0,0,0];
 
-  // Data dots
-  vals.forEach(function(v, i) {
-    var p = pt(i, Math.max(0.04, v));
-    svg += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/>';
-  });
+  sorted.forEach(function(sig) {
+    var q = sig.quadrant, idx = qCounts[q]++;
+    var cols = 6, row = Math.floor(idx/cols), col = idx % cols;
+    var iW = CX - PAD*2, iH = CY - PAD*2 - 18;
+    var qOX = q%2===0 ? 0 : CX, qOY = q<2 ? 0 : CY;
 
-  // Labels
-  dims.forEach(function(d, i) {
-    var p = pt(i, 1.22);
-    var score = Math.round(vals[i] * 100);
-    svg += '<text x="' + p.x.toFixed(1) + '" y="' + (p.y - 5).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9.5" font-weight="600" fill="var(--text)" font-family="Geist,sans-serif">' + _mbEsc(d.label) + '</text>';
-    svg += '<text x="' + p.x.toFixed(1) + '" y="' + (p.y + 7).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="Geist,sans-serif">' + score + '</text>';
+    // Deterministic jitter
+    var jSeed = 0, js = sig.name + sig.typeId;
+    for (var i=0;i<js.length;i++) jSeed=(((jSeed<<5)-jSeed)+js.charCodeAt(i))&0x7fff;
+    var jx = (jSeed%28)-14, jy = ((jSeed>>4)%28)-14;
+
+    var px = Math.max(qOX+8, Math.min(qOX+CX-14, qOX+PAD+(col/Math.max(1,cols-0.5))*iW+jx));
+    var py = Math.max(qOY+22, Math.min(qOY+CY-8, qOY+PAD+18+(row/4)*iH+jy));
+
+    var r = 3 + (sig.score/100)*8;
+    var sel = !!_mbSelected[sig.key];
+    var c = Q_COLORS[q];
+
+    // Label for high-score signals
+    if (sig.score >= 65) {
+      var lbl = (sig.name.length>16 ? sig.name.slice(0,16)+'…' : sig.name) + ' · ' + sig.type;
+      var tx = px+r+4, ty = py+3.5;
+      var anchor = 'start';
+      if (tx + lbl.length*5.3 > W-4) { tx = px-r-4; anchor = 'end'; }
+      svg += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" font-size="9" fill="var(--muted)" font-family="Geist,sans-serif" text-anchor="' + anchor + '" pointer-events="none">' + _mbEsc(lbl) + '</text>';
+    }
+
+    svg += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + r.toFixed(1) + '"'
+      + ' fill="' + c + '" opacity="' + (sel?'1':'0.55') + '"'
+      + (sel?' stroke="#fff" stroke-width="1.5"':'')
+      + ' style="cursor:pointer;transition:opacity .15s"'
+      + ' onclick="mbToggleItem(\'' + (sig.key+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">'
+      + '<title>' + _mbEsc(sig.name + ' · ' + sig.type + ' — score ' + sig.score) + '</title>'
+      + '</circle>';
   });
 
   svg += '</svg>';
@@ -252,54 +293,37 @@ function _mbRadarSvg() {
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 function _mbOverviewHtml() {
-  var dims = MB_TAX_TABS.filter(function(t) { return t.id !== 'overview'; });
+  var families = _mbQuadrantFamilies();
+  var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
 
-  // Left: radar. Right: dimension cards grid
-  var html = '<div style="display:flex;gap:28px;align-items:flex-start">';
-
-  // Radar
-  html += '<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px">'
-    + _mbRadarSvg()
-    + '<div style="font-size:10px;color:var(--faint);text-align:center">Affinity profile across all dimensions</div>'
-    + '</div>';
-
-  // Dimension cards grid
-  html += '<div style="flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">';
-
+  // Collect top signals (top 12 per dimension)
+  var seen = {}, signals = [];
   dims.forEach(function(d) {
-    var items = (_mbScored[d.id] || []).slice(0, 5);
-    var avgScore = items.length ? Math.round(items.reduce(function(s,i){return s+i.score;},0)/items.length) : 0;
-    var totalPods = items.reduce(function(s,i){return s+_mbPods(i);},0);
-
-    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer" onclick="mbSwitchTaxTab(\'' + d.id + '\')" onmouseenter="this.style.borderColor=\'var(--accent-muted)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
-      +   '<span style="font-size:12px;font-weight:600;color:var(--text)">' + _mbEsc(d.label) + '</span>'
-      +   '<span style="font-size:10px;color:var(--muted)">' + avgScore + ' avg · ' + _mbFmtN(totalPods) + ' pods</span>'
-      + '</div>';
-
-    // Mini bars for top 4 items
-    var maxScore = items.length ? items[0].score : 1;
-    items.forEach(function(item) {
-      var pods = _mbPods(item);
-      var pct  = maxScore > 0 ? Math.round(item.score / maxScore * 100) : 0;
-      var key  = d.id + ':' + item.id;
-      var sel  = !!_mbSelected[key];
-      html += '<div onclick="event.stopPropagation();mbToggleItem(\'' + _mbEsc(key) + '\')" style="margin-bottom:5px;cursor:pointer">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">'
-        +   '<span style="font-size:11px;color:' + (sel ? 'var(--accent)' : 'var(--text)') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;font-weight:' + (sel ? '600' : '400') + '">' + _mbEsc(item.name.length > 22 ? item.name.slice(0,22)+'…' : item.name) + '</span>'
-        +   '<span style="font-size:10px;color:var(--faint);flex-shrink:0;margin-left:4px">' + _mbFmtN(pods) + ' pods</span>'
-        + '</div>'
-        + '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">'
-        +   '<div style="height:100%;width:' + pct + '%;background:' + (sel ? 'var(--accent)' : 'var(--border-md)') + ';border-radius:2px;transition:width .3s"></div>'
-        + '</div>'
-        + '</div>';
+    (_mbScored[d.id] || []).slice(0,12).forEach(function(item) {
+      var key = d.id + ':' + item.id;
+      if (!seen[key] && item.score > 0) {
+        seen[key] = true;
+        signals.push({ name:item.name, type:d.label, typeId:d.id, id:item.id, score:item.score, key:key });
+      }
     });
-
-    html += '</div>';
   });
+  signals.forEach(function(s){ s.quadrant = _mbAssignQuadrant(s, families); });
+  signals = signals.filter(function(s){ return s.score>0; }).slice(0,60);
 
-  html += '</div></div>';
-  return html;
+  return '<div>'
+    + '<div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;align-items:center">'
+    + families.map(function(f,i){
+        return '<div style="display:flex;align-items:center;gap:5px">'
+          + '<span style="width:9px;height:9px;border-radius:50%;background:' + Q_COLORS[i] + ';flex-shrink:0"></span>'
+          + '<span style="font-size:11px;color:var(--muted)">' + _mbEsc(f.label) + '</span>'
+          + '</div>';
+      }).join('')
+    + '<div style="margin-left:auto;font-size:10px;color:var(--faint)">Point size = score &nbsp;·&nbsp; Click to select</div>'
+    + '</div>'
+    + '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)">'
+    + _mbScatterSvg(signals, families)
+    + '</div>'
+    + '</div>';
 }
 
 // ── Dimension tab ─────────────────────────────────────────────────────────────
