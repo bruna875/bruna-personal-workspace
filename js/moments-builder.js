@@ -197,8 +197,17 @@ function mbSwitchTaxTab(id) {
 }
 
 // ── Quadrant scatter plot ─────────────────────────────────────────────────────
-var Q_COLORS = ['#3b82f6','#10b981','#f59e0b','#e11d8f'];
-var Q_BG     = ['rgba(59,130,246,.05)','rgba(16,185,129,.05)','rgba(245,158,11,.05)','rgba(225,29,143,.05)'];
+// Colors by taxonomy type (for points + legend)
+var MB_TYPE_COLORS = {
+  iab:          '#3b82f6',
+  emotion:      '#e11d8f',
+  sentiment:    '#8b5cf6',
+  object:       '#f59e0b',
+  location:     '#10b981',
+  logo:         '#ef4444',
+  face:         '#06b6d4',
+  brand_safety: '#64748b',
+};
 
 function _mbQuadrantFamilies() {
   var t = _mbThemes.slice();
@@ -229,66 +238,100 @@ function _mbAssignQuadrant(sig, families) {
 }
 
 function _mbScatterSvg(signals, families) {
-  var W = 600, H = 400, CX = W/2, CY = H/2, PAD = 50;
-  var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block">';
+  var W = 600, H = 420, CX = W/2, CY = H/2, PAD = 46;
 
-  // Quadrant backgrounds
-  [[0,0],[CX,0],[0,CY],[CX,CY]].forEach(function(o,i){
-    svg += '<rect x="' + o[0] + '" y="' + o[1] + '" width="' + CX + '" height="' + CY + '" fill="' + Q_BG[i] + '"/>';
+  // Normalize pod sizes for point radius (3–11px)
+  var allPods = signals.map(function(s){ return _mbPods(s); });
+  var maxPods = Math.max.apply(null, allPods.concat([1]));
+  function podRadius(pods) { return 3 + (pods / maxPods) * 8; }
+
+  var svg = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block;background:#fff">';
+
+  // Subtle grid lines
+  svg += '<line x1="' + CX + '" y1="0" x2="' + CX + '" y2="' + H + '" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="6,5"/>';
+  svg += '<line x1="0" y1="' + CY + '" x2="' + W + '" y2="' + CY + '" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="6,5"/>';
+
+  // Quadrant family labels — top-left, top-right, bottom-right, bottom-left
+  var labelDefs = [
+    { x: 12,      y: 16,   anchor: 'start' },   // top-left
+    { x: W-12,    y: 16,   anchor: 'end'   },   // top-right
+    { x: W-12,    y: H-10, anchor: 'end'   },   // bottom-right
+    { x: 12,      y: H-10, anchor: 'start' },   // bottom-left
+  ];
+  families.forEach(function(f, i) {
+    var lp = labelDefs[i];
+    svg += '<text x="' + lp.x + '" y="' + lp.y + '" font-size="11" font-weight="700" fill="#9ca3af" font-family="Geist,sans-serif" text-anchor="' + lp.anchor + '">' + _mbEsc(f.label) + '</text>';
   });
 
-  // Border + axes
-  svg += '<rect x=".5" y=".5" width="' + (W-1) + '" height="' + (H-1) + '" fill="none" stroke="var(--border)" stroke-width="1"/>';
-  svg += '<line x1="' + CX + '" y1="0" x2="' + CX + '" y2="' + H + '" stroke="var(--border-md)" stroke-width="1" stroke-dasharray="5,4"/>';
-  svg += '<line x1="0" y1="' + CY + '" x2="' + W + '" y2="' + CY + '" stroke="var(--border-md)" stroke-width="1" stroke-dasharray="5,4"/>';
-
-  // Quadrant family labels
-  [[12,16],[CX+12,16],[12,CY+16],[CX+12,CY+16]].forEach(function(p,i){
-    svg += '<text x="' + p[0] + '" y="' + p[1] + '" font-size="11" font-weight="700" fill="' + Q_COLORS[i] + '" font-family="Geist,sans-serif" opacity=".8">' + _mbEsc(families[i].label) + '</text>';
+  // Points (render small/low first so large appear on top)
+  var sorted = signals.slice().sort(function(a,b){
+    return _mbPods(a) - _mbPods(b);
   });
-
-  // Scatter points (render low-score first so high-score dots appear on top)
-  var sorted = signals.slice().sort(function(a,b){ return a.score - b.score; });
   var qCounts = [0,0,0,0];
 
   sorted.forEach(function(sig) {
     var q = sig.quadrant, idx = qCounts[q]++;
     var cols = 6, row = Math.floor(idx/cols), col = idx % cols;
-    var iW = CX - PAD*2, iH = CY - PAD*2 - 18;
-    var qOX = q%2===0 ? 0 : CX, qOY = q<2 ? 0 : CY;
+    var iW = CX - PAD*2, iH = CY - PAD*2 - 20;
 
-    // Deterministic jitter
+    // Quadrant origin: top-left=Q0, top-right=Q1, bottom-left=Q2, bottom-right=Q3
+    var qOX = q===0||q===2 ? 0 : CX;
+    var qOY = q===0||q===1 ? 0 : CY;
+
     var jSeed = 0, js = sig.name + sig.typeId;
     for (var i=0;i<js.length;i++) jSeed=(((jSeed<<5)-jSeed)+js.charCodeAt(i))&0x7fff;
-    var jx = (jSeed%28)-14, jy = ((jSeed>>4)%28)-14;
+    var jx = (jSeed%30)-15, jy = ((jSeed>>4)%30)-15;
 
-    var px = Math.max(qOX+8, Math.min(qOX+CX-14, qOX+PAD+(col/Math.max(1,cols-0.5))*iW+jx));
-    var py = Math.max(qOY+22, Math.min(qOY+CY-8, qOY+PAD+18+(row/4)*iH+jy));
+    var px = Math.max(qOX+10, Math.min(qOX+CX-12, qOX+PAD+(col/Math.max(1,cols-.5))*iW+jx));
+    var py = Math.max(qOY+24, Math.min(qOY+CY-10, qOY+PAD+22+(row/4)*iH+jy));
 
-    var r = 3 + (sig.score/100)*8;
-    var sel = !!_mbSelected[sig.key];
-    var c = Q_COLORS[q];
+    var pods = _mbPods(sig);
+    var r    = podRadius(pods);
+    var sel  = !!_mbSelected[sig.key];
+    var c    = MB_TYPE_COLORS[sig.typeId] || '#8b5cf6';
 
-    // Label for high-score signals
-    if (sig.score >= 65) {
-      var lbl = (sig.name.length>16 ? sig.name.slice(0,16)+'…' : sig.name) + ' · ' + sig.type;
-      var tx = px+r+4, ty = py+3.5;
-      var anchor = 'start';
-      if (tx + lbl.length*5.3 > W-4) { tx = px-r-4; anchor = 'end'; }
-      svg += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" font-size="9" fill="var(--muted)" font-family="Geist,sans-serif" text-anchor="' + anchor + '" pointer-events="none">' + _mbEsc(lbl) + '</text>';
+    // Label for top signals (score >= 70)
+    if (sig.score >= 70) {
+      var lbl  = (sig.name.length>15 ? sig.name.slice(0,15)+'…' : sig.name);
+      var tx   = px+r+4, anchor = 'start';
+      if (tx + lbl.length*5.2 > W-6) { tx = px-r-4; anchor = 'end'; }
+      svg += '<text x="' + tx.toFixed(1) + '" y="' + (py+3.5).toFixed(1) + '" font-size="9" fill="#6b7280" font-family="Geist,sans-serif" text-anchor="' + anchor + '" pointer-events="none">' + _mbEsc(lbl) + '</text>';
     }
 
+    var tipData = _mbEsc(sig.name) + '|' + _mbEsc(sig.type) + '|' + sig.score + '|' + pods;
     svg += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + r.toFixed(1) + '"'
-      + ' fill="' + c + '" opacity="' + (sel?'1':'0.55') + '"'
-      + (sel?' stroke="#fff" stroke-width="1.5"':'')
-      + ' style="cursor:pointer;transition:opacity .15s"'
-      + ' onclick="mbToggleItem(\'' + (sig.key+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">'
-      + '<title>' + _mbEsc(sig.name + ' · ' + sig.type + ' — score ' + sig.score) + '</title>'
-      + '</circle>';
+      + ' fill="' + c + '" fill-opacity="' + (sel?'.95':'.6') + '"'
+      + (sel?' stroke="#fff" stroke-width="2"':' stroke="' + c + '" stroke-width="0.5"')
+      + ' style="cursor:pointer;transition:fill-opacity .15s"'
+      + ' onclick="mbToggleItem(\'' + (sig.key+'').replace(/'/g,"\\'") + '\')"'
+      + ' onmouseover="mbScatterTip(event,\'' + tipData + '\')"'
+      + ' onmouseout="mbScatterHideTip()"'
+      + '/>';
   });
 
   svg += '</svg>';
   return svg;
+}
+
+// Tooltip helpers
+function mbScatterTip(e, data) {
+  var parts = data.split('|');
+  var name = parts[0], type = parts[1], score = parts[2], pods = parts[3];
+  var tip = document.getElementById('mb-scatter-tip');
+  if (!tip) return;
+  tip.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">' + name + '</div>'
+    + '<div style="font-size:11px;color:var(--muted)">' + type + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:5px">'
+    +   '<span style="font-size:11px">Score <strong>' + score + '</strong></span>'
+    +   '<span style="font-size:11px">Pods <strong>' + pods + '</strong></span>'
+    + '</div>';
+  tip.style.display = 'block';
+  tip.style.left = (e.offsetX + 14) + 'px';
+  tip.style.top  = (e.offsetY - 10) + 'px';
+}
+function mbScatterHideTip() {
+  var tip = document.getElementById('mb-scatter-tip');
+  if (tip) tip.style.display = 'none';
 }
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
@@ -296,7 +339,7 @@ function _mbOverviewHtml() {
   var families = _mbQuadrantFamilies();
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
 
-  // Collect top signals (top 12 per dimension)
+  // Collect top signals
   var seen = {}, signals = [];
   dims.forEach(function(d) {
     (_mbScored[d.id] || []).slice(0,12).forEach(function(item) {
@@ -308,20 +351,25 @@ function _mbOverviewHtml() {
     });
   });
   signals.forEach(function(s){ s.quadrant = _mbAssignQuadrant(s, families); });
-  signals = signals.filter(function(s){ return s.score>0; }).slice(0,60);
+  signals = signals.filter(function(s){ return s.score > 0; }).slice(0,60);
+
+  // Legend by taxonomy category
+  var legend = dims.map(function(d) {
+    var c = MB_TYPE_COLORS[d.id] || '#8b5cf6';
+    return '<div style="display:flex;align-items:center;gap:5px">'
+      + '<span style="width:9px;height:9px;border-radius:50%;background:' + c + ';flex-shrink:0"></span>'
+      + '<span style="font-size:11px;color:var(--muted)">' + _mbEsc(d.label) + '</span>'
+      + '</div>';
+  }).join('');
 
   return '<div>'
-    + '<div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;align-items:center">'
-    + families.map(function(f,i){
-        return '<div style="display:flex;align-items:center;gap:5px">'
-          + '<span style="width:9px;height:9px;border-radius:50%;background:' + Q_COLORS[i] + ';flex-shrink:0"></span>'
-          + '<span style="font-size:11px;color:var(--muted)">' + _mbEsc(f.label) + '</span>'
-          + '</div>';
-      }).join('')
-    + '<div style="margin-left:auto;font-size:10px;color:var(--faint)">Point size = score &nbsp;·&nbsp; Click to select</div>'
+    + '<div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'
+    +   legend
+    +   '<div style="margin-left:auto;font-size:10px;color:var(--faint)">Point size = pods &nbsp;·&nbsp; Click to select</div>'
     + '</div>'
-    + '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)">'
-    + _mbScatterSvg(signals, families)
+    + '<div style="position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden">'
+    +   _mbScatterSvg(signals, families)
+    +   '<div id="mb-scatter-tip" style="display:none;position:absolute;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;padding:8px 12px;box-shadow:0 4px 12px rgba(0,0,0,.12);pointer-events:none;z-index:10;min-width:140px"></div>'
     + '</div>'
     + '</div>';
 }
