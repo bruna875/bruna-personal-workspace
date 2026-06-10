@@ -239,25 +239,81 @@ function _mbOverviewHtml() {
     + '</div>';
 }
 
+// 4 colors for the keyword families
+var MB_FAMILY_COLORS = ['#5890D4','#48BC6C','#F4A234','#E04CA0'];
+
+function _mbFamilyScore(sig, family) {
+  var txt = (sig.name + ' ' + sig.typeId).toLowerCase();
+  return family.themes.reduce(function(tot, theme) {
+    return tot + theme.toLowerCase().split(/\s+/).filter(function(w){
+      return w.length > 2 && txt.includes(w);
+    }).length;
+  }, 0);
+}
+
+function _mbAssignFamily(sig, families) {
+  var best = -1, bestN = 0;
+  families.forEach(function(f, fi) {
+    var n = _mbFamilyScore(sig, f);
+    if (n > bestN) { bestN = n; best = fi; }
+  });
+  if (best < 0) {
+    var seed = 0;
+    for (var i = 0; i < sig.name.length; i++) seed = (((seed << 5) - seed) + sig.name.charCodeAt(i)) & 0x7fff;
+    best = seed % 4;
+  }
+  return best;
+}
+
+function _mbQuadrantFamilies() {
+  var t = _mbThemes.slice();
+  if (!t.length) return [{label:'Group A',themes:[]},{label:'Group B',themes:[]},{label:'Group C',themes:[]},{label:'Group D',themes:[]}];
+  var n = t.length, q = Math.ceil(n / 4);
+  return [t.slice(0,q), t.slice(q,q*2), t.slice(q*2,q*3), t.slice(q*3)].map(function(g) {
+    var lbl = (g[0] || 'Group').replace(/^\w/, function(c){return c.toUpperCase();});
+    if (lbl.length > 22) lbl = lbl.slice(0,22)+'…';
+    return { label: lbl, themes: g };
+  });
+}
+
 function _mbRenderPackedBubble() {
   var el = document.getElementById('mb-packed-bubble');
   if (!el || !_mbScored) return;
 
+  var families = _mbQuadrantFamilies();
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
 
-  var series = dims.map(function(d) {
-    var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0, 25);
+  // Collect all signals
+  var seen = {}, allSignals = [];
+  dims.forEach(function(d) {
+    (_mbScored[d.id] || []).slice(0, 20).forEach(function(item) {
+      var key = d.id + ':' + item.id;
+      if (!seen[key]) {
+        seen[key] = true;
+        allSignals.push({ name: item.name, type: d.label, typeId: d.id, id: item.id, score: item.score, key: key });
+      }
+    });
+  });
+
+  // Group signals into 4 family buckets
+  var buckets = [[], [], [], []];
+  allSignals.forEach(function(sig) {
+    buckets[_mbAssignFamily(sig, families)].push(sig);
+  });
+
+  var series = families.map(function(f, fi) {
     return {
-      name: d.label,
-      color: MB_TYPE_COLORS[d.id] || '#8b5cf6',
-      data: items.map(function(item) {
-        var pods = _mbPods(item);
+      name: f.label,
+      color: MB_FAMILY_COLORS[fi],
+      data: buckets[fi].map(function(sig) {
+        var pods = _mbPods(sig);
         return {
-          name: item.name.length > 20 ? item.name.slice(0,20)+'…' : item.name,
-          fullName: item.name,
+          name: sig.name.length > 22 ? sig.name.slice(0,22)+'…' : sig.name,
+          fullName: sig.name,
           value: pods,
-          score: item.score,
-          _key: d.id + ':' + item.id
+          score: sig.score,
+          type: sig.type,
+          _key: sig.key
         };
       })
     };
