@@ -1,5 +1,22 @@
 // moments-builder.js — Custom Moments Builder
 
+// ── Highcharts loader ─────────────────────────────────────────────────────────
+var _mbHcLoaded = false;
+var _mbHcChart  = null;
+
+function _mbLoadHighcharts(cb) {
+  if (_mbHcLoaded && typeof Highcharts !== 'undefined') { cb(); return; }
+  var s1 = document.createElement('script');
+  s1.src = 'https://code.highcharts.com/highcharts.js';
+  s1.onload = function() {
+    var s2 = document.createElement('script');
+    s2.src = 'https://code.highcharts.com/highcharts-more.js';
+    s2.onload = function() { _mbHcLoaded = true; cb(); };
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s1);
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 var _mbInputTab    = 'text';
 var _mbTaxTab      = 'overview';
@@ -155,6 +172,7 @@ async function mbAnalyze() {
 
     var results = document.getElementById('mb-results');
     if (results) results.innerHTML = _mbResultsHtml();
+    setTimeout(_mbRenderPackedBubble, 0);
 
   } catch(e) {
     _mbSetStatus('Error: ' + e.message, true);
@@ -194,210 +212,136 @@ function mbSwitchTaxTab(id) {
   if (tabsEl) tabsEl.outerHTML = UI.tabNav(MB_TAX_TABS, _mbTaxTab, 'mbSwitchTaxTab');
   var panel = document.getElementById('mb-tax-panel');
   if (panel) panel.innerHTML = id === 'overview' ? _mbOverviewHtml() : _mbTaxPanelHtml(id);
+  if (id === 'overview') setTimeout(_mbRenderPackedBubble, 0);
 }
 
-// ── Quadrant scatter plot ─────────────────────────────────────────────────────
+// ── Overview: Packed Bubble Split (Highcharts) ───────────────────────────────
 // Colors by taxonomy type — from UI Kit CHART_COLORS_FULL palette
 var MB_TYPE_COLORS = {
-  iab:          '#5890D4', // Sky-Blue
-  emotion:      '#E04CA0', // Hot Pink
-  sentiment:    '#9870CC', // Violet
-  object:       '#F4A234', // Amber
-  location:     '#48BC6C', // Green
-  logo:         '#F47843', // Warm Orange
-  face:         '#38BCBC', // Teal
-  brand_safety: '#6878CC', // Cornflower
+  iab:          '#5890D4',
+  emotion:      '#E04CA0',
+  sentiment:    '#9870CC',
+  object:       '#F4A234',
+  location:     '#48BC6C',
+  logo:         '#F47843',
+  face:         '#38BCBC',
+  brand_safety: '#6878CC',
 };
 
-function _mbQuadrantFamilies() {
-  var t = _mbThemes.slice();
-  if (!t.length) return [{label:'Category A',themes:[]},{label:'Category B',themes:[]},{label:'Category C',themes:[]},{label:'Category D',themes:[]}];
-  var n = t.length, q = Math.ceil(n / 4);
-  return [t.slice(0,q), t.slice(q,q*2), t.slice(q*2,q*3), t.slice(q*3)].map(function(g) {
-    var lbl = (g[0] || 'Group').replace(/^\w/, function(c){return c.toUpperCase();});
-    if (lbl.length > 22) lbl = lbl.slice(0,22)+'…';
-    return { label: lbl, themes: g };
-  });
-}
-
-// Score a signal against a theme family (keyword overlap)
-function _mbFamilyScore(sig, family) {
-  var txt = (sig.name + ' ' + sig.typeId).toLowerCase();
-  return family.themes.reduce(function(tot, theme) {
-    return tot + theme.toLowerCase().split(/\s+/).filter(function(w){
-      return w.length > 2 && txt.includes(w);
-    }).length;
-  }, 0);
-}
-
-// Compute semantic 2D position for each signal relative to 4 families
-// Layout: families[0]=top-left, [1]=top-right, [2]=bottom-right, [3]=bottom-left
-// xScore = right (Q1+Q2) minus left (Q0+Q3) → positive = right
-// yScore = top (Q0+Q1) minus bottom (Q2+Q3) → positive = top
-function _mbComputePositions(signals, families) {
-  signals.forEach(function(sig) {
-    var s = [0,1,2,3].map(function(i){ return _mbFamilyScore(sig, families[i]); });
-    sig._xs = (s[1]+s[2]) - (s[0]+s[3]); // x semantic score
-    sig._ys = (s[0]+s[1]) - (s[2]+s[3]); // y semantic score
-    sig._hasMatch = (s[0]+s[1]+s[2]+s[3]) > 0;
-  });
-  // Normalize to [-1, 1]
-  var mxX = Math.max.apply(null, signals.map(function(s){ return Math.abs(s._xs); }).concat([1]));
-  var mxY = Math.max.apply(null, signals.map(function(s){ return Math.abs(s._ys); }).concat([1]));
-  signals.forEach(function(sig) {
-    sig._xn = sig._xs / mxX;
-    sig._yn = sig._ys / mxY;
-  });
-}
-
-function _mbAssignQuadrant(sig) {
-  // Derived from semantic position (for legacy callers)
-  if (sig._xn >= 0 && sig._yn >= 0) return 1; // top-right
-  if (sig._xn <  0 && sig._yn >= 0) return 0; // top-left
-  if (sig._xn >= 0 && sig._yn <  0) return 2; // bottom-right
-  return 3;                                     // bottom-left
-}
-
-function _mbScatterSvg(signals, families) {
-  var W = 640, H = 460, CX = W/2, CY = H/2, PAD = 44;
-
-  // Normalize pod sizes for point radius (3–11px)
-  var allPods = signals.map(function(s){ return _mbPods(s); });
-  var maxPods = Math.max.apply(null, allPods.concat([1]));
-  function podRadius(pods) { return 3 + (pods / maxPods) * 8; }
-
-  var svg = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" style="display:block;background:#fff">';
-
-  // Axis lines — thin solid
-  svg += '<line x1="' + CX + '" y1="0" x2="' + CX + '" y2="' + H + '" stroke="#e5e7eb" stroke-width="0.75"/>';
-  svg += '<line x1="0" y1="' + CY + '" x2="' + W + '" y2="' + CY + '" stroke="#e5e7eb" stroke-width="0.75"/>';
-
-  // Quadrant family labels — top-left, top-right, bottom-right, bottom-left
-  var labelDefs = [
-    { x: 10,   y: 14,   anchor: 'start' },
-    { x: W-10, y: 14,   anchor: 'end'   },
-    { x: W-10, y: H-8,  anchor: 'end'   },
-    { x: 10,   y: H-8,  anchor: 'start' },
-  ];
-  families.forEach(function(f, i) {
-    var lp = labelDefs[i];
-    var lbl = f.label.length > 18 ? f.label.slice(0,18)+'…' : f.label;
-    svg += '<text x="' + lp.x + '" y="' + lp.y + '" font-size="9" font-weight="600" fill="#c0c4cc" font-family="Geist,sans-serif" text-anchor="' + lp.anchor + '" letter-spacing=".3">' + _mbEsc(lbl.toUpperCase()) + '</text>';
-  });
-
-  // Points — render small pods first so large appear on top
-  var sorted = signals.slice().sort(function(a,b){ return _mbPods(a) - _mbPods(b); });
-  var INNER = CX - PAD * 1.1; // usable half-width
-
-  sorted.forEach(function(sig) {
-    // Semantic position from normalized scores
-    var xBase, yBase;
-    if (sig._hasMatch) {
-      xBase = CX + sig._xn * INNER;
-      yBase = CY - sig._yn * INNER;
-    } else {
-      // No theme match: scatter within the "right" quadrant by type hash, near center
-      xBase = CX;
-      yBase = CY;
-    }
-
-    // Small deterministic jitter to separate overlapping points
-    var jSeed = 0, js = sig.name + sig.typeId + sig.id;
-    for (var i=0;i<js.length;i++) jSeed=(((jSeed<<5)-jSeed)+js.charCodeAt(i))&0x7fff;
-    var jx = (jSeed % 22) - 11;
-    var jy = ((jSeed >> 4) % 22) - 11;
-
-    var px = Math.max(8, Math.min(W-8, xBase + jx));
-    var py = Math.max(18, Math.min(H-8, yBase + jy));
-
-    var pods = _mbPods(sig);
-    var r    = podRadius(pods);
-    var sel  = !!_mbSelected[sig.key];
-    var c    = MB_TYPE_COLORS[sig.typeId] || '#8b5cf6';
-
-    // Label for top signals (score >= 75)
-    if (sig.score >= 75) {
-      var lbl  = (sig.name.length>13 ? sig.name.slice(0,13)+'…' : sig.name);
-      var tx   = px+r+3, anchor = 'start';
-      if (tx + lbl.length*4.8 > W-6) { tx = px-r-3; anchor = 'end'; }
-      svg += '<text x="' + tx.toFixed(1) + '" y="' + (py+3).toFixed(1) + '" font-size="8.5" fill="#9ca3af" font-family="Geist,sans-serif" text-anchor="' + anchor + '" pointer-events="none">' + _mbEsc(lbl) + '</text>';
-    }
-
-    var tipData = _mbEsc(sig.name) + '|' + _mbEsc(sig.type) + '|' + sig.score + '|' + pods;
-    svg += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + r.toFixed(1) + '"'
-      + ' fill="' + c + '" fill-opacity="' + (sel ? '.95' : '.6') + '"'
-      + (sel ? ' stroke="#fff" stroke-width="2"' : ' stroke="' + c + '" stroke-width="0.5"')
-      + ' style="cursor:pointer;transition:fill-opacity .15s"'
-      + ' onclick="mbToggleItem(\'' + (sig.key+'').replace(/'/g,"\\'") + '\')"'
-      + ' onmouseover="mbScatterTip(event,\'' + tipData + '\')"'
-      + ' onmouseout="mbScatterHideTip()"'
-      + '/>';
-  });
-
-  svg += '</svg>';
-  return svg;
-}
-
-// Tooltip helpers
-function mbScatterTip(e, data) {
-  var parts = data.split('|');
-  var name = parts[0], type = parts[1], score = parts[2], pods = parts[3];
-  var tip = document.getElementById('mb-scatter-tip');
-  if (!tip) return;
-  tip.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">' + name + '</div>'
-    + '<div style="font-size:11px;color:var(--muted)">' + type + '</div>'
-    + '<div style="display:flex;gap:10px;margin-top:5px">'
-    +   '<span style="font-size:11px">Score <strong>' + score + '</strong></span>'
-    +   '<span style="font-size:11px">Pods <strong>' + pods + '</strong></span>'
-    + '</div>';
-  tip.style.display = 'block';
-  tip.style.left = (e.offsetX + 14) + 'px';
-  tip.style.top  = (e.offsetY - 10) + 'px';
-}
-function mbScatterHideTip() {
-  var tip = document.getElementById('mb-scatter-tip');
-  if (tip) tip.style.display = 'none';
-}
-
-// ── Overview tab ──────────────────────────────────────────────────────────────
+// ── Overview tab — Packed Bubble Split (Highcharts) ──────────────────────────
 function _mbOverviewHtml() {
-  var families = _mbQuadrantFamilies();
+  var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
+  return '<div>'
+    + '<div style="font-size:10px;color:var(--faint);text-align:right;margin-bottom:6px">Bubble size = pods &nbsp;·&nbsp; Click to select</div>'
+    + '<div id="mb-packed-bubble" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;min-height:420px;display:flex;align-items:center;justify-content:center">'
+    +   '<span style="font-size:12px;color:var(--faint)">Loading chart…</span>'
+    + '</div>'
+    + '</div>';
+}
+
+function _mbRenderPackedBubble() {
+  var el = document.getElementById('mb-packed-bubble');
+  if (!el || !_mbScored) return;
+
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
 
-  // Collect signals — top 20 per dimension regardless of score
-  var seen = {}, signals = [];
-  dims.forEach(function(d) {
-    (_mbScored[d.id] || []).slice(0,20).forEach(function(item) {
-      var key = d.id + ':' + item.id;
-      if (!seen[key]) {
-        seen[key] = true;
-        signals.push({ name:item.name, type:d.label, typeId:d.id, id:item.id, score:item.score, key:key });
-      }
+  var series = dims.map(function(d) {
+    var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0, 25);
+    return {
+      name: d.label,
+      color: MB_TYPE_COLORS[d.id] || '#8b5cf6',
+      data: items.map(function(item) {
+        var pods = _mbPods(item);
+        return {
+          name: item.name.length > 20 ? item.name.slice(0,20)+'…' : item.name,
+          fullName: item.name,
+          value: pods,
+          score: item.score,
+          _key: d.id + ':' + item.id
+        };
+      })
+    };
+  }).filter(function(s){ return s.data.length > 0; });
+
+  if (_mbHcChart) { try { _mbHcChart.destroy(); } catch(e){} _mbHcChart = null; }
+
+  _mbLoadHighcharts(function() {
+    var el2 = document.getElementById('mb-packed-bubble');
+    if (!el2) return;
+    _mbHcChart = Highcharts.chart('mb-packed-bubble', {
+      chart: {
+        type: 'packedbubble',
+        height: 440,
+        backgroundColor: '#ffffff',
+        style: { fontFamily: 'Geist, system-ui, sans-serif' },
+        animation: { duration: 600 }
+      },
+      title: { text: null },
+      credits: { enabled: false },
+      legend: {
+        enabled: true,
+        itemStyle: { fontSize: '11px', fontWeight: '500', color: '#6b7280' },
+        itemHoverStyle: { color: '#0D1E36' }
+      },
+      tooltip: {
+        useHTML: true,
+        backgroundColor: '#fff',
+        borderColor: 'rgba(0,0,0,.1)',
+        borderRadius: 8,
+        shadow: { color: 'rgba(0,0,0,.1)', offsetX: 0, offsetY: 4, opacity: .12, width: 12 },
+        style: { fontSize: '12px' },
+        formatter: function() {
+          var p = this.point;
+          return '<div style="font-weight:600;color:#0D1E36;margin-bottom:4px">' + (p.fullName || p.name) + '</div>'
+            + '<div style="color:#6b7280;font-size:11px;margin-bottom:4px">' + this.series.name + '</div>'
+            + '<div style="display:flex;gap:12px">'
+            +   '<span style="font-size:11px">Score <b>' + p.score + '</b></span>'
+            +   '<span style="font-size:11px">Pods <b>' + p.value + '</b></span>'
+            + '</div>';
+        }
+      },
+      plotOptions: {
+        packedbubble: {
+          minSize: '8%',
+          maxSize: '80%',
+          splitSeries: true,
+          seriesInteraction: false,
+          layoutAlgorithm: {
+            splitSeries: true,
+            gravitationalConstant: 0.02,
+            parentNodeLimit: true
+          },
+          dataLabels: {
+            enabled: true,
+            format: '{point.name}',
+            style: {
+              fontSize: '9px',
+              fontWeight: '400',
+              color: '#fff',
+              textOutline: 'none'
+            },
+            filter: { property: 'y', operator: '>', value: 50 }
+          },
+          point: {
+            events: {
+              click: function() {
+                var key = this._key;
+                if (!key) return;
+                mbToggleItem(key);
+                // Visual feedback: re-render panel
+                var panel = document.getElementById('mb-tax-panel');
+                if (panel && _mbTaxTab === 'overview') {
+                  // Re-init chart to reflect selection
+                  setTimeout(_mbRenderPackedBubble, 50);
+                }
+              }
+            }
+          }
+        }
+      },
+      series: series
     });
   });
-  _mbComputePositions(signals, families);
-  signals.forEach(function(s){ s.quadrant = _mbAssignQuadrant(s); });
-  signals = signals.sort(function(a,b){ return b.score - a.score; }).slice(0,120);
-
-  // Legend by taxonomy category
-  var legend = dims.map(function(d) {
-    var c = MB_TYPE_COLORS[d.id] || '#8b5cf6';
-    return '<div style="display:flex;align-items:center;gap:5px">'
-      + '<span style="width:9px;height:9px;border-radius:50%;background:' + c + ';flex-shrink:0"></span>'
-      + '<span style="font-size:11px;color:var(--muted)">' + _mbEsc(d.label) + '</span>'
-      + '</div>';
-  }).join('');
-
-  return '<div>'
-    + '<div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'
-    +   legend
-    +   '<div style="margin-left:auto;font-size:10px;color:var(--faint)">Point size = pods &nbsp;·&nbsp; Click to select</div>'
-    + '</div>'
-    + '<div style="position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden">'
-    +   _mbScatterSvg(signals, families)
-    +   '<div id="mb-scatter-tip" style="display:none;position:absolute;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;padding:8px 12px;box-shadow:0 4px 12px rgba(0,0,0,.12);pointer-events:none;z-index:10;min-width:140px"></div>'
-    + '</div>'
-    + '</div>';
 }
 
 // ── Dimension tab ─────────────────────────────────────────────────────────────
