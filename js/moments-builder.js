@@ -220,21 +220,42 @@ function _mbQuadrantFamilies() {
   });
 }
 
-function _mbAssignQuadrant(sig, families) {
-  var sigText = (sig.name + ' ' + sig.type).toLowerCase();
-  var best = -1, bestN = 0;
-  families.forEach(function(f, fi) {
-    var n = f.themes.reduce(function(s, theme) {
-      return s + theme.toLowerCase().split(/\s+/).filter(function(w){ return w.length > 2 && sigText.includes(w); }).length;
-    }, 0);
-    if (n > bestN) { bestN = n; best = fi; }
+// Score a signal against a theme family (keyword overlap)
+function _mbFamilyScore(sig, family) {
+  var txt = (sig.name + ' ' + sig.typeId).toLowerCase();
+  return family.themes.reduce(function(tot, theme) {
+    return tot + theme.toLowerCase().split(/\s+/).filter(function(w){
+      return w.length > 2 && txt.includes(w);
+    }).length;
+  }, 0);
+}
+
+// Compute semantic 2D position for each signal relative to 4 families
+// Layout: families[0]=top-left, [1]=top-right, [2]=bottom-right, [3]=bottom-left
+// xScore = right (Q1+Q2) minus left (Q0+Q3) → positive = right
+// yScore = top (Q0+Q1) minus bottom (Q2+Q3) → positive = top
+function _mbComputePositions(signals, families) {
+  signals.forEach(function(sig) {
+    var s = [0,1,2,3].map(function(i){ return _mbFamilyScore(sig, families[i]); });
+    sig._xs = (s[1]+s[2]) - (s[0]+s[3]); // x semantic score
+    sig._ys = (s[0]+s[1]) - (s[2]+s[3]); // y semantic score
+    sig._hasMatch = (s[0]+s[1]+s[2]+s[3]) > 0;
   });
-  if (best < 0) {
-    var seed = 0;
-    for (var i = 0; i < sig.name.length; i++) seed = (((seed << 5) - seed) + sig.name.charCodeAt(i)) & 0x7fff;
-    best = seed % 4;
-  }
-  return best;
+  // Normalize to [-1, 1]
+  var mxX = Math.max.apply(null, signals.map(function(s){ return Math.abs(s._xs); }).concat([1]));
+  var mxY = Math.max.apply(null, signals.map(function(s){ return Math.abs(s._ys); }).concat([1]));
+  signals.forEach(function(sig) {
+    sig._xn = sig._xs / mxX;
+    sig._yn = sig._ys / mxY;
+  });
+}
+
+function _mbAssignQuadrant(sig) {
+  // Derived from semantic position (for legacy callers)
+  if (sig._xn >= 0 && sig._yn >= 0) return 1; // top-right
+  if (sig._xn <  0 && sig._yn >= 0) return 0; // top-left
+  if (sig._xn >= 0 && sig._yn <  0) return 2; // bottom-right
+  return 3;                                     // bottom-left
 }
 
 function _mbScatterSvg(signals, families) {
@@ -264,27 +285,30 @@ function _mbScatterSvg(signals, families) {
     svg += '<text x="' + lp.x + '" y="' + lp.y + '" font-size="9" font-weight="600" fill="#c0c4cc" font-family="Geist,sans-serif" text-anchor="' + lp.anchor + '" letter-spacing=".3">' + _mbEsc(lbl.toUpperCase()) + '</text>';
   });
 
-  // Points (render small/low first so large appear on top)
-  var sorted = signals.slice().sort(function(a,b){
-    return _mbPods(a) - _mbPods(b);
-  });
-  var qCounts = [0,0,0,0];
+  // Points — render small pods first so large appear on top
+  var sorted = signals.slice().sort(function(a,b){ return _mbPods(a) - _mbPods(b); });
+  var INNER = CX - PAD * 1.1; // usable half-width
 
   sorted.forEach(function(sig) {
-    var q = sig.quadrant, idx = qCounts[q]++;
-    var cols = 6, row = Math.floor(idx/cols), col = idx % cols;
-    var iW = CX - PAD*2, iH = CY - PAD*2 - 20;
+    // Semantic position from normalized scores
+    var xBase, yBase;
+    if (sig._hasMatch) {
+      xBase = CX + sig._xn * INNER;
+      yBase = CY - sig._yn * INNER;
+    } else {
+      // No theme match: scatter within the "right" quadrant by type hash, near center
+      xBase = CX;
+      yBase = CY;
+    }
 
-    // Quadrant origin: top-left=Q0, top-right=Q1, bottom-left=Q2, bottom-right=Q3
-    var qOX = q===0||q===2 ? 0 : CX;
-    var qOY = q===0||q===1 ? 0 : CY;
-
-    var jSeed = 0, js = sig.name + sig.typeId;
+    // Small deterministic jitter to separate overlapping points
+    var jSeed = 0, js = sig.name + sig.typeId + sig.id;
     for (var i=0;i<js.length;i++) jSeed=(((jSeed<<5)-jSeed)+js.charCodeAt(i))&0x7fff;
-    var jx = (jSeed%30)-15, jy = ((jSeed>>4)%30)-15;
+    var jx = (jSeed % 22) - 11;
+    var jy = ((jSeed >> 4) % 22) - 11;
 
-    var px = Math.max(qOX+10, Math.min(qOX+CX-12, qOX+PAD+(col/Math.max(1,cols-.5))*iW+jx));
-    var py = Math.max(qOY+24, Math.min(qOY+CY-10, qOY+PAD+22+(row/4)*iH+jy));
+    var px = Math.max(8, Math.min(W-8, xBase + jx));
+    var py = Math.max(18, Math.min(H-8, yBase + jy));
 
     var pods = _mbPods(sig);
     var r    = podRadius(pods);
@@ -351,8 +375,8 @@ function _mbOverviewHtml() {
       }
     });
   });
-  signals.forEach(function(s){ s.quadrant = _mbAssignQuadrant(s, families); });
-  // Sort by score desc, cap at 120 for readability
+  _mbComputePositions(signals, families);
+  signals.forEach(function(s){ s.quadrant = _mbAssignQuadrant(s); });
   signals = signals.sort(function(a,b){ return b.score - a.score; }).slice(0,120);
 
   // Legend by taxonomy category
