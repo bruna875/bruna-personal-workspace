@@ -228,6 +228,28 @@ var MB_TYPE_COLORS = {
   brand_safety: '#6878CC',
 };
 
+// Center label for the stellar chart donut
+var _mbStellarLabelEl = null;
+function _mbStellarLabel(chart, name, count) {
+  var html = '<div style="text-align:center;pointer-events:none">'
+    + '<div style="font-size:11px;font-weight:600;color:#0D1E36;line-height:1.2">' + name + '</div>'
+    + '<div style="font-size:22px;font-weight:700;color:#ED005E;line-height:1.3">' + count + '</div>'
+    + '<div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px">signals</div>'
+    + '</div>';
+  if (!_mbStellarLabelEl) {
+    _mbStellarLabelEl = chart.renderer.label(html, 0, 0, void 0, void 0, void 0, true)
+      .css({ pointerEvents: 'none' }).add();
+  } else {
+    _mbStellarLabelEl.attr({ text: html });
+  }
+  var cx = chart.pane[0].center[0] + chart.plotLeft;
+  var cy = chart.pane[0].center[1] + chart.plotTop;
+  _mbStellarLabelEl.attr({
+    x: cx - _mbStellarLabelEl.attr('width') / 2,
+    y: cy - _mbStellarLabelEl.attr('height') / 2
+  });
+}
+
 // ── Overview tab — Packed Bubble Split (Highcharts) ──────────────────────────
 function _mbOverviewHtml() {
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
@@ -280,130 +302,161 @@ function _mbRenderPackedBubble() {
   var el = document.getElementById('mb-packed-bubble');
   if (!el || !_mbScored) return;
 
-  var families = _mbQuadrantFamilies();
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
+  var X_MAX = 32, sectorW = X_MAX / dims.length; // 4 units per sector
 
-  // Collect all signals
-  var seen = {}, allSignals = [];
-  dims.forEach(function(d) {
-    (_mbScored[d.id] || []).slice(0, 20).forEach(function(item) {
-      var key = d.id + ':' + item.id;
-      if (!seen[key]) {
-        seen[key] = true;
-        allSignals.push({ name: item.name, type: d.label, typeId: d.id, id: item.id, score: item.score, key: key });
-      }
+  // Build bubble data and pie data
+  var bubbleData = [], pieData = [];
+  var colorClasses = [];
+
+  dims.forEach(function(d, di) {
+    var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0, 15);
+    var centerX = (di + 0.5) * sectorW;
+
+    colorClasses.push({ from: di - 0.5, to: di + 0.5, color: MB_TYPE_COLORS[d.id] || '#8b5cf6', name: d.label });
+
+    items.forEach(function(item, ii) {
+      var cols = 5, row = Math.floor(ii/cols), col = ii % cols;
+      var jx = (col - 2) * (sectorW * 0.16);
+      var pods = Math.min(_mbPods(item), 300);
+      bubbleData.push({
+        name: item.name.length > 18 ? item.name.slice(0,18)+'…' : item.name,
+        fullName: item.name,
+        x: centerX + jx,
+        y: Math.max(8, item.score),
+        z: pods,
+        score: item.score,
+        type: d.label,
+        _key: d.id + ':' + item.id,
+        custom: { ti: di, pods: pods }
+      });
+    });
+
+    pieData.push({
+      name: d.label,
+      y: Math.max(items.length, 1),
+      color: MB_TYPE_COLORS[d.id] || '#8b5cf6',
+      custom: { ti: di }
     });
   });
 
-  // Group signals into 4 family buckets
-  var buckets = [[], [], [], []];
-  allSignals.forEach(function(sig) {
-    buckets[_mbAssignFamily(sig, families)].push(sig);
-  });
-
-  var series = families.map(function(f, fi) {
-    return {
-      name: f.label,
-      color: MB_FAMILY_COLORS[fi],
-      data: buckets[fi].map(function(sig) {
-        var pods = _mbPods(sig);
-        return {
-          name: sig.name.length > 22 ? sig.name.slice(0,22)+'…' : sig.name,
-          fullName: sig.name,
-          value: Math.min(pods, 300), // cap to prevent one huge bubble dominating
-          score: sig.score,
-          type: sig.type,
-          _key: sig.key
-        };
-      })
-    };
-  }).filter(function(s){ return s.data.length > 0; });
+  var series = [
+    { data: bubbleData },
+    {
+      type: 'pie', data: pieData,
+      dataLabels: { enabled: false },
+      size: '38%', innerSize: '82%', zIndex: -1,
+      point: {
+        events: {
+          mouseOver: function() {
+            var ti = this.options.custom.ti;
+            var chart = this.series.chart;
+            chart.series[0].points.forEach(function(p) {
+              p.graphic && p.graphic.attr({ opacity: p.options.custom.ti === ti ? 1 : 0.12 });
+            });
+            _mbStellarLabel(chart, this.name, this.y);
+          },
+          mouseOut: function() {
+            var chart = this.series.chart;
+            chart.series[0].points.forEach(function(p) {
+              p.graphic && p.graphic.attr({ opacity: 1 });
+            });
+            _mbStellarLabel(chart, 'All signals', bubbleData.length);
+          }
+        }
+      }
+    }
+  ];
 
   if (_mbHcChart) { try { _mbHcChart.destroy(); } catch(e){} _mbHcChart = null; }
+  _mbStellarLabelEl = null;
 
   _mbLoadHighcharts(function() {
     var el2 = document.getElementById('mb-packed-bubble');
     if (!el2) return;
+
     _mbHcChart = Highcharts.chart('mb-packed-bubble', {
       chart: {
-        type: 'packedbubble',
-        height: 460,
-        backgroundColor: '#ffffff',
+        type: 'bubble', polar: true,
+        height: 480,
+        backgroundColor: '#fff',
         style: { fontFamily: 'Geist, system-ui, sans-serif' },
-        animation: { duration: 500 },
-        margin: [10, 10, 50, 10]
+        animation: { duration: 600 },
+        events: {
+          render: function() {
+            _mbStellarLabel(this, 'All signals', bubbleData.length);
+          }
+        }
       },
       title: { text: null },
       credits: { enabled: false },
-      legend: {
-        enabled: true,
-        align: 'center',
-        verticalAlign: 'bottom',
-        itemStyle: { fontSize: '11px', fontWeight: '500', color: '#6b7280' },
-        itemHoverStyle: { color: '#0D1E36' }
+      legend: { enabled: false },
+      colorAxis: {
+        dataClasses: colorClasses,
+        showInLegend: false
+      },
+      pane: {
+        innerSize: '38%', size: '90%',
+        background: [
+          { backgroundColor: '#f8fafc', borderWidth: 0 },
+          { backgroundColor: '#fff', borderWidth: 0, outerRadius: '38%' }
+        ]
+      },
+      xAxis: {
+        min: 0, max: X_MAX,
+        tickInterval: sectorW,
+        gridLineWidth: 0.5, gridLineColor: '#e5e7eb',
+        labels: {
+          enabled: true,
+          formatter: function() {
+            var di = Math.round(this.value / sectorW - 0.5);
+            var d = dims[di];
+            return d ? '<span style="font-size:9px;font-weight:600;color:#9ca3af">' + d.label + '</span>' : '';
+          },
+          useHTML: true
+        },
+        lineWidth: 0
+      },
+      yAxis: {
+        min: 0, max: 110,
+        tickInterval: 25,
+        labels: { enabled: false },
+        gridLineWidth: 0.5, gridLineColor: '#e5e7eb',
+        gridLineDashStyle: 'longdash',
+        endOnTick: false
       },
       tooltip: {
         useHTML: true,
         backgroundColor: '#fff',
         borderColor: 'rgba(0,0,0,.1)',
         borderRadius: 8,
-        shadow: { color: 'rgba(0,0,0,.08)', offsetX: 0, offsetY: 4, opacity: .1, width: 10 },
-        style: { fontSize: '12px' },
+        outside: true,
         formatter: function() {
+          if (this.series.options.type === 'pie') return false;
           var p = this.point;
-          return '<div style="font-weight:600;color:#0D1E36;margin-bottom:4px">' + (p.fullName || p.name) + '</div>'
-            + '<div style="color:#6b7280;font-size:11px;margin-bottom:4px">' + p.type + ' · ' + this.series.name + '</div>'
+          return '<div style="font-weight:600;color:#0D1E36;font-size:12px;margin-bottom:3px">' + (p.fullName||p.name) + '</div>'
+            + '<div style="color:#6b7280;font-size:11px;margin-bottom:5px">' + p.type + '</div>'
             + '<div style="display:flex;gap:12px">'
-            +   '<span style="font-size:11px">Score <b>' + p.score + '</b></span>'
-            +   '<span style="font-size:11px">Pods <b>' + p.value + '</b></span>'
+            + '<span style="font-size:11px">Score <b>' + p.score + '</b></span>'
+            + '<span style="font-size:11px">Pods <b>' + p.custom.pods + '</b></span>'
             + '</div>';
         }
       },
       plotOptions: {
-        packedbubble: {
-          minSize: '5%',
-          maxSize: '45%',
-          splitSeries: true,
-          seriesInteraction: false,
-          draggable: false,
-          layoutAlgorithm: {
-            splitSeries: true,
-            gravitationalConstant: 0.05,
-            parentNodeLimit: true,
-            seriesInteraction: false,
-            dragBetweenSeries: false,
-            bubblePadding: 3,
-            parentNodeOptions: {
-              gravitationalConstant: 0.5,
-              marker: {
-                fillOpacity: 0.04,
-                lineWidth: 1,
-                lineColor: null
-              }
-            }
-          },
-          dataLabels: {
-            enabled: true,
-            format: '{point.name}',
-            style: {
-              fontSize: '9px',
-              fontWeight: '400',
-              color: '#fff',
-              textOutline: 'none'
-            },
-            filter: { property: 'value', operator: '>', value: 80 }
-          },
+        bubble: {
+          colorKey: 'custom.ti',
+          minSize: 4, maxSize: 20,
           point: {
             events: {
               click: function() {
                 var key = this._key;
-                if (!key) return;
-                mbToggleItem(key);
-                setTimeout(_mbRenderPackedBubble, 50);
+                if (key) { mbToggleItem(key); setTimeout(_mbRenderPackedBubble, 50); }
               }
             }
           }
-        }
+        },
+        series: { states: { inactive: { enabled: false } } },
+        pie: { states: { hover: { halo: 0 } } }
       },
       series: series
     });
