@@ -12,7 +12,7 @@ var _mbUploadFile  = null;
 var _mbLibraryImageUrl = null;
 
 var MB_TAX_TABS = [
-  { id: 'overview',     label: 'Overview'     },
+  { id: 'overview',     label: 'Top Scoring Signals' },
   { id: 'iab',          label: 'IAB'          },
   { id: 'emotion',      label: 'Emotions'     },
   { id: 'sentiment',    label: 'Sentiment'    },
@@ -89,12 +89,10 @@ function _mbUpdateThemesChips() {
   if (!el) return;
   if (!_mbThemes.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'flex';
-  el.innerHTML = _mbThemes.map(function(t) {
-    return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 8px;background:var(--subtle);border:1px solid var(--accent-muted);border-radius:20px;color:var(--accent);white-space:nowrap">'
-      + '<svg width="8" height="8" viewBox="0 0 8 8" fill="var(--accent)"><circle cx="4" cy="4" r="3"/></svg>'
-      + _mbEsc(t)
-      + '</span>';
-  }).join('');
+  el.innerHTML = '<span style="font-size:11px;font-weight:500;color:var(--faint);flex-shrink:0;margin-right:2px">Recognized keywords</span>'
+    + _mbThemes.map(function(t) {
+        return '<span style="font-size:11px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:20px;color:var(--muted);white-space:nowrap">' + _mbEsc(t) + '</span>';
+      }).join('');
 }
 
 // ── Analyze ───────────────────────────────────────────────────────────────────
@@ -136,9 +134,22 @@ async function mbAnalyze() {
     if (!resp.ok) throw new Error(data.error || 'API error');
 
     _mbThemes = data.themes || [];
-    _mbScored = data.scored || {};
+
+    // Normalize scores per dimension: top item → 100, rest scale accordingly
+    var raw = data.scored || {};
+    var normalized = {};
+    Object.keys(raw).forEach(function(type) {
+      var items = raw[type];
+      var maxS  = items.length ? items[0].score : 1;
+      if (maxS === 0) maxS = 1;
+      normalized[type] = items.map(function(item) {
+        return Object.assign({}, item, { score: Math.round(item.score / maxS * 100) });
+      });
+    });
+
+    _mbScored  = normalized;
     _mbShowAll = {};
-    _mbTaxTab = 'overview';
+    _mbTaxTab  = 'overview';
     _mbSetStatus('');
     _mbUpdateThemesChips();
 
@@ -256,7 +267,7 @@ function _mbOverviewHtml() {
   html += '<div style="flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">';
 
   dims.forEach(function(d) {
-    var items = (_mbScored[d.id] || []).slice(0, 4);
+    var items = (_mbScored[d.id] || []).slice(0, 5);
     var avgScore = items.length ? Math.round(items.reduce(function(s,i){return s+i.score;},0)/items.length) : 0;
     var totalPods = items.reduce(function(s,i){return s+_mbPods(i);},0);
 
