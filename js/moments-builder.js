@@ -215,6 +215,18 @@ function mbSwitchTaxTab(id) {
   if (id === 'overview') setTimeout(_mbRenderPackedBubble, 0);
 }
 
+var _mbChartMode = 1; // 1 = semantic groups, 2 = taxonomy, 3 = inventory
+
+function mbSetChartMode(m) {
+  _mbChartMode = m;
+  ['1','2','3'].forEach(function(i) {
+    var el = document.getElementById('mb-cm-' + i);
+    if (el) el.className = 'tx2-seg' + (i == m ? ' tx2-seg--act' : '');
+  });
+  _mbStellarLabelEl = null;
+  _mbRenderPackedBubble();
+}
+
 // ── Overview: Packed Bubble Split (Highcharts) ───────────────────────────────
 // Colors by taxonomy type — from UI Kit CHART_COLORS_FULL palette
 var MB_TYPE_COLORS = {
@@ -250,12 +262,26 @@ function _mbStellarLabel(chart, name, count) {
   });
 }
 
-// ── Overview tab — Packed Bubble Split (Highcharts) ──────────────────────────
+// ── Overview tab — Stellar Chart (Highcharts) ────────────────────────────────
 function _mbOverviewHtml() {
-  var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
+  var modes = [
+    { id: '1', label: 'Semantic groups', desc: 'Angle = group · Radius = score · Size = pods · Color = taxonomy' },
+    { id: '2', label: 'By taxonomy',     desc: 'Angle = taxonomy · Radius = score · Size = pods · Color = group' },
+    { id: '3', label: 'By inventory',    desc: 'Angle = taxonomy · Radius = pods · Size = score · Color = group' },
+  ];
+
+  var pills = '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;width:fit-content;margin-bottom:12px">'
+    + modes.map(function(m) {
+        var act = String(_mbChartMode) === m.id;
+        return '<div id="mb-cm-' + m.id + '" class="tx2-seg' + (act ? ' tx2-seg--act' : '') + '" onclick="mbSetChartMode(' + m.id + ')" title="' + m.desc + '">'
+          + '<span>' + m.label + '</span>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+
   return '<div>'
-    + '<div style="font-size:10px;color:var(--faint);text-align:right;margin-bottom:6px">Bubble size = pods &nbsp;·&nbsp; Click to select</div>'
-    + '<div id="mb-packed-bubble" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;min-height:420px;display:flex;align-items:center;justify-content:center">'
+    + pills
+    + '<div id="mb-packed-bubble" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;min-height:440px;display:flex;align-items:center;justify-content:center">'
     +   '<span style="font-size:12px;color:var(--faint)">Loading chart…</span>'
     + '</div>'
     + '</div>';
@@ -303,42 +329,68 @@ function _mbRenderPackedBubble() {
   if (!el || !_mbScored) return;
 
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
-  var X_MAX = 32, sectorW = X_MAX / dims.length; // 4 units per sector
+  var families = _mbQuadrantFamilies();
+  var mode = _mbChartMode;
 
-  // Build bubble data and pie data
-  var bubbleData = [], pieData = [];
-  var colorClasses = [];
+  // Mode 1: angle=semantic group, radius=score, size=pods, color=taxonomy
+  // Mode 2: angle=taxonomy, radius=score, size=pods, color=semantic group
+  // Mode 3: angle=taxonomy, radius=pods, size=score, color=semantic group
 
-  dims.forEach(function(d, di) {
-    var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0, 15);
-    var centerX = (di + 0.5) * sectorW;
+  var sectors = (mode === 1) ? families : dims;
+  var X_MAX = 32, sectorW = X_MAX / sectors.length;
+  var bubbleData = [], pieData = [], colorClasses = [];
 
-    colorClasses.push({ from: di - 0.5, to: di + 0.5, color: MB_TYPE_COLORS[d.id] || '#8b5cf6', name: d.label });
-
-    items.forEach(function(item, ii) {
-      var cols = 5, row = Math.floor(ii/cols), col = ii % cols;
-      var jx = (col - 2) * (sectorW * 0.16);
-      var pods = Math.min(_mbPods(item), 300);
-      bubbleData.push({
-        name: item.name.length > 18 ? item.name.slice(0,18)+'…' : item.name,
-        fullName: item.name,
-        x: centerX + jx,
-        y: Math.max(8, item.score),
-        z: pods,
-        score: item.score,
-        type: d.label,
-        _key: d.id + ':' + item.id,
-        custom: { ti: di, pods: pods }
+  if (mode === 1) {
+    // Build per-family buckets
+    var allSigs = [], seen = {};
+    dims.forEach(function(d) {
+      (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0,15).forEach(function(item) {
+        var key = d.id + ':' + item.id;
+        if (!seen[key]) { seen[key] = true; allSigs.push({ item: item, d: d }); }
+      });
+    });
+    families.forEach(function(f, fi) {
+      var c = MB_FAMILY_COLORS[fi];
+      colorClasses.push({ from: fi-0.5, to: fi+0.5, color: c, name: f.label });
+      var cx = (fi + 0.5) * sectorW;
+      var bucket = allSigs.filter(function(s){ return _mbAssignFamily(s.item, families) === fi; });
+      pieData.push({ name: f.label, y: Math.max(bucket.length,1), color: c, custom: { ti: fi } });
+      bucket.forEach(function(s, ii) {
+        var pods = Math.min(_mbPods(s.item), 300);
+        var jx = ((ii % 5) - 2) * (sectorW * 0.15);
+        bubbleData.push({
+          name: s.item.name.length>18 ? s.item.name.slice(0,18)+'…' : s.item.name,
+          fullName: s.item.name,
+          x: cx + jx, y: Math.max(8, s.item.score), z: pods,
+          score: s.item.score, type: s.d.label, _key: d.id + ':' + s.item.id,
+          custom: { ti: fi, pods: pods, color: MB_TYPE_COLORS[s.d.id] || '#8b5cf6' }
+        });
       });
     });
 
-    pieData.push({
-      name: d.label,
-      y: Math.max(items.length, 1),
-      color: MB_TYPE_COLORS[d.id] || '#8b5cf6',
-      custom: { ti: di }
+  } else {
+    // Modes 2 & 3: angle = taxonomy
+    dims.forEach(function(d, di) {
+      var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0,15);
+      var cx = (di + 0.5) * sectorW;
+      colorClasses.push({ from: di-0.5, to: di+0.5, color: MB_TYPE_COLORS[d.id] || '#8b5cf6', name: d.label });
+      pieData.push({ name: d.label, y: Math.max(items.length,1), color: MB_TYPE_COLORS[d.id]||'#8b5cf6', custom: { ti: di } });
+      items.forEach(function(item, ii) {
+        var pods = Math.min(_mbPods(item), 300);
+        var fi = _mbAssignFamily(item, families);
+        var jx = ((ii % 5) - 2) * (sectorW * 0.15);
+        var radius = mode === 3 ? Math.max(5, Math.round(pods / 3)) : Math.max(8, item.score);
+        var size   = mode === 3 ? item.score : pods;
+        bubbleData.push({
+          name: item.name.length>18 ? item.name.slice(0,18)+'…' : item.name,
+          fullName: item.name,
+          x: cx + jx, y: Math.min(radius, 105), z: Math.max(size, 5),
+          score: item.score, type: d.label, _key: d.id + ':' + item.id,
+          custom: { ti: di, pods: pods }
+        });
+      });
     });
-  });
+  }
 
   var series = [
     { data: bubbleData },
@@ -409,16 +461,18 @@ function _mbRenderPackedBubble() {
         labels: {
           enabled: true,
           formatter: function() {
-            var di = Math.round(this.value / sectorW - 0.5);
-            var d = dims[di];
-            return d ? '<span style="font-size:9px;font-weight:600;color:#9ca3af">' + d.label + '</span>' : '';
+            var si = Math.round(this.value / sectorW - 0.5);
+            var s = sectors[si];
+            var lbl = s ? (s.label || s.name || '') : '';
+            if (lbl.length > 10) lbl = lbl.slice(0,10)+'…';
+            return '<span style="font-size:9px;font-weight:600;color:#9ca3af">' + lbl + '</span>';
           },
           useHTML: true
         },
         lineWidth: 0
       },
       yAxis: {
-        min: 0, max: 110,
+        min: 0, max: mode === 3 ? 110 : 110,
         tickInterval: 25,
         labels: { enabled: false },
         gridLineWidth: 0.5, gridLineColor: '#e5e7eb',
