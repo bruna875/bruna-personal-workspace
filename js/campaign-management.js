@@ -2211,10 +2211,8 @@ function _cmRowsHtml() {
       return UI.btnIcon(onclick || '', title, '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>');
     };
 
-    var creativesCell = c.status === 'draft' && c.creatives === 0
+    var creativesCell = c.creatives === 0
       ? '<button onclick="cmOpenAddCreativesModal()" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap">+ Add Creatives</button>'
-      : c.creatives === 0
-      ? '<span style="font-size:11px;color:var(--faint)">—</span>'
       : '<div style="display:flex;align-items:center;gap:6px">'
         + '<span style="font-size:12px;color:var(--text)">' + c.creatives + ' creative' + (c.creatives !== 1 ? 's' : '') + '</span>'
         + mkIcon('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>', 'Preview in Template Builder', 'event.stopPropagation();cmPreviewCampaignCreatives(' + (c.dbId || 'null') + ')')
