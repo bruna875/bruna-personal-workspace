@@ -282,8 +282,8 @@ function _mbOverviewHtml() {
     { id: '3', label: 'Inventory', desc: 'Angle = taxonomy · Radius = pods · Size = score · Color = semantic group' },
   ];
   var modeDesc = _mbChartMode === 1
-    ? 'Signals grouped by <b>semantic theme</b>. Radius = affinity score (outer = more relevant), size = pods inventory, color = taxonomy dimension.'
-    : 'Signals grouped by <b>taxonomy type</b>. Radius = available pods (outer = more inventory), size = affinity score, color = semantic family.';
+    ? '<b>Angle</b> = semantic group &nbsp;·&nbsp; <b>Radius</b> = score (inner = 100%, outer = 70%) &nbsp;·&nbsp; <b>Size</b> = pods &nbsp;·&nbsp; <b>Color</b> = taxonomy'
+    : '<b>Angle</b> = taxonomy type &nbsp;·&nbsp; <b>Radius</b> = score (inner = 100%, outer = 70%) &nbsp;·&nbsp; <b>Size</b> = pods &nbsp;·&nbsp; <b>Color</b> = semantic group';
 
   var pills = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
     + '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px">'
@@ -358,16 +358,22 @@ function _mbRenderPackedBubble() {
   var X_MAX = 32, sectorW = X_MAX / sectors.length;
   var bubbleData = [], pieData = [], colorClasses = [];
 
-  // Helper: get 5-10 signals per taxonomy with score >= 70
+  // Helper: 5–10 signals per taxonomy, score >= 70 only
   function _getItems(d) {
-    var items = (_mbScored[d.id] || []);
-    var top = items.filter(function(i){ return i.score >= 70; }).slice(0, 10);
-    if (top.length < 5) top = items.slice(0, 5); // fallback: top 5 regardless
-    return top;
+    var items = (_mbScored[d.id] || []).filter(function(i){ return i.score >= 70; });
+    if (items.length < 5) items = (_mbScored[d.id] || []).slice(0, 5);
+    return items.slice(0, 10);
+  }
+
+  // Radius mapping: score 100 → y=5 (near center), score 70 → y=33 (near outer)
+  // Inverted so that higher affinity = closer to center
+  function _scoreToRadius(score) {
+    var clamped = Math.max(70, Math.min(100, score));
+    return 5 + (100 - clamped) * (28 / 30); // 5..33
   }
 
   if (mode === 1) {
-    // Angle = semantic group, radius = score, size = pods, color = taxonomy type
+    // Angle = semantic family · Color = taxonomy type
     var allSigs = [], seen = {};
     dims.forEach(function(d) {
       _getItems(d).forEach(function(item) {
@@ -376,18 +382,19 @@ function _mbRenderPackedBubble() {
       });
     });
     families.forEach(function(f, fi) {
-      var fc = MB_FAMILY_COLORS[fi];
       var cx = (fi + 0.5) * sectorW;
       var bucket = allSigs.filter(function(s){ return _mbAssignFamily(s.item, families) === fi; });
-      pieData.push({ name: f.label, y: Math.max(bucket.length,1), color: fc, custom: { ti: fi } });
+      pieData.push({ name: f.label, y: Math.max(bucket.length,1), color: MB_FAMILY_COLORS[fi], custom: { ti: fi } });
       bucket.forEach(function(s, ii) {
         var pods = Math.min(_mbPods(s.item), 300);
-        var jx = ((ii % 5) - 2) * (sectorW * 0.16);
+        var jx = ((ii % 6) - 2.5) * (sectorW * 0.13);
         bubbleData.push({
           name: s.item.name.length>18 ? s.item.name.slice(0,18)+'…' : s.item.name,
           fullName: s.item.name,
           color: MB_TYPE_COLORS[s.d.id] || '#8b5cf6',
-          x: cx + jx, y: Math.max(8, s.item.score), z: pods,
+          x: cx + jx,
+          y: _scoreToRadius(s.item.score),
+          z: pods,
           score: s.item.score, type: s.d.label,
           _key: s.d.id + ':' + s.item.id,
           custom: { ti: fi, pods: pods }
@@ -396,7 +403,7 @@ function _mbRenderPackedBubble() {
     });
 
   } else {
-    // Modes 2 & 3: angle = taxonomy, color = semantic group
+    // Angle = taxonomy type · Color = semantic family
     dims.forEach(function(d, di) {
       var items = _getItems(d);
       var cx = (di + 0.5) * sectorW;
@@ -404,14 +411,14 @@ function _mbRenderPackedBubble() {
       items.forEach(function(item, ii) {
         var pods = Math.min(_mbPods(item), 300);
         var fi = _mbAssignFamily(item, families);
-        var jx = ((ii % 5) - 2) * (sectorW * 0.16);
-        var radius = mode === 3 ? Math.max(5, Math.round(pods / 3)) : Math.max(8, item.score);
-        var size   = mode === 3 ? Math.max(item.score, 5) : pods;
+        var jx = ((ii % 6) - 2.5) * (sectorW * 0.13);
         bubbleData.push({
           name: item.name.length>18 ? item.name.slice(0,18)+'…' : item.name,
           fullName: item.name,
           color: MB_FAMILY_COLORS[fi] || '#8b5cf6',
-          x: cx + jx, y: Math.min(radius, 105), z: Math.max(size, 5),
+          x: cx + jx,
+          y: _scoreToRadius(item.score),
+          z: pods,
           score: item.score, type: d.label,
           _key: d.id + ':' + item.id,
           custom: { ti: di, pods: pods }
@@ -506,7 +513,7 @@ function _mbRenderPackedBubble() {
         lineWidth: 0
       },
       yAxis: {
-        min: 0, max: mode === 3 ? 110 : 110,
+        min: 0, max: 36,
         tickInterval: 25,
         labels: { enabled: false },
         gridLineWidth: 0.5, gridLineColor: '#e5e7eb',
