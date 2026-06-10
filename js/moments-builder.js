@@ -1,15 +1,18 @@
 // moments-builder.js — Custom Moments Builder
 
 // ── State ────────────────────────────────────────────────────────────────────
-var _mbInputTab    = 'text';          // 'text' | 'upload' | 'library'
-var _mbTaxTab      = 'iab';           // active taxonomy tab
+var _mbInputTab    = 'text';
+var _mbTaxTab      = 'overview';
 var _mbLoading     = false;
 var _mbThemes      = [];
-var _mbScored      = null;            // { iab:[], emotion:[], ... }
-var _mbShowAll     = {};              // { iab: false, ... }
-var _mbSelected    = {};              // { 'iab:123': true, ... }
+var _mbScored      = null;
+var _mbShowAll     = {};
+var _mbSelected    = {};
+var _mbUploadFile  = null;
+var _mbLibraryImageUrl = null;
 
 var MB_TAX_TABS = [
+  { id: 'overview',     label: 'Overview'     },
   { id: 'iab',          label: 'IAB'          },
   { id: 'emotion',      label: 'Emotions'     },
   { id: 'sentiment',    label: 'Sentiment'    },
@@ -20,117 +23,86 @@ var MB_TAX_TABS = [
   { id: 'brand_safety', label: 'Brand Safety' },
 ];
 
+// ── Pods / Impressions helpers ────────────────────────────────────────────────
+function _mbPods(item) {
+  var s = String(item.id) + item.name, seed = 0;
+  for (var i = 0; i < s.length; i++) seed = (((seed << 5) - seed) + s.charCodeAt(i)) & 0x7fffffff;
+  return 10 + (seed % 491);
+}
+function _mbImpressions(pods, item) {
+  var s = String(item.id), seed = 0;
+  for (var i = 0; i < s.length; i++) seed = ((seed << 3) + s.charCodeAt(i)) & 0xff;
+  return pods * (15000 + (seed % 7) * 1000);
+}
+function _mbFmtN(n) {
+  if (!n) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1000)    return Math.round(n / 1000) + 'K';
+  return String(n);
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 function renderMomentsBuilder() {
-  // Reset state on every page load
-  _mbInputTab = 'text';
-  _mbScored   = null;
-  _mbThemes   = [];
-  _mbSelected = {};
-  _mbShowAll  = {};
+  _mbInputTab = 'text'; _mbTaxTab = 'overview';
+  _mbScored = null; _mbThemes = [];
+  _mbSelected = {}; _mbShowAll = {};
   _mbUploadFile = null;
-
   setTimeout(function() { _mbBindUpload(); }, 0);
-
   return _mbShell();
 }
 
 function _mbShell() {
   return UI.pageHeader({ title: 'Custom Moments Builder', subtitle: 'Select content to discover the most relevant contextual moments across all taxonomy dimensions' })
     + '<div style="display:flex;gap:20px;align-items:flex-start">'
-
-    +   '<!-- main -->'
     +   '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px">'
     +     _mbInputCard()
     +     '<div id="mb-results">' + (_mbScored ? _mbResultsHtml() : '') + '</div>'
     +   '</div>'
-
-    +   '<!-- sidebar -->'
     +   '<div id="mb-sidebar" style="width:260px;flex-shrink:0;position:sticky;top:0;height:calc(100vh - 80px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
     +     _mbSidebarHtml()
     +   '</div>'
-
     + '</div>';
 }
 
 // ── Input card ────────────────────────────────────────────────────────────────
 function _mbInputCard() {
   return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden">'
-    +   '<textarea id="mb-text-input" placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" onkeydown="if(event.ctrlKey&&event.key===\'Enter\')mbAnalyze()" style="width:100%;box-sizing:border-box;height:60px;padding:12px 14px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;border:none;outline:none;resize:none;line-height:1.6;display:block"></textarea>'
-    +   '<div style="height:1px;background:var(--border)"></div>'
-    +   '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">'
-    +     '<div style="display:flex;align-items:center;gap:10px">'
-    +       '<input type="file" id="mb-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="mbOnFileSelect(this)">'
-    +       '<label for="mb-file-input" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px;transition:color .13s,background .13s" onmouseenter="this.style.color=\'var(--text)\';this.style.background=\'var(--bg)\'" onmouseleave="this.style.color=\'var(--muted)\';this.style.background=\'transparent\'">'
-    +         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12h4M10 16h4"/></svg>'
-    +         '<span id="mb-file-label">Upload Doc or PDF</span>'
-    +       '</label>'
-    +       '<div id="mb-status" style="font-size:12px;color:var(--muted)"></div>'
-    +     '</div>'
-    +     '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="height:34px;padding:0 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Analyze</button>'
+    + '<textarea id="mb-text-input" placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…" onkeydown="if(event.ctrlKey&&event.key===\'Enter\')mbAnalyze()" style="width:100%;box-sizing:border-box;height:60px;padding:12px 14px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;border:none;outline:none;resize:none;line-height:1.6;display:block"></textarea>'
+    + '<div id="mb-themes-chips" style="display:none;padding:8px 14px 0;flex-wrap:wrap;gap:5px"></div>'
+    + '<div style="height:1px;background:var(--border);margin-top:8px"></div>'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px">'
+    +   '<div style="display:flex;align-items:center;gap:10px">'
+    +     '<input type="file" id="mb-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="mbOnFileSelect(this)">'
+    +     '<label for="mb-file-input" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px;transition:color .13s,background .13s" onmouseenter="this.style.color=\'var(--text)\';this.style.background=\'var(--bg)\'" onmouseleave="this.style.color=\'var(--muted)\';this.style.background=\'transparent\'">'
+    +       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12h4M10 16h4"/></svg>'
+    +       '<span id="mb-file-label">Upload Doc or PDF</span>'
+    +     '</label>'
+    +     '<div id="mb-status" style="font-size:12px;color:var(--muted)"></div>'
     +   '</div>'
+    +   '<button onclick="mbAnalyze()" id="mb-analyze-btn" style="height:34px;padding:0 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .13s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">Analyze</button>'
+    + '</div>'
     + '</div>';
 }
 
-function _mbSegBtn(id, icon, label) {
-  var act = id === _mbInputTab;
-  return '<div class="tx2-seg' + (act ? ' tx2-seg--act' : '') + '" id="mb-seg-' + id + '" onclick="mbSwitchInput(\'' + id + '\')">'
-    + icon
-    + '<span>' + label + '</span>'
-    + '</div>';
-}
-
-function _mbInputArea() {
-  if (_mbInputTab === 'text') {
-    return '<textarea id="mb-text-input" placeholder="Describe the content, scene, mood, or context — e.g. \'A family barbecue on a summer afternoon with kids playing in the backyard\'…" style="width:100%;box-sizing:border-box;height:90px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:8px;resize:none;outline:none;line-height:1.5;transition:border-color .15s" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'"></textarea>';
-  }
-  if (_mbInputTab === 'upload') {
-    return '<div class="tx2-upload-zone" style="padding:24px 20px" onclick="document.getElementById(\'mb-file-input\').click()">'
-      + '<input type="file" id="mb-file-input" accept="image/*" style="display:none">'
-      + '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
-      + '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">Drop image here or click to browse</div>'
-      + '<div id="mb-file-name" style="font-size:11px;color:var(--faint)">JPG, PNG, WebP — up to 20 MB</div>'
-      + '</div>';
-  }
-  if (_mbInputTab === 'library') {
-    return '<div class="tx2-upload-zone" style="padding:24px 20px" onclick="mbOpenLibraryPicker()">'
-      + '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21"/><path d="m14 19.5 3-3 3 3"/><path d="M17 22v-5.5"/><circle cx="9" cy="9" r="2"/></svg>'
-      + '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">Select asset from Creative Studio</div>'
-      + '<div id="mb-library-selected" style="font-size:11px;color:var(--faint)">Click to browse library</div>'
-      + '</div>';
-  }
-  return '';
+function _mbUpdateThemesChips() {
+  var el = document.getElementById('mb-themes-chips');
+  if (!el) return;
+  if (!_mbThemes.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = _mbThemes.map(function(t) {
+    return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 8px;background:var(--subtle);border:1px solid var(--accent-muted);border-radius:20px;color:var(--accent);white-space:nowrap">'
+      + '<svg width="8" height="8" viewBox="0 0 8 8" fill="var(--accent)"><circle cx="4" cy="4" r="3"/></svg>'
+      + _mbEsc(t)
+      + '</span>';
+  }).join('');
 }
 
 // ── Analyze ───────────────────────────────────────────────────────────────────
-function mbSwitchInput(tab) {
-  _mbInputTab = tab;
-  // Update segment active state
-  ['text','upload','library'].forEach(function(id) {
-    var el = document.getElementById('mb-seg-' + id);
-    if (el) el.className = 'tx2-seg' + (id === tab ? ' tx2-seg--act' : '');
-  });
-  // Re-render input area
-  var areaEl = document.getElementById('mb-input-area');
-  if (areaEl) areaEl.innerHTML = _mbInputArea();
-  _mbBindUpload();
-}
-
 function _mbBindUpload() {
   var fi = document.getElementById('mb-file-input');
   if (!fi) return;
-  fi.onchange = function() {
-    var f = fi.files[0];
-    if (!f) return;
-    var lbl = document.getElementById('mb-file-name');
-    if (lbl) lbl.textContent = f.name;
-    // Store file ref
-    _mbUploadFile = f;
-  };
+  fi.onchange = function() { _mbUploadFile = fi.files[0] || null; };
 }
-
-var _mbUploadFile = null;
-var _mbLibraryImageUrl = null;
 
 function mbOnFileSelect(input) {
   var f = input.files && input.files[0];
@@ -140,18 +112,15 @@ function mbOnFileSelect(input) {
 }
 
 function mbOpenLibraryPicker() {
-  // Placeholder — will integrate with Creative Studio later
   var sel = document.getElementById('mb-library-selected');
-  if (sel) sel.textContent = 'Library integration coming soon — use Free Text or Upload for now.';
+  if (sel) sel.textContent = 'Library integration coming soon.';
 }
 
 async function mbAnalyze() {
   if (_mbLoading) return;
-
-  var ta  = document.getElementById('mb-text-input');
+  var ta = document.getElementById('mb-text-input');
   var txt = ta ? ta.value.trim() : '';
   if (!txt) { _mbSetStatus('Enter some text first.', true); return; }
-  var body = { input_type: 'text', text: txt };
 
   _mbLoading = true;
   _mbSetStatus('Analyzing with Groq…', false, true);
@@ -160,9 +129,8 @@ async function mbAnalyze() {
 
   try {
     var resp = await fetch('/api/taxonomy-affinity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input_type: 'text', text: txt })
     });
     var data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'API error');
@@ -170,7 +138,9 @@ async function mbAnalyze() {
     _mbThemes = data.themes || [];
     _mbScored = data.scored || {};
     _mbShowAll = {};
+    _mbTaxTab = 'overview';
     _mbSetStatus('');
+    _mbUpdateThemesChips();
 
     var results = document.getElementById('mb-results');
     if (results) results.innerHTML = _mbResultsHtml();
@@ -183,22 +153,11 @@ async function mbAnalyze() {
   }
 }
 
-async function _mbFileToBody(file) {
-  return new Promise(function(resolve) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var b64 = e.target.result.split(',')[1];
-      resolve({ input_type: 'image', image_base64: b64 });
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function _mbSetStatus(msg, isErr, isLoading) {
   var el = document.getElementById('mb-status');
   if (!el) return;
   if (isLoading) {
-    el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .7s linear infinite"></span>' + msg + '</span>';
+    el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:11px;height:11px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .7s linear infinite"></span>' + msg + '</span>';
   } else {
     el.textContent = msg;
     el.style.color = isErr ? '#ef4444' : 'var(--muted)';
@@ -208,38 +167,131 @@ function _mbSetStatus(msg, isErr, isLoading) {
 // ── Results ───────────────────────────────────────────────────────────────────
 function _mbResultsHtml() {
   if (!_mbScored) return '';
-
   return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'
-    +   _mbThemesBar()
-    +   '<div style="border-bottom:1px solid var(--border);padding:0 4px">'
-    +     UI.tabNav(MB_TAX_TABS, _mbTaxTab, 'mbSwitchTaxTab')
-    +   '</div>'
-    +   '<div id="mb-tax-panel" style="padding:20px 24px">'
-    +     _mbTaxPanelHtml(_mbTaxTab)
-    +   '</div>'
-    + '</div>';
-}
-
-function _mbThemesBar() {
-  if (!_mbThemes.length) return '';
-  return '<div style="padding:12px 24px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;align-items:center">'
-    + '<span style="font-size:11px;font-weight:600;color:var(--muted);flex-shrink:0;margin-right:4px">THEMES DETECTED</span>'
-    + _mbThemes.map(function(t) {
-        return '<span style="font-size:11px;padding:2px 8px;background:var(--subtle);border:1px solid var(--border);border-radius:20px;color:var(--text)">' + _mbEsc(t) + '</span>';
-      }).join('')
+    + '<div style="border-bottom:1px solid var(--border);padding:0 4px">'
+    +   UI.tabNav(MB_TAX_TABS, _mbTaxTab, 'mbSwitchTaxTab')
+    + '</div>'
+    + '<div id="mb-tax-panel" style="padding:20px 24px">'
+    +   (_mbTaxTab === 'overview' ? _mbOverviewHtml() : _mbTaxPanelHtml(_mbTaxTab))
+    + '</div>'
     + '</div>';
 }
 
 function mbSwitchTaxTab(id) {
   _mbTaxTab = id;
-  // Update tab nav
   var tabsEl = document.querySelector('.ul-tabnav');
   if (tabsEl) tabsEl.outerHTML = UI.tabNav(MB_TAX_TABS, _mbTaxTab, 'mbSwitchTaxTab');
-  // Update panel
   var panel = document.getElementById('mb-tax-panel');
-  if (panel) panel.innerHTML = _mbTaxPanelHtml(id);
+  if (panel) panel.innerHTML = id === 'overview' ? _mbOverviewHtml() : _mbTaxPanelHtml(id);
 }
 
+// ── Radar chart SVG ──────────────────────────────────────────────────────────
+function _mbRadarSvg() {
+  var dims = MB_TAX_TABS.filter(function(t) { return t.id !== 'overview'; });
+  var n = dims.length, cx = 130, cy = 130, r = 90;
+
+  // Avg score top-10 per dimension, normalized 0-1
+  var vals = dims.map(function(d) {
+    var items = (_mbScored[d.id] || []).slice(0, 10);
+    if (!items.length) return 0;
+    return items.reduce(function(s, i) { return s + i.score; }, 0) / items.length / 100;
+  });
+
+  function pt(i, frac) {
+    var angle = (i * 360 / n - 90) * Math.PI / 180;
+    return { x: cx + frac * r * Math.cos(angle), y: cy + frac * r * Math.sin(angle) };
+  }
+  function ptStr(i, frac) { var p = pt(i, frac); return p.x.toFixed(1) + ',' + p.y.toFixed(1); }
+
+  var svg = '<svg width="260" height="260" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">';
+
+  // Grid rings
+  [0.25, 0.5, 0.75, 1].forEach(function(t) {
+    var pts = dims.map(function(_, i) { return ptStr(i, t); }).join(' ');
+    svg += '<polygon points="' + pts + '" fill="none" stroke="var(--border)" stroke-width="' + (t === 1 ? '1.5' : '1') + '"/>';
+  });
+
+  // Axes
+  dims.forEach(function(_, i) {
+    var p = pt(i, 1);
+    svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p.x.toFixed(1) + '" y2="' + p.y.toFixed(1) + '" stroke="var(--border)" stroke-width="1"/>';
+  });
+
+  // Data polygon fill
+  var dataPts = vals.map(function(v, i) { return ptStr(i, Math.max(0.04, v)); }).join(' ');
+  svg += '<polygon points="' + dataPts + '" fill="rgba(225,29,143,0.12)" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>';
+
+  // Data dots
+  vals.forEach(function(v, i) {
+    var p = pt(i, Math.max(0.04, v));
+    svg += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/>';
+  });
+
+  // Labels
+  dims.forEach(function(d, i) {
+    var p = pt(i, 1.22);
+    var score = Math.round(vals[i] * 100);
+    svg += '<text x="' + p.x.toFixed(1) + '" y="' + (p.y - 5).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9.5" font-weight="600" fill="var(--text)" font-family="Geist,sans-serif">' + _mbEsc(d.label) + '</text>';
+    svg += '<text x="' + p.x.toFixed(1) + '" y="' + (p.y + 7).toFixed(1) + '" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="var(--muted)" font-family="Geist,sans-serif">' + score + '</text>';
+  });
+
+  svg += '</svg>';
+  return svg;
+}
+
+// ── Overview tab ──────────────────────────────────────────────────────────────
+function _mbOverviewHtml() {
+  var dims = MB_TAX_TABS.filter(function(t) { return t.id !== 'overview'; });
+
+  // Left: radar. Right: dimension cards grid
+  var html = '<div style="display:flex;gap:28px;align-items:flex-start">';
+
+  // Radar
+  html += '<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px">'
+    + _mbRadarSvg()
+    + '<div style="font-size:10px;color:var(--faint);text-align:center">Affinity profile across all dimensions</div>'
+    + '</div>';
+
+  // Dimension cards grid
+  html += '<div style="flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:12px">';
+
+  dims.forEach(function(d) {
+    var items = (_mbScored[d.id] || []).slice(0, 4);
+    var avgScore = items.length ? Math.round(items.reduce(function(s,i){return s+i.score;},0)/items.length) : 0;
+    var totalPods = items.reduce(function(s,i){return s+_mbPods(i);},0);
+
+    html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer" onclick="mbSwitchTaxTab(\'' + d.id + '\')" onmouseenter="this.style.borderColor=\'var(--accent-muted)\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      +   '<span style="font-size:12px;font-weight:600;color:var(--text)">' + _mbEsc(d.label) + '</span>'
+      +   '<span style="font-size:10px;color:var(--muted)">' + avgScore + ' avg · ' + _mbFmtN(totalPods) + ' pods</span>'
+      + '</div>';
+
+    // Mini bars for top 4 items
+    var maxScore = items.length ? items[0].score : 1;
+    items.forEach(function(item) {
+      var pods = _mbPods(item);
+      var pct  = maxScore > 0 ? Math.round(item.score / maxScore * 100) : 0;
+      var key  = d.id + ':' + item.id;
+      var sel  = !!_mbSelected[key];
+      html += '<div onclick="event.stopPropagation();mbToggleItem(\'' + _mbEsc(key) + '\')" style="margin-bottom:5px;cursor:pointer">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">'
+        +   '<span style="font-size:11px;color:' + (sel ? 'var(--accent)' : 'var(--text)') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;font-weight:' + (sel ? '600' : '400') + '">' + _mbEsc(item.name.length > 22 ? item.name.slice(0,22)+'…' : item.name) + '</span>'
+        +   '<span style="font-size:10px;color:var(--faint);flex-shrink:0;margin-left:4px">' + _mbFmtN(pods) + ' pods</span>'
+        + '</div>'
+        + '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">'
+        +   '<div style="height:100%;width:' + pct + '%;background:' + (sel ? 'var(--accent)' : 'var(--border-md)') + ';border-radius:2px;transition:width .3s"></div>'
+        + '</div>'
+        + '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+// ── Dimension tab ─────────────────────────────────────────────────────────────
 function _mbTaxPanelHtml(type) {
   var items = (_mbScored && _mbScored[type]) || [];
   if (!items.length) return '<div style="padding:40px;text-align:center;color:var(--faint);font-size:12px">No data</div>';
@@ -249,52 +301,67 @@ function _mbTaxPanelHtml(type) {
   var visible = showAll ? items : items.slice(0, topN);
   var hasMore = items.length > topN;
 
-  var html = '<div style="display:flex;flex-wrap:wrap;gap:8px">'
-    + visible.map(function(item) { return _mbItemChip(item, type); }).join('')
-    + '</div>';
+  // Table header
+  var TH = 'padding:6px 12px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap';
+  var TD = 'padding:9px 12px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border);vertical-align:middle';
+
+  var html = '<div style="overflow-x:auto">'
+    + '<table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr>'
+    +   '<th style="' + TH + ';width:32px"></th>'
+    +   '<th style="' + TH + '">Signal</th>'
+    +   '<th style="' + TH + ';text-align:center">Score</th>'
+    +   '<th style="' + TH + ';text-align:right">Pods</th>'
+    +   '<th style="' + TH + ';text-align:right">Est. Impressions</th>'
+    + '</tr></thead><tbody>';
+
+  visible.forEach(function(item) {
+    var key  = type + ':' + item.id;
+    var sel  = !!_mbSelected[key];
+    var pods = _mbPods(item);
+    var impr = _mbImpressions(pods, item);
+    var score = item.score || 0;
+    var scoreColor = score >= 60 ? '#15803d' : score >= 30 ? '#b45309' : 'var(--faint)';
+    var scoreBg    = score >= 60 ? '#dcfce7'  : score >= 30 ? '#fef3c7' : 'var(--bg)';
+
+    var label = item.name;
+    if (item.subcategory && item.subcategory !== item.name) label = item.subcategory + ' › ' + item.name;
+    else if (item.category && item.category !== item.name && !item.subcategory) label = item.category + ' › ' + item.name;
+
+    html += '<tr onclick="mbToggleItem(\'' + _mbEsc(key) + '\')" style="cursor:pointer;background:' + (sel ? 'rgba(225,29,143,.04)' : 'transparent') + ';transition:background .1s" onmouseenter="this.style.background=\'' + (sel ? 'rgba(225,29,143,.07)' : 'var(--bg)') + '\'" onmouseleave="this.style.background=\'' + (sel ? 'rgba(225,29,143,.04)' : 'transparent') + '\'">'
+      + '<td style="' + TD + ';width:32px;padding-right:0">'
+      +   (sel
+        ? '<svg width="14" height="14" viewBox="0 0 14 14" fill="var(--accent)"><circle cx="7" cy="7" r="7"/><path d="M4 7l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6.5" stroke="var(--border-md)"/></svg>')
+      + '</td>'
+      + '<td style="' + TD + '">' + _mbEsc(label) + '</td>'
+      + '<td style="' + TD + ';text-align:center"><span style="font-size:11px;font-weight:600;color:' + scoreColor + ';background:' + scoreBg + ';border-radius:20px;padding:2px 8px">' + score + '</span></td>'
+      + '<td style="' + TD + ';text-align:right;color:var(--muted)">' + _mbFmtN(pods) + '</td>'
+      + '<td style="' + TD + ';text-align:right;color:var(--muted)">' + _mbFmtN(impr) + '</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table></div>';
 
   if (hasMore && !showAll) {
-    html += '<div style="margin-top:14px;text-align:center">'
-      + '<button onclick="mbShowAll(\'' + type + '\')" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:7px;padding:6px 16px;cursor:pointer;font-family:inherit">Show all ' + items.length + ' items</button>'
+    html += '<div style="margin-top:12px;text-align:center">'
+      + '<button onclick="mbShowAll(\'' + type + '\')" style="font-size:12px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:7px;padding:6px 16px;cursor:pointer;font-family:inherit">Show all ' + items.length + ' signals</button>'
       + '</div>';
   }
 
   return html;
 }
 
-function _mbItemChip(item, type) {
-  var score   = item.score || 0;
-  var key     = type + ':' + item.id;
-  var sel     = !!_mbSelected[key];
-
-  // Score color
-  var scoreColor, scoreBg;
-  if (score >= 60)      { scoreColor = '#15803d'; scoreBg = '#dcfce7'; }
-  else if (score >= 30) { scoreColor = '#b45309'; scoreBg = '#fef3c7'; }
-  else                  { scoreColor = 'var(--muted)'; scoreBg = 'var(--bg)'; }
-
-  var label = item.name;
-  if (item.subcategory && item.subcategory !== item.name) label = item.subcategory + ' › ' + item.name;
-  else if (item.category && item.category !== item.name && !item.subcategory) label = item.category + ' › ' + item.name;
-
-  return '<div onclick="mbToggleItem(\'' + _mbEsc(key) + '\')" style="display:inline-flex;align-items:center;gap:7px;padding:6px 10px 6px 8px;border-radius:8px;border:1.5px solid ' + (sel ? 'var(--accent)' : 'var(--border)') + ';background:' + (sel ? 'rgba(225,29,143,.05)' : 'var(--surface)') + ';cursor:pointer;transition:border-color .13s,background .13s;max-width:280px" onmouseenter="this.style.borderColor=\'var(--accent-light,#f472b6)\'" onmouseleave="this.style.borderColor=\'' + (sel ? 'var(--accent)' : 'var(--border)') + '\'">'
-    + (sel ? '<svg width="12" height="12" viewBox="0 0 12 12" fill="var(--accent)"><circle cx="6" cy="6" r="6"/></svg>'
-           : '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="var(--border-md)"/></svg>')
-    + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + _mbEsc(label) + '</span>'
-    + (score > 0 ? '<span style="font-size:10px;font-weight:600;color:' + scoreColor + ';background:' + scoreBg + ';border-radius:20px;padding:1px 6px;flex-shrink:0">' + score + '</span>' : '')
-    + '</div>';
-}
-
 function mbToggleItem(key) {
   if (_mbSelected[key]) delete _mbSelected[key];
   else _mbSelected[key] = true;
 
-  // Re-render chip panel
   var type  = key.split(':')[0];
   var panel = document.getElementById('mb-tax-panel');
-  if (panel && _mbTaxTab === type) panel.innerHTML = _mbTaxPanelHtml(type);
-
-  // Re-render sidebar
+  if (panel) {
+    if (_mbTaxTab === 'overview') panel.innerHTML = _mbOverviewHtml();
+    else if (_mbTaxTab === type)  panel.innerHTML = _mbTaxPanelHtml(type);
+  }
   var sb = document.getElementById('mb-sidebar');
   if (sb) sb.innerHTML = _mbSidebarHtml();
 }
@@ -303,7 +370,10 @@ function mbRemoveItem(key) {
   delete _mbSelected[key];
   var type  = key.split(':')[0];
   var panel = document.getElementById('mb-tax-panel');
-  if (panel && _mbTaxTab === type) panel.innerHTML = _mbTaxPanelHtml(type);
+  if (panel) {
+    if (_mbTaxTab === 'overview') panel.innerHTML = _mbOverviewHtml();
+    else if (_mbTaxTab === type)  panel.innerHTML = _mbTaxPanelHtml(type);
+  }
   var sb = document.getElementById('mb-sidebar');
   if (sb) sb.innerHTML = _mbSidebarHtml();
 }
@@ -311,25 +381,28 @@ function mbRemoveItem(key) {
 function mbClearAll() {
   _mbSelected = {};
   var panel = document.getElementById('mb-tax-panel');
-  if (panel) panel.innerHTML = _mbTaxPanelHtml(_mbTaxTab);
+  if (panel) panel.innerHTML = _mbTaxTab === 'overview' ? _mbOverviewHtml() : _mbTaxPanelHtml(_mbTaxTab);
   var sb = document.getElementById('mb-sidebar');
   if (sb) sb.innerHTML = _mbSidebarHtml();
 }
 
-function _mbSidebarHtml() {
-  var keys   = Object.keys(_mbSelected);
-  var total  = keys.length;
+function mbShowAll(type) {
+  _mbShowAll[type] = true;
+  var panel = document.getElementById('mb-tax-panel');
+  if (panel) panel.innerHTML = _mbTaxPanelHtml(type);
+}
 
-  // Group by type
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function _mbSidebarHtml() {
+  var keys  = Object.keys(_mbSelected);
+  var total = keys.length;
+
   var grouped = {};
-  MB_TAX_TABS.forEach(function(t) { grouped[t.id] = []; });
+  MB_TAX_TABS.forEach(function(t) { if (t.id !== 'overview') grouped[t.id] = []; });
 
   keys.forEach(function(key) {
-    var parts = key.split(':');
-    var type  = parts[0];
-    var id    = parts.slice(1).join(':');
+    var parts = key.split(':'), type = parts[0], id = parts.slice(1).join(':');
     if (!grouped[type]) grouped[type] = [];
-    // Find item name from scored data
     var name = id;
     if (_mbScored && _mbScored[type]) {
       var found = _mbScored[type].find(function(i) { return i.id === id; });
@@ -350,12 +423,13 @@ function _mbSidebarHtml() {
     return headerHtml
       + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:10px">'
       +   '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" style="color:var(--border-md)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'
-      +   '<div style="font-size:12px;color:var(--faint);line-height:1.5">Analyze some content<br>then click items to select them</div>'
+      +   '<div style="font-size:12px;color:var(--faint);line-height:1.5">Analyze some content<br>then click signals to select</div>'
       + '</div>';
   }
 
   var listHtml = '<div style="flex:1;overflow-y:auto;padding:8px 0">';
   MB_TAX_TABS.forEach(function(t) {
+    if (t.id === 'overview') return;
     var items = grouped[t.id];
     if (!items.length) return;
     listHtml += '<div style="padding:6px 16px 4px">'
@@ -380,14 +454,7 @@ function _mbSidebarHtml() {
 }
 
 function mbSaveMomentsGroup() {
-  // Placeholder — will wire to DB
   alert('Save as Moments Group — coming soon!');
-}
-
-function mbShowAll(type) {
-  _mbShowAll[type] = true;
-  var panel = document.getElementById('mb-tax-panel');
-  if (panel) panel.innerHTML = _mbTaxPanelHtml(type);
 }
 
 function _mbEsc(s) {
