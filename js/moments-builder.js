@@ -358,11 +358,13 @@ function _mbRenderPackedBubble() {
   var X_MAX = 32, sectorW = X_MAX / sectors.length;
   var bubbleData = [], pieData = [], colorClasses = [];
 
-  // Helper: 5–10 signals per taxonomy, score >= 70 only
+  // Helper: 5–10 signals per taxonomy, score >= 70 only (never score=0)
   function _getItems(d) {
-    var items = (_mbScored[d.id] || []).filter(function(i){ return i.score >= 70; });
-    if (items.length < 5) items = (_mbScored[d.id] || []).slice(0, 5);
-    return items.slice(0, 10);
+    var all = _mbScored[d.id] || [];
+    var above70 = all.filter(function(i){ return i.score >= 70; });
+    if (above70.length >= 5) return above70.slice(0, 10);
+    // Fallback: best available, but never show score=0
+    return all.filter(function(i){ return i.score > 0; }).slice(0, 5);
   }
 
   // Radius mapping: score 100 → y=5 (near center), score 70 → y=33 (near outer)
