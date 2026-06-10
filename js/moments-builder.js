@@ -265,9 +265,9 @@ function _mbStellarLabel(chart, name, count) {
 // ── Overview tab — Stellar Chart (Highcharts) ────────────────────────────────
 function _mbOverviewHtml() {
   var modes = [
-    { id: '1', label: 'Semantic groups', desc: 'Angle = group · Radius = score · Size = pods · Color = taxonomy' },
-    { id: '2', label: 'By taxonomy',     desc: 'Angle = taxonomy · Radius = score · Size = pods · Color = group' },
-    { id: '3', label: 'By inventory',    desc: 'Angle = taxonomy · Radius = pods · Size = score · Color = group' },
+    { id: '1', label: 'Semantic',   desc: 'Angle = group · Radius = score · Size = pods · Color = taxonomy' },
+    { id: '2', label: 'Taxonomy',   desc: 'Angle = taxonomy · Radius = score · Size = pods · Color = group' },
+    { id: '3', label: 'Inventory',  desc: 'Angle = taxonomy · Radius = pods · Size = score · Color = group' },
   ];
 
   var pills = '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;width:fit-content;margin-bottom:12px">'
@@ -341,7 +341,7 @@ function _mbRenderPackedBubble() {
   var bubbleData = [], pieData = [], colorClasses = [];
 
   if (mode === 1) {
-    // Build per-family buckets
+    // Angle = semantic group, radius = score, size = pods, color = taxonomy type
     var allSigs = [], seen = {};
     dims.forEach(function(d) {
       (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0,15).forEach(function(item) {
@@ -350,42 +350,44 @@ function _mbRenderPackedBubble() {
       });
     });
     families.forEach(function(f, fi) {
-      var c = MB_FAMILY_COLORS[fi];
-      colorClasses.push({ from: fi-0.5, to: fi+0.5, color: c, name: f.label });
+      var fc = MB_FAMILY_COLORS[fi];
       var cx = (fi + 0.5) * sectorW;
       var bucket = allSigs.filter(function(s){ return _mbAssignFamily(s.item, families) === fi; });
-      pieData.push({ name: f.label, y: Math.max(bucket.length,1), color: c, custom: { ti: fi } });
+      pieData.push({ name: f.label, y: Math.max(bucket.length,1), color: fc, custom: { ti: fi } });
       bucket.forEach(function(s, ii) {
         var pods = Math.min(_mbPods(s.item), 300);
-        var jx = ((ii % 5) - 2) * (sectorW * 0.15);
+        var jx = ((ii % 5) - 2) * (sectorW * 0.16);
         bubbleData.push({
           name: s.item.name.length>18 ? s.item.name.slice(0,18)+'…' : s.item.name,
           fullName: s.item.name,
+          color: MB_TYPE_COLORS[s.d.id] || '#8b5cf6',
           x: cx + jx, y: Math.max(8, s.item.score), z: pods,
-          score: s.item.score, type: s.d.label, _key: d.id + ':' + s.item.id,
-          custom: { ti: fi, pods: pods, color: MB_TYPE_COLORS[s.d.id] || '#8b5cf6' }
+          score: s.item.score, type: s.d.label,
+          _key: s.d.id + ':' + s.item.id,
+          custom: { ti: fi, pods: pods }
         });
       });
     });
 
   } else {
-    // Modes 2 & 3: angle = taxonomy
+    // Modes 2 & 3: angle = taxonomy, color = semantic group
     dims.forEach(function(d, di) {
       var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0,15);
       var cx = (di + 0.5) * sectorW;
-      colorClasses.push({ from: di-0.5, to: di+0.5, color: MB_TYPE_COLORS[d.id] || '#8b5cf6', name: d.label });
       pieData.push({ name: d.label, y: Math.max(items.length,1), color: MB_TYPE_COLORS[d.id]||'#8b5cf6', custom: { ti: di } });
       items.forEach(function(item, ii) {
         var pods = Math.min(_mbPods(item), 300);
         var fi = _mbAssignFamily(item, families);
-        var jx = ((ii % 5) - 2) * (sectorW * 0.15);
+        var jx = ((ii % 5) - 2) * (sectorW * 0.16);
         var radius = mode === 3 ? Math.max(5, Math.round(pods / 3)) : Math.max(8, item.score);
-        var size   = mode === 3 ? item.score : pods;
+        var size   = mode === 3 ? Math.max(item.score, 5) : pods;
         bubbleData.push({
           name: item.name.length>18 ? item.name.slice(0,18)+'…' : item.name,
           fullName: item.name,
+          color: MB_FAMILY_COLORS[fi] || '#8b5cf6',
           x: cx + jx, y: Math.min(radius, 105), z: Math.max(size, 5),
-          score: item.score, type: d.label, _key: d.id + ':' + item.id,
+          score: item.score, type: d.label,
+          _key: d.id + ':' + item.id,
           custom: { ti: di, pods: pods }
         });
       });
@@ -443,10 +445,7 @@ function _mbRenderPackedBubble() {
       title: { text: null },
       credits: { enabled: false },
       legend: { enabled: false },
-      colorAxis: {
-        dataClasses: colorClasses,
-        showInLegend: false
-      },
+      colorAxis: { dataClasses: [], showInLegend: false },
       pane: {
         innerSize: '38%', size: '90%',
         background: [
@@ -498,7 +497,6 @@ function _mbRenderPackedBubble() {
       },
       plotOptions: {
         bubble: {
-          colorKey: 'custom.ti',
           minSize: 4, maxSize: 20,
           point: {
             events: {
