@@ -238,7 +238,7 @@ function _mbAssignQuadrant(sig, families) {
 }
 
 function _mbScatterSvg(signals, families) {
-  var W = 600, H = 420, CX = W/2, CY = H/2, PAD = 46;
+  var W = 640, H = 460, CX = W/2, CY = H/2, PAD = 44;
 
   // Normalize pod sizes for point radius (3–11px)
   var allPods = signals.map(function(s){ return _mbPods(s); });
@@ -340,19 +340,20 @@ function _mbOverviewHtml() {
   var families = _mbQuadrantFamilies();
   var dims = MB_TAX_TABS.filter(function(t){ return t.id !== 'overview'; });
 
-  // Collect top signals
+  // Collect signals — top 20 per dimension regardless of score
   var seen = {}, signals = [];
   dims.forEach(function(d) {
-    (_mbScored[d.id] || []).slice(0,12).forEach(function(item) {
+    (_mbScored[d.id] || []).slice(0,20).forEach(function(item) {
       var key = d.id + ':' + item.id;
-      if (!seen[key] && item.score > 0) {
+      if (!seen[key]) {
         seen[key] = true;
         signals.push({ name:item.name, type:d.label, typeId:d.id, id:item.id, score:item.score, key:key });
       }
     });
   });
   signals.forEach(function(s){ s.quadrant = _mbAssignQuadrant(s, families); });
-  signals = signals.filter(function(s){ return s.score > 0; }).slice(0,60);
+  // Sort by score desc, cap at 120 for readability
+  signals = signals.sort(function(a,b){ return b.score - a.score; }).slice(0,120);
 
   // Legend by taxonomy category
   var legend = dims.map(function(d) {
