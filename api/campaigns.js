@@ -65,7 +65,7 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
         spent:        '—',
         start:        fmtDate(r.start_date),
         end:          fmtDate(r.end_date),
-        creatives:    0,
+        creatives:    (r.creative_ids || []).length,
         moments:      0,
         partnerIds:   pIds,
         partners:     pIds.map(id => partnerMap[id] ? partnerMap[id].name : String(id)),

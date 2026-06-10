@@ -2211,7 +2211,7 @@ function _cmRowsHtml() {
       return UI.btnIcon(onclick || '', title, '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>');
     };
 
-    var creativesCell = c.status === 'draft'
+    var creativesCell = c.status === 'draft' && c.creatives === 0
       ? '<button onclick="cmOpenAddCreativesModal()" style="border:none;background:none;padding:0;font-size:11px;font-weight:500;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap">+ Add Creatives</button>'
       : c.creatives === 0
       ? '<span style="font-size:11px;color:var(--faint)">—</span>'
