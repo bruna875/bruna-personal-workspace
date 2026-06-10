@@ -300,12 +300,10 @@ function _mbScatterSvg(signals, families) {
     }
 
     var tipData = _mbEsc(sig.name) + '|' + _mbEsc(sig.type) + '|' + sig.score + '|' + pods;
-    svg += (sel
-      ? '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + (r+4).toFixed(1) + '" fill="none" stroke="#ED005E" stroke-width="2" opacity=".9"/>'
-      : '')
-      + '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + r.toFixed(1) + '"'
-      + ' fill="' + c + '"'
-      + ' style="cursor:pointer"'
+    svg += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + r.toFixed(1) + '"'
+      + ' fill="' + c + '" fill-opacity="' + (sel ? '.95' : '.6') + '"'
+      + (sel ? ' stroke="#fff" stroke-width="2"' : ' stroke="' + c + '" stroke-width="0.5"')
+      + ' style="cursor:pointer;transition:fill-opacity .15s"'
       + ' onclick="mbToggleItem(\'' + (sig.key+'').replace(/'/g,"\\'") + '\')"'
       + ' onmouseover="mbScatterTip(event,\'' + tipData + '\')"'
       + ' onmouseout="mbScatterHideTip()"'
