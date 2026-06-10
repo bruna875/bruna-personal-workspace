@@ -389,13 +389,14 @@ function _mbRenderPackedBubble() {
       pieData.push({ name: f.label, y: Math.max(bucket.length,1), color: MB_FAMILY_COLORS[fi], custom: { ti: fi } });
       bucket.forEach(function(s, ii) {
         var pods = Math.min(_mbPods(s.item), 300);
-        var jx = ((ii % 6) - 2.5) * (sectorW * 0.13);
+        var jx = ((ii % 7) - 3) * (sectorW * 0.12);
+        var jy = ((ii % 3) - 1) * 1.2; // small radial jitter
         bubbleData.push({
           name: s.item.name.length>18 ? s.item.name.slice(0,18)+'…' : s.item.name,
           fullName: s.item.name,
           color: MB_TYPE_COLORS[s.d.id] || '#8b5cf6',
           x: cx + jx,
-          y: _scoreToRadius(s.item.score),
+          y: _scoreToRadius(s.item.score) + jy,
           z: pods,
           score: s.item.score, type: s.d.label,
           _key: s.d.id + ':' + s.item.id,
@@ -413,13 +414,14 @@ function _mbRenderPackedBubble() {
       items.forEach(function(item, ii) {
         var pods = Math.min(_mbPods(item), 300);
         var fi = _mbAssignFamily(item, families);
-        var jx = ((ii % 6) - 2.5) * (sectorW * 0.13);
+        var jx = ((ii % 7) - 3) * (sectorW * 0.12);
+        var jy = ((ii % 3) - 1) * 1.2;
         bubbleData.push({
           name: item.name.length>18 ? item.name.slice(0,18)+'…' : item.name,
           fullName: item.name,
           color: MB_FAMILY_COLORS[fi] || '#8b5cf6',
           x: cx + jx,
-          y: _scoreToRadius(item.score),
+          y: _scoreToRadius(item.score) + jy,
           z: pods,
           score: item.score, type: d.label,
           _key: d.id + ':' + item.id,
@@ -541,7 +543,7 @@ function _mbRenderPackedBubble() {
       },
       plotOptions: {
         bubble: {
-          minSize: 4, maxSize: 20,
+          minSize: 3, maxSize: 14,
           point: {
             events: {
               click: function() {
@@ -628,10 +630,10 @@ function mbToggleItem(key) {
 
   var type  = key.split(':')[0];
   var panel = document.getElementById('mb-tax-panel');
-  if (panel) {
-    if (_mbTaxTab === 'overview') panel.innerHTML = _mbOverviewHtml();
-    else if (_mbTaxTab === type)  panel.innerHTML = _mbTaxPanelHtml(type);
+  if (panel && _mbTaxTab !== 'overview') {
+    if (_mbTaxTab === type) panel.innerHTML = _mbTaxPanelHtml(type);
   }
+  // Overview: update only sidebar + point visual, never re-render the chart
   var sb = document.getElementById('mb-sidebar');
   if (sb) sb.innerHTML = _mbSidebarHtml();
 }
@@ -640,10 +642,8 @@ function mbRemoveItem(key) {
   delete _mbSelected[key];
   var type  = key.split(':')[0];
   var panel = document.getElementById('mb-tax-panel');
-  if (panel) {
-    if (_mbTaxTab === 'overview') panel.innerHTML = _mbOverviewHtml();
-    else if (_mbTaxTab === type)  panel.innerHTML = _mbTaxPanelHtml(type);
-  }
+  if (panel && _mbTaxTab !== 'overview' && _mbTaxTab === type)
+    panel.innerHTML = _mbTaxPanelHtml(type);
   var sb = document.getElementById('mb-sidebar');
   if (sb) sb.innerHTML = _mbSidebarHtml();
 }
@@ -651,7 +651,7 @@ function mbRemoveItem(key) {
 function mbClearAll() {
   _mbSelected = {};
   var panel = document.getElementById('mb-tax-panel');
-  if (panel) panel.innerHTML = _mbTaxTab === 'overview' ? _mbOverviewHtml() : _mbTaxPanelHtml(_mbTaxTab);
+  if (panel && _mbTaxTab !== 'overview') panel.innerHTML = _mbTaxPanelHtml(_mbTaxTab);
   var sb = document.getElementById('mb-sidebar');
   if (sb) sb.innerHTML = _mbSidebarHtml();
 }
