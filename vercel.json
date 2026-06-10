@@ -1,4 +1,5 @@
 {
+  "outputDirectory": ".",
   "redirects": [
     { "source": "/moments-search", "destination": "/inventory-explorer", "permanent": true }
   ],
