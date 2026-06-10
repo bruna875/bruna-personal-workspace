@@ -310,7 +310,7 @@ function _mbRenderPackedBubble() {
         return {
           name: sig.name.length > 22 ? sig.name.slice(0,22)+'…' : sig.name,
           fullName: sig.name,
-          value: pods,
+          value: Math.min(pods, 300), // cap to prevent one huge bubble dominating
           score: sig.score,
           type: sig.type,
           _key: sig.key
@@ -327,15 +327,18 @@ function _mbRenderPackedBubble() {
     _mbHcChart = Highcharts.chart('mb-packed-bubble', {
       chart: {
         type: 'packedbubble',
-        height: 440,
+        height: 460,
         backgroundColor: '#ffffff',
         style: { fontFamily: 'Geist, system-ui, sans-serif' },
-        animation: { duration: 600 }
+        animation: { duration: 500 },
+        margin: [10, 10, 50, 10]
       },
       title: { text: null },
       credits: { enabled: false },
       legend: {
         enabled: true,
+        align: 'center',
+        verticalAlign: 'bottom',
         itemStyle: { fontSize: '11px', fontWeight: '500', color: '#6b7280' },
         itemHoverStyle: { color: '#0D1E36' }
       },
@@ -344,12 +347,12 @@ function _mbRenderPackedBubble() {
         backgroundColor: '#fff',
         borderColor: 'rgba(0,0,0,.1)',
         borderRadius: 8,
-        shadow: { color: 'rgba(0,0,0,.1)', offsetX: 0, offsetY: 4, opacity: .12, width: 12 },
+        shadow: { color: 'rgba(0,0,0,.08)', offsetX: 0, offsetY: 4, opacity: .1, width: 10 },
         style: { fontSize: '12px' },
         formatter: function() {
           var p = this.point;
           return '<div style="font-weight:600;color:#0D1E36;margin-bottom:4px">' + (p.fullName || p.name) + '</div>'
-            + '<div style="color:#6b7280;font-size:11px;margin-bottom:4px">' + this.series.name + '</div>'
+            + '<div style="color:#6b7280;font-size:11px;margin-bottom:4px">' + p.type + ' · ' + this.series.name + '</div>'
             + '<div style="display:flex;gap:12px">'
             +   '<span style="font-size:11px">Score <b>' + p.score + '</b></span>'
             +   '<span style="font-size:11px">Pods <b>' + p.value + '</b></span>'
@@ -358,14 +361,26 @@ function _mbRenderPackedBubble() {
       },
       plotOptions: {
         packedbubble: {
-          minSize: '8%',
-          maxSize: '80%',
+          minSize: '5%',
+          maxSize: '45%',
           splitSeries: true,
           seriesInteraction: false,
+          draggable: false,
           layoutAlgorithm: {
             splitSeries: true,
-            gravitationalConstant: 0.02,
-            parentNodeLimit: true
+            gravitationalConstant: 0.05,
+            parentNodeLimit: true,
+            seriesInteraction: false,
+            dragBetweenSeries: false,
+            bubblePadding: 3,
+            parentNodeOptions: {
+              gravitationalConstant: 0.5,
+              marker: {
+                fillOpacity: 0.04,
+                lineWidth: 1,
+                lineColor: null
+              }
+            }
           },
           dataLabels: {
             enabled: true,
@@ -376,7 +391,7 @@ function _mbRenderPackedBubble() {
               color: '#fff',
               textOutline: 'none'
             },
-            filter: { property: 'y', operator: '>', value: 50 }
+            filter: { property: 'value', operator: '>', value: 80 }
           },
           point: {
             events: {
@@ -384,12 +399,7 @@ function _mbRenderPackedBubble() {
                 var key = this._key;
                 if (!key) return;
                 mbToggleItem(key);
-                // Visual feedback: re-render panel
-                var panel = document.getElementById('mb-tax-panel');
-                if (panel && _mbTaxTab === 'overview') {
-                  // Re-init chart to reflect selection
-                  setTimeout(_mbRenderPackedBubble, 50);
-                }
+                setTimeout(_mbRenderPackedBubble, 50);
               }
             }
           }
