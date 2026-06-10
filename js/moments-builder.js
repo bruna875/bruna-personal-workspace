@@ -215,16 +215,29 @@ function mbSwitchTaxTab(id) {
   if (id === 'overview') setTimeout(_mbRenderPackedBubble, 0);
 }
 
-var _mbChartMode = 1; // 1 = semantic groups, 2 = taxonomy, 3 = inventory
+var _mbChartMode = 1; // 1 = semantic, 3 = inventory
 
 function mbSetChartMode(m) {
   _mbChartMode = m;
-  ['1','2','3'].forEach(function(i) {
+  ['1','3'].forEach(function(i) {
     var el = document.getElementById('mb-cm-' + i);
     if (el) el.className = 'tx2-seg' + (i == m ? ' tx2-seg--act' : '');
   });
   _mbStellarLabelEl = null;
   _mbRenderPackedBubble();
+}
+
+// Update visual of a single chart point without rebuilding
+function _mbUpdatePointVisual(key) {
+  if (!_mbHcChart) return;
+  var sel = !!_mbSelected[key];
+  _mbHcChart.series[0].points.forEach(function(p) {
+    if (p._key === key && p.graphic) {
+      p.graphic.attr(sel
+        ? { stroke: '#ED005E', 'stroke-width': 2.5, opacity: 1 }
+        : { stroke: p.color, 'stroke-width': 0.5, opacity: 0.75 });
+    }
+  });
 }
 
 // ── Overview: Packed Bubble Split (Highcharts) ───────────────────────────────
@@ -265,18 +278,23 @@ function _mbStellarLabel(chart, name, count) {
 // ── Overview tab — Stellar Chart (Highcharts) ────────────────────────────────
 function _mbOverviewHtml() {
   var modes = [
-    { id: '1', label: 'Semantic',   desc: 'Angle = group · Radius = score · Size = pods · Color = taxonomy' },
-    { id: '2', label: 'Taxonomy',   desc: 'Angle = taxonomy · Radius = score · Size = pods · Color = group' },
-    { id: '3', label: 'Inventory',  desc: 'Angle = taxonomy · Radius = pods · Size = score · Color = group' },
+    { id: '1', label: 'Semantic',  desc: 'Angle = semantic group · Radius = score · Size = pods · Color = taxonomy' },
+    { id: '3', label: 'Inventory', desc: 'Angle = taxonomy · Radius = pods · Size = score · Color = semantic group' },
   ];
+  var modeDesc = _mbChartMode === 1
+    ? 'Signals grouped by <b>semantic theme</b>. Radius = affinity score (outer = more relevant), size = pods inventory, color = taxonomy dimension.'
+    : 'Signals grouped by <b>taxonomy type</b>. Radius = available pods (outer = more inventory), size = affinity score, color = semantic family.';
 
-  var pills = '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;width:fit-content;margin-bottom:12px">'
+  var pills = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+    + '<div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px">'
     + modes.map(function(m) {
         var act = String(_mbChartMode) === m.id;
-        return '<div id="mb-cm-' + m.id + '" class="tx2-seg' + (act ? ' tx2-seg--act' : '') + '" onclick="mbSetChartMode(' + m.id + ')" title="' + m.desc + '">'
+        return '<div id="mb-cm-' + m.id + '" class="tx2-seg' + (act ? ' tx2-seg--act' : '') + '" onclick="mbSetChartMode(' + m.id + ')">'
           + '<span>' + m.label + '</span>'
           + '</div>';
       }).join('')
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);line-height:1.4">' + modeDesc + '</div>'
     + '</div>';
 
   return '<div>'
@@ -340,11 +358,19 @@ function _mbRenderPackedBubble() {
   var X_MAX = 32, sectorW = X_MAX / sectors.length;
   var bubbleData = [], pieData = [], colorClasses = [];
 
+  // Helper: get 5-10 signals per taxonomy with score >= 70
+  function _getItems(d) {
+    var items = (_mbScored[d.id] || []);
+    var top = items.filter(function(i){ return i.score >= 70; }).slice(0, 10);
+    if (top.length < 5) top = items.slice(0, 5); // fallback: top 5 regardless
+    return top;
+  }
+
   if (mode === 1) {
     // Angle = semantic group, radius = score, size = pods, color = taxonomy type
     var allSigs = [], seen = {};
     dims.forEach(function(d) {
-      (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0,15).forEach(function(item) {
+      _getItems(d).forEach(function(item) {
         var key = d.id + ':' + item.id;
         if (!seen[key]) { seen[key] = true; allSigs.push({ item: item, d: d }); }
       });
@@ -372,7 +398,7 @@ function _mbRenderPackedBubble() {
   } else {
     // Modes 2 & 3: angle = taxonomy, color = semantic group
     dims.forEach(function(d, di) {
-      var items = (_mbScored[d.id] || []).filter(function(i){ return i.score > 0; }).slice(0,15);
+      var items = _getItems(d);
       var cx = (di + 0.5) * sectorW;
       pieData.push({ name: d.label, y: Math.max(items.length,1), color: MB_TYPE_COLORS[d.id]||'#8b5cf6', custom: { ti: di } });
       items.forEach(function(item, ii) {
@@ -439,6 +465,15 @@ function _mbRenderPackedBubble() {
         events: {
           render: function() {
             _mbStellarLabel(this, 'All signals', bubbleData.length);
+            // Apply selection visual on initial render
+            var chart = this;
+            chart.series[0].points.forEach(function(p) {
+              if (!p._key || !p.graphic) return;
+              var sel = !!_mbSelected[p._key];
+              p.graphic.attr(sel
+                ? { stroke: '#ED005E', 'stroke-width': 2.5, opacity: 1 }
+                : { stroke: p.color, 'stroke-width': 0.5, opacity: 0.75 });
+            });
           }
         }
       },
@@ -502,7 +537,9 @@ function _mbRenderPackedBubble() {
             events: {
               click: function() {
                 var key = this._key;
-                if (key) { mbToggleItem(key); setTimeout(_mbRenderPackedBubble, 50); }
+                if (!key) return;
+                mbToggleItem(key);
+                _mbUpdatePointVisual(key);
               }
             }
           }
