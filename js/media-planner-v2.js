@@ -5317,7 +5317,8 @@ function mp2RenderStripList(highlightIdx) {
   var MERGE_ICO = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>';
 
   var _noCampaign = !mp2SelectedCampaign;
-  var hasSelected = (_mp2DistributePlanIdx !== null) && !_mp2IsLocked() && !_noCampaign;
+  // Button is active whenever a plan is selected — no campaign = falls back to DSP modal
+  var hasSelected = (_mp2DistributePlanIdx !== null) && !_mp2IsLocked();
 
   var distributeBtn = '<div style="flex-shrink:0;padding:10px 12px;border-top:1px solid var(--border)">'
     + '<button onclick="mp2SaveAndDistribute()" '
