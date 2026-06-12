@@ -5248,7 +5248,59 @@ function mp2SelectDistributePlan(idx) {
 
 function mp2SaveAndDistribute() {
   if (_mp2DistributePlanIdx === null) return;
-  mp2ActivateDSP(_mp2DistributePlanIdx);
+  var plan         = _mp2CurrentAnalysisPlans[_mp2DistributePlanIdx];
+  var campaignDbId = mp2SelectedCampaign && mp2SelectedCampaign.dbId;
+
+  // If there's no campaign linked to this analysis, fall back to DSP modal
+  if (!campaignDbId || !plan) {
+    mp2ActivateDSP(_mp2DistributePlanIdx);
+    return;
+  }
+
+  // ── Link the wizard's selected creatives to the campaign in DB ──────────────
+  var creativeIds = (mp2LibrarySelectedItems || []).map(function(c) {
+    return c.dbId ? parseInt(c.dbId)
+      : (c.id    ? parseInt(String(c.id).replace('dbcr', '')) : null);
+  }).filter(function(id) { return id && !isNaN(id); });
+
+  if (creativeIds.length && campaignDbId) {
+    fetch('/api/creatives-link', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ campaign_id: campaignDbId, creative_ids: creativeIds })
+    }).catch(function(e) { console.warn('creatives-link error:', e); });
+  }
+
+  var pendingMpId = (plan._dbRaw && plan._dbRaw.moments_group_id) || plan.id || null;
+
+  function _navigate() {
+    _cmPendingCampaignDbId = campaignDbId;
+    _cmPendingAnalysisId   = _mp2LastAnalysisId;
+    _cmPendingMpId         = pendingMpId;
+    if (typeof setPage === 'function') {
+      setPage('campaign-management', 'Campaign Management', true);
+    }
+  }
+
+  // Wait for any in-flight media-plan DB saves before navigating
+  var hasPendingQueue = (_mp2PendingDbSaves || []).length > 0;
+  if ((_mp2SavesInFlight || 0) > 0 || hasPendingQueue) {
+    var _distBtn = document.querySelector('button[onclick="mp2SaveAndDistribute()"]');
+    if (_distBtn) { _distBtn.textContent = 'Saving…'; _distBtn.disabled = true; }
+
+    var _navTimeout = setTimeout(function() {
+      _mp2OnSavesComplete = null;
+      _navigate();
+    }, 5000);
+
+    _mp2OnSavesComplete = function() {
+      clearTimeout(_navTimeout);
+      _navigate();
+    };
+    return;
+  }
+
+  _navigate();
 }
 
 function mp2RenderStripList(highlightIdx) {
