@@ -5271,6 +5271,22 @@ function mp2SaveAndDistribute() {
     }).catch(function(e) { console.warn('creatives-link error:', e); });
   }
 
+  // Pre-populate draft creatives for Campaign Manager
+  if (typeof _cmDraftCreatives !== 'undefined' && mp2LibrarySelectedItems && mp2LibrarySelectedItems.length) {
+    _cmDraftCreatives = mp2LibrarySelectedItems.map(function(cr, i) {
+      return {
+        id:        'pending-' + i,
+        libId:     cr.id || '',
+        dbId:      cr.dbId || null,
+        name:      cr.name || '—',
+        thumb:     cr.thumb || '',
+        fileType:  cr.fileType || '',
+        mediaType: cr.mediaType || '',
+        templates: cr.templates || []
+      };
+    });
+  }
+
   // Navigate to Campaign Manager with pre-populated state
   _cmPendingCampaignDbId = campaignDbId;
   _cmPendingAnalysisId   = _mp2LastAnalysisId;
