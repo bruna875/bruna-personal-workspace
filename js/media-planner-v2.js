@@ -5290,7 +5290,7 @@ function mp2SaveAndDistribute() {
   // Navigate to Campaign Manager with pre-populated state
   _cmPendingCampaignDbId = campaignDbId;
   _cmPendingAnalysisId   = _mp2LastAnalysisId;
-  _cmPendingMpId         = (plan._dbRaw && plan._dbRaw.moments_group_id) || plan.id || null;
+  _cmPendingMpId         = (plan._dbRaw && (plan._dbRaw.moments_group_id || plan._dbRaw.media_plan_id)) || plan.id || null;
   if (typeof setPage === 'function') {
     setPage('campaign-management', 'Campaign Management', true);
   }

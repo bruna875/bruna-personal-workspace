@@ -1567,7 +1567,7 @@ function cmLoadMediaPlanPanel() {
       if (_a) {
         _cmSelectedAnalysis = _a;
         if (_cmPendingMpId && Array.isArray(_a.moments_groups)) {
-          var _mpIdx = _a.moments_groups.findIndex(function(p) { return String(p.ad_group_id) === String(_cmPendingMpId); });
+          var _mpIdx = _a.moments_groups.findIndex(function(p) { return String(p.ad_group_id || p.media_plan_id) === String(_cmPendingMpId); });
           if (_mpIdx >= 0) {
             _cmSelectedMp = Object.assign({}, _a.moments_groups[_mpIdx], { _idx: _mpIdx });
           }
