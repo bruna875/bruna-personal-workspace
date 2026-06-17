@@ -406,13 +406,6 @@ function mp2SaveCurrentAnalysis() {
   });
 }
 
-var _MP2_DIST_COLORS = {
-  'The Trade Desk': '#00C851', 'DV360': '#4285F4', 'Xandr': '#FF6B35',
-  'Amazon DSP': '#FF9900', 'Yahoo DSP': '#6001D2', 'Adobe Advertising Cloud': '#FF0000',
-  'Magnite': '#E63946', 'PubMatic': '#2563EB', 'Index Exchange': '#0D9488',
-  'FreeWheel': '#7C3AED', 'OpenX': '#059669', 'TripleLift': '#DC2626'
-};
-
 function mp2OpenDistributeModal() {
   var overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center';
@@ -420,19 +413,16 @@ function mp2OpenDistributeModal() {
   function renderCards(list) {
     if (!list.length) return '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint);grid-column:1/-1">No partners found</div>';
     return list.map(function(p) {
-      var color     = _MP2_DIST_COLORS[p.name] || '#64748b';
-      var logo      = p.name.charAt(0).toUpperCase();
+      var color     = (typeof _dspColors !== 'undefined' && _dspColors[p.name]) || '#64748b';
+      var logoHtml  = (typeof _dspLogoHtml === 'function') ? _dspLogoHtml(p.name, 36) : '<div style="width:36px;height:36px;border-radius:9px;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">' + p.name.charAt(0) + '</div>';
       var typeColor = p.type === 'DSP' ? '#1d4ed8' : '#7c3aed';
       var typeBg    = p.type === 'DSP' ? '#eff6ff' : '#f5f3ff';
       var typeBorder= p.type === 'DSP' ? '#bfdbfe' : '#ddd6fe';
-      return '<button style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s,box-shadow .12s" onmouseenter="this.style.borderColor=\'' + color + '\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">'
-        +   '<div style="width:32px;height:32px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">' + logo + '</div>'
-        +   '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;border:1px solid ' + typeBorder + ';color:' + typeColor + ';background:' + typeBg + '">' + p.type + '</span>'
-        + '</div>'
-        + '<div>'
-        +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.2">' + p.name + '</div>'
-        +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + (p.category || '') + '</div>'
+      return '<button style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s,box-shadow .12s" onmouseenter="this.style.borderColor=\'' + color + '\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'">'
+        + logoHtml
+        + '<div style="min-width:0">'
+        +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.name + '</div>'
+        +   '<span style="display:inline-block;margin-top:3px;font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;border:1px solid ' + typeBorder + ';color:' + typeColor + ';background:' + typeBg + '">' + p.type + '</span>'
         + '</div>'
         + '</button>';
     }).join('');
