@@ -418,7 +418,8 @@ function mp2OpenDistributeModal() {
       var typeColor = p.type === 'DSP' ? '#1d4ed8' : '#7c3aed';
       var typeBg    = p.type === 'DSP' ? '#eff6ff' : '#f5f3ff';
       var typeBorder= p.type === 'DSP' ? '#bfdbfe' : '#ddd6fe';
-      return '<button style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s,box-shadow .12s" onmouseenter="this.style.borderColor=\'' + color + '\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'">'
+      var pName = p.name.replace(/'/g, "\\'");
+      return '<button onclick="mp2DistSelectPartner(\'' + pName + '\',this)" data-partner="' + p.name.replace(/"/g,'&quot;') + '" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s,box-shadow .12s">'
         + logoHtml
         + '<div style="min-width:0">'
         +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.name + '</div>'
@@ -440,8 +441,9 @@ function mp2OpenDistributeModal() {
     + '<div id="mp2-dist-cards" style="flex:1;overflow-y:auto;padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:start">'
     + '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--faint);padding:16px">Loading partners…</div>'
     + '</div>'
-    + '<div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">'
-    +   '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;height:34px;border-radius:8px;border:1px solid var(--border-md);background:none;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Cancel</button>'
+    + '<div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px">'
+    +   '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="flex:1;height:34px;border-radius:8px;border:1px solid var(--border-md);background:none;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Cancel</button>'
+    +   '<button id="mp2-dist-btn" disabled onclick="mp2Distribute()" style="flex:2;height:34px;border-radius:8px;border:none;background:#0f172a;color:#fff;font-size:12px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:.4;transition:opacity .13s">Distribute</button>'
     + '</div>'
     + '</div>';
 
@@ -466,10 +468,36 @@ function mp2OpenDistributeModal() {
 function mp2DistSearch(q) {
   var el = document.getElementById('mp2-dist-cards');
   if (!el) return;
+  window._mp2DistSelected = null;
   var list = (window._mp2DistPartners || []).filter(function(p) {
     return !q || p.name.toLowerCase().includes(q.toLowerCase()) || (p.type||'').toLowerCase().includes(q.toLowerCase()) || (p.category||'').toLowerCase().includes(q.toLowerCase());
   });
   el.innerHTML = window._mp2DistRenderCards ? window._mp2DistRenderCards(list) : '';
+  var btn = document.getElementById('mp2-dist-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.4'; btn.style.cursor = 'not-allowed'; }
+}
+
+function mp2DistSelectPartner(name, el) {
+  window._mp2DistSelected = name;
+  // Deselect all cards
+  var cards = document.querySelectorAll('#mp2-dist-cards button');
+  cards.forEach(function(c) {
+    c.style.borderColor = 'var(--border)';
+    c.style.boxShadow   = 'none';
+    c.style.background  = 'var(--surface)';
+  });
+  // Highlight selected
+  var color = (typeof _dspColors !== 'undefined' && _dspColors[name]) || '#0f172a';
+  el.style.borderColor = color;
+  el.style.boxShadow   = '0 0 0 3px ' + color + '22';
+  el.style.background  = 'var(--subtle)';
+  // Enable distribute button
+  var btn = document.getElementById('mp2-dist-btn');
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+}
+
+function mp2Distribute() {
+  // placeholder — no action yet
 }
 
 function mp2ActivateDSP(idx) {
