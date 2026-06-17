@@ -406,44 +406,40 @@ function mp2SaveCurrentAnalysis() {
   });
 }
 
+var _MP2_DIST_COLORS = {
+  'The Trade Desk': '#00C851', 'DV360': '#4285F4', 'Xandr': '#FF6B35',
+  'Amazon DSP': '#FF9900', 'Yahoo DSP': '#6001D2', 'Adobe Advertising Cloud': '#FF0000',
+  'Magnite': '#E63946', 'PubMatic': '#2563EB', 'Index Exchange': '#0D9488',
+  'FreeWheel': '#7C3AED', 'OpenX': '#059669', 'TripleLift': '#DC2626'
+};
+
 function mp2OpenDistributeModal() {
   var overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center';
 
-  var partners = [
-    { name:'The Trade Desk', type:'DSP', category:'Programmatic',  color:'#00C851', logo:'T' },
-    { name:'DV360',          type:'DSP', category:'Programmatic',  color:'#4285F4', logo:'G' },
-    { name:'Xandr',          type:'DSP', category:'Programmatic',  color:'#FF6B35', logo:'X' },
-    { name:'Amazon DSP',     type:'DSP', category:'Programmatic',  color:'#FF9900', logo:'A' },
-    { name:'Yahoo DSP',      type:'DSP', category:'Programmatic',  color:'#6001D2', logo:'Y' },
-    { name:'Adobe Advertising Cloud', type:'DSP', category:'Programmatic', color:'#FF0000', logo:'A' },
-    { name:'Magnite',        type:'SSP', category:'CTV / OLV',     color:'#E63946', logo:'M' },
-    { name:'PubMatic',       type:'SSP', category:'Programmatic',  color:'#2563EB', logo:'P' },
-    { name:'Index Exchange', type:'SSP', category:'Programmatic',  color:'#0D9488', logo:'I' },
-    { name:'FreeWheel',      type:'SSP', category:'CTV / OLV',     color:'#7C3AED', logo:'F' },
-    { name:'OpenX',          type:'SSP', category:'Programmatic',  color:'#059669', logo:'O' },
-    { name:'TripleLift',     type:'SSP', category:'Programmatic',  color:'#DC2626', logo:'T' },
-  ];
-
   function renderCards(list) {
-    if (!list.length) return '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint)">No partners found</div>';
+    if (!list.length) return '<div style="padding:24px;text-align:center;font-size:12px;color:var(--faint);grid-column:1/-1">No partners found</div>';
     return list.map(function(p) {
+      var color     = _MP2_DIST_COLORS[p.name] || '#64748b';
+      var logo      = p.name.charAt(0).toUpperCase();
       var typeColor = p.type === 'DSP' ? '#1d4ed8' : '#7c3aed';
       var typeBg    = p.type === 'DSP' ? '#eff6ff' : '#f5f3ff';
       var typeBorder= p.type === 'DSP' ? '#bfdbfe' : '#ddd6fe';
-      return '<button style="display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s" onmouseenter="this.style.borderColor=\'' + p.color + '\'" onmouseleave="this.style.borderColor=\'var(--border)\'">'
-        + '<div style="width:34px;height:34px;border-radius:8px;background:' + p.color + ';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">' + p.logo + '</div>'
-        + '<div style="flex:1;min-width:0">'
-        +   '<div style="font-size:12px;font-weight:600;color:var(--text)">' + p.name + '</div>'
-        +   '<div style="font-size:10px;color:var(--muted);margin-top:1px">' + p.category + '</div>'
+      return '<button style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .12s,box-shadow .12s" onmouseenter="this.style.borderColor=\'' + color + '\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">'
+        +   '<div style="width:32px;height:32px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">' + logo + '</div>'
+        +   '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;border:1px solid ' + typeBorder + ';color:' + typeColor + ';background:' + typeBg + '">' + p.type + '</span>'
         + '</div>'
-        + '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;border:1px solid ' + typeBorder + ';color:' + typeColor + ';background:' + typeBg + '">' + p.type + '</span>'
+        + '<div>'
+        +   '<div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.2">' + p.name + '</div>'
+        +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + (p.category || '') + '</div>'
+        + '</div>'
         + '</button>';
     }).join('');
   }
 
   overlay.innerHTML =
-    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:0;width:440px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:inherit;overflow:hidden">'
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:0;width:560px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.18);font-family:inherit;overflow:hidden">'
     + '<div style="padding:20px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0">'
     +   '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:2px">Save and Distribute</div>'
     +   '<div style="font-size:12px;color:var(--muted)">Select a partner to push this moments group to</div>'
@@ -451,27 +447,37 @@ function mp2OpenDistributeModal() {
     + '<div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">'
     +   '<input id="mp2-dist-search" type="text" placeholder="Search partners…" oninput="mp2DistSearch(this.value)" style="width:100%;box-sizing:border-box;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'">'
     + '</div>'
-    + '<div id="mp2-dist-cards" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px">'
-    + renderCards(partners)
+    + '<div id="mp2-dist-cards" style="flex:1;overflow-y:auto;padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:start">'
+    + '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--faint);padding:16px">Loading partners…</div>'
     + '</div>'
     + '<div style="padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">'
     +   '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;height:34px;border-radius:8px;border:1px solid var(--border-md);background:none;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Cancel</button>'
     + '</div>'
     + '</div>';
 
-  overlay._mp2Partners = partners;
   overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 
-  window._mp2DistPartners = partners;
-  window._mp2DistRenderCards = renderCards;
+  // Fetch from DB
+  fetch('/api/dsp-ssp')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      window._mp2DistPartners   = d.library || [];
+      window._mp2DistRenderCards = renderCards;
+      var el = document.getElementById('mp2-dist-cards');
+      if (el) el.innerHTML = renderCards(window._mp2DistPartners);
+    })
+    .catch(function() {
+      var el = document.getElementById('mp2-dist-cards');
+      if (el) el.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--faint);padding:16px">Failed to load partners</div>';
+    });
 }
 
 function mp2DistSearch(q) {
   var el = document.getElementById('mp2-dist-cards');
   if (!el) return;
   var list = (window._mp2DistPartners || []).filter(function(p) {
-    return !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.type.toLowerCase().includes(q.toLowerCase()) || p.category.toLowerCase().includes(q.toLowerCase());
+    return !q || p.name.toLowerCase().includes(q.toLowerCase()) || (p.type||'').toLowerCase().includes(q.toLowerCase()) || (p.category||'').toLowerCase().includes(q.toLowerCase());
   });
   el.innerHTML = window._mp2DistRenderCards ? window._mp2DistRenderCards(list) : '';
 }
