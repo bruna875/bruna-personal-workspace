@@ -65,7 +65,8 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name,
+        c.impressions_delivered, c.dollars_spent, c.pacing_pct
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -76,7 +77,8 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name,
+        c.impressions_delivered, c.dollars_spent, c.pacing_pct
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -87,7 +89,8 @@ export default async function handler(req, res) {
         c.campaign_id, c.campaign_name, c.geo, c.status,
         c.impression_goal, c.impression_goal_max, c.budget, c.budget_max,
         c.start_date, c.end_date, c.partner_ids, c.created_by, c.created_at,
-        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name
+        c.client_org_id, c.advertiser_id, c.creative_ids, o.client_name, a.advertiser_name,
+        c.impressions_delivered, c.dollars_spent, c.pacing_pct
       FROM campaigns c
       LEFT JOIN advertisers          a ON c.advertiser_id  = a.advertiser_id
       LEFT JOIN client_organizations o ON c.client_org_id  = o.client_org_id
@@ -119,11 +122,11 @@ export default async function handler(req, res) {
         advertiser:   r.advertiser_name || '—',
         geography:    r.geo ? r.geo.split(',').map(g => g.trim()) : [],
         status:       r.status || 'draft',
-        pacing:       null,
-        impressions:  '—',
+        pacing:       r.pacing_pct ?? null,
+        impressions:  r.impressions_delivered || '—',
         goal:         fmtGoal(r.impression_goal, r.impression_goal_max),
         budget:       fmtBudgetRange(r.budget, r.budget_max),
-        spent:        '—',
+        spent:        r.dollars_spent || '—',
         start:        fmtDate(r.start_date),
         end:          fmtDate(r.end_date),
         creatives:    (r.creative_ids || []).length,

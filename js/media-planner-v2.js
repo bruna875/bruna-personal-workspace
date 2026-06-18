@@ -2291,7 +2291,7 @@ function _mp2SubRowsHtml(analysisId, plans, visible) {
   // Header row (Plan Name / Campaign / Channels / …)
   var hdrRow = '<tr class="' + cls + '" style="' + disp + '">'
     + '<td style="' + HDR + '"></td>'
-    + '<td style="' + HDR + ';text-align:left">Plan Name</td>'
+    + '<td style="' + HDR + ';text-align:left">Moment Gr. Name</td>'
     + '<td style="' + HDR + ';text-align:left">Campaign</td>'
     + '<td style="' + HDR + ';text-align:center">Channels</td>'
     + '<td style="' + HDR + ';text-align:center">Moments</td>'
@@ -2303,7 +2303,7 @@ function _mp2SubRowsHtml(analysisId, plans, visible) {
   if (!plans || !plans.length) {
     var emptyRow = '<tr class="' + cls + '" style="' + disp + '">'
       + '<td style="' + CEL + '"></td>'
-      + '<td colspan="7" style="' + CEL + ';color:var(--faint);font-style:italic">No media plans saved for this analysis.</td>'
+      + '<td colspan="7" style="' + CEL + ';color:var(--faint);font-style:italic">No Moments saved for this analysis.</td>'
       + '</tr>';
     return hdrRow + emptyRow;
   }
