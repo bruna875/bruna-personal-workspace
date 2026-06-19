@@ -33,42 +33,42 @@ var LS_YT_LIVE = {
 var lsScanTimeout = null;
 
 var LS_IAB_POOL = [
-  { tag: 'Breaking News',    code: 'IAB12-1' },
-  { tag: 'News',             code: 'IAB12'   },
-  { tag: 'World News',       code: 'IAB12-9' },
-  { tag: 'Politics',         code: 'IAB11-4' },
-  { tag: 'Business News',    code: 'IAB3-7'  },
-  { tag: 'Economy',          code: 'IAB13-12'},
-  { tag: 'Sports',           code: 'IAB17'   },
-  { tag: 'Football',         code: 'IAB17-4' },
-  { tag: 'Basketball',       code: 'IAB17-7' },
-  { tag: 'Weather',          code: 'IAB15-10'},
-  { tag: 'Entertainment',    code: 'IAB1'    },
-  { tag: 'Technology',       code: 'IAB19'   },
-  { tag: 'Finance',          code: 'IAB13'   },
-  { tag: 'Society',          code: 'IAB14'   },
-  { tag: 'Health',           code: 'IAB7'    },
-  { tag: 'Science',          code: 'IAB15'   },
-  { tag: 'Travel',           code: 'IAB20'   },
-  { tag: 'Law & Government', code: 'IAB11'   },
+  { tag: 'Breaking News',    code: 'IAB12-1',  reasoning: 'Anchor confirms breaking story with live field reporter; urgency framing typical of major news events.' },
+  { tag: 'News',             code: 'IAB12',    reasoning: 'Standard news broadcast format detected; editorial content neutral and factual in delivery.' },
+  { tag: 'World News',       code: 'IAB12-9',  reasoning: 'International affairs segment with correspondent reporting from multiple regions.' },
+  { tag: 'Politics',         code: 'IAB11-4',  reasoning: 'Segment covers domestic political proceedings; references legislative activity and party positions.' },
+  { tag: 'Business News',    code: 'IAB3-7',   reasoning: 'Financial reporting segment with market data overlays and analyst commentary.' },
+  { tag: 'Economy',          code: 'IAB13-12', reasoning: 'Macroeconomic indicators discussed including employment figures and GDP projections.' },
+  { tag: 'Sports',           code: 'IAB17',    reasoning: 'Live sports coverage with play-by-play commentary and real-time scoreboard graphics.' },
+  { tag: 'Football',         code: 'IAB17-4',  reasoning: 'American football broadcast with team statistics and referee decisions highlighted.' },
+  { tag: 'Basketball',       code: 'IAB17-7',  reasoning: 'Basketball game coverage; detected player names, court graphics, and crowd audio.' },
+  { tag: 'Weather',          code: 'IAB15-10', reasoning: 'Meteorological segment with forecast maps and severe weather advisory overlays.' },
+  { tag: 'Entertainment',    code: 'IAB1',     reasoning: 'Celebrity or cultural segment detected; light editorial tone with entertainment focus.' },
+  { tag: 'Technology',       code: 'IAB19',    reasoning: 'Tech product announcement or review detected; brand mentions and spec comparisons present.' },
+  { tag: 'Finance',          code: 'IAB13',    reasoning: 'Financial services content detected; references to investment vehicles and market performance.' },
+  { tag: 'Society',          code: 'IAB14',    reasoning: 'Social issues segment with community-focused framing and expert interview format.' },
+  { tag: 'Health',           code: 'IAB7',     reasoning: 'Health and wellness content detected; medical expert commentary and public advisory language.' },
+  { tag: 'Science',          code: 'IAB15',    reasoning: 'Scientific research segment with data visualisation and academic source citations.' },
+  { tag: 'Travel',           code: 'IAB20',    reasoning: 'Travel segment with destination imagery, cultural references, and tourism framing.' },
+  { tag: 'Law & Government', code: 'IAB11',    reasoning: 'Legal proceedings or government briefing detected; formal language and official source references.' },
 ];
 
 var LS_BS_POOL = [
-  { label: 'Safe Content',       color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
+  { label: 'Safe Content',       risk: 'Low',    id: 'BS-001', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
     reasoning: 'Studio broadcast with professional anchors delivering factual news — fully suitable for brand advertising across all categories.' },
-  { label: 'Safe Content',       color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
+  { label: 'Safe Content',       risk: 'Low',    id: 'BS-002', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
     reasoning: 'Calm editorial pacing and neutral tone throughout the segment. No sensitive material detected.' },
-  { label: 'Safe Content',       color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
+  { label: 'Safe Content',       risk: 'Low',    id: 'BS-003', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
     reasoning: 'Sports highlights with upbeat commentary and positive framing — ideal environment for lifestyle and consumer brands.' },
-  { label: 'Safe Content',       color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
+  { label: 'Safe Content',       risk: 'Low',    id: 'BS-004', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
     reasoning: 'Informational segment with data-driven graphics and factual commentary. Brand-safe across all advertiser categories.' },
-  { label: 'Safe Content',       color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
+  { label: 'Safe Content',       risk: 'Low',    id: 'BS-005', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
     reasoning: 'A logo/title card paired with dreamy music conveys a serene, ambient setup rather than an active narrative emotion.' },
-  { label: 'Controversial News', color: '#d97706', bg: '#fffbeb', border: '#fde68a',
+  { label: 'Controversial News', risk: 'Medium', id: 'BS-006', color: '#d97706', bg: '#fffbeb', border: '#fde68a',
     reasoning: 'Coverage of politically charged events may carry audience polarisation risk for certain brand verticals.' },
-  { label: 'Political Content',  color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe',
+  { label: 'Political Content',  risk: 'Medium', id: 'BS-007', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe',
     reasoning: 'Segment references electoral topics and government policy — brands in neutral categories should exercise caution.' },
-  { label: 'Sensitive Topic',    color: '#dc2626', bg: '#fef2f2', border: '#fecaca',
+  { label: 'Sensitive Topic',    risk: 'High',   id: 'BS-008', color: '#dc2626', bg: '#fef2f2', border: '#fecaca',
     reasoning: 'Footage includes conflict imagery reported in a news context. Suitable for news-adjacent brands; may be inappropriate for consumer packaged goods.' },
 ];
 
@@ -88,54 +88,121 @@ function lsConfColor(score) {
   return { color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
 }
 
-function lsScanItemHtml(type) {
+function lsScanGroupHtml() {
   var ts = lsNowLabel();
-  var conf = 72 + Math.floor(Math.random() * 27); // 72–98
-  var cc = lsConfColor(conf);
-  var confBadge = '<span style="font-size:10px;font-weight:600;background:' + cc.bg + ';border:1px solid ' + cc.border + ';color:' + cc.color + ';border-radius:20px;padding:2px 8px">' + conf + '% confidence</span>';
 
-  if (type === 'iab') {
-    // pick 1–3 random tags
-    var pool = LS_IAB_POOL.slice().sort(function() { return Math.random() - .5; });
-    var count = 1 + Math.floor(Math.random() * 2);
-    var tags = pool.slice(0, count);
-    var tagBadges = tags.map(function(t) {
-      return '<span style="font-size:11px;font-weight:500;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:2px 10px">' + t.tag + '</span>'
-        + '<span style="font-size:10px;color:var(--faint);font-family:monospace;padding:0 2px">' + t.code + '</span>';
-    }).join('');
-    return '<div data-ls-type="iab" style="padding:14px 0;border-bottom:1px solid var(--border)">'
-      + '<div style="font-size:10px;color:var(--faint);margin-bottom:5px">' + ts + '</div>'
-      + '<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">IAB Taxonomy</div>'
-      + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px">' + tagBadges + confBadge + '</div>'
-      + '</div>';
-  } else {
-    var bs = LS_BS_POOL[Math.floor(Math.random() * LS_BS_POOL.length)];
-    var bsBadge = '<span style="font-size:11px;font-weight:600;background:' + bs.bg + ';border:1px solid ' + bs.border + ';color:' + bs.color + ';border-radius:20px;padding:2px 10px">' + bs.label + '</span>';
-    return '<div data-ls-type="bs" style="padding:14px 0;border-bottom:1px solid var(--border)">'
-      + '<div style="font-size:10px;color:var(--faint);margin-bottom:5px">' + ts + '</div>'
-      + '<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Brand Safety</div>'
-      + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:8px">' + bsBadge + confBadge + '</div>'
-      + '<div style="font-size:11px;color:var(--muted);line-height:1.6"><span style="font-weight:600;color:var(--text-2)">Reasoning:</span> ' + bs.reasoning + '</div>'
-      + '</div>';
+  // IAB: pick 1–3 entries
+  var iabPool = LS_IAB_POOL.slice().sort(function() { return Math.random() - .5; });
+  var iabEntries = iabPool.slice(0, 1 + Math.floor(Math.random() * 3)).map(function(e) {
+    return { tag: e.tag, code: e.code, reasoning: e.reasoning, conf: 72 + Math.floor(Math.random() * 27) };
+  });
+
+  // BS: pick 1–2 entries
+  var bsPool = LS_BS_POOL.slice().sort(function() { return Math.random() - .5; });
+  var bsEntries = bsPool.slice(0, 1 + Math.floor(Math.random() * 2)).map(function(e) {
+    return { label: e.label, id: e.id, risk: e.risk, reasoning: e.reasoning, conf: 72 + Math.floor(Math.random() * 27) };
+  });
+
+  var RISK_C = {
+    High:   { c: '#dc2626', bg: '#fef2f2', b: '#fecaca' },
+    Medium: { c: '#d97706', bg: '#fffbeb', b: '#fde68a' },
+    Low:    { c: '#16a34a', bg: '#f0fdf4', b: '#bbf7d0' }
+  };
+
+  function confBadgeHtml(conf) {
+    var cc = lsConfColor(conf);
+    return '<span style="font-size:10px;font-weight:600;background:' + cc.bg + ';border:1px solid ' + cc.border + ';color:' + cc.color + ';border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0">' + conf + '%</span>';
   }
+
+  var rowStyle = 'display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:default';
+  var catStyle = 'font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding-bottom:4px';
+
+  var iabRows = iabEntries.map(function(e) {
+    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + rowStyle + '">'
+      + '<span style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.tag + '</span>'
+      + '<span style="font-size:10px;font-family:monospace;color:var(--faint);flex-shrink:0">' + e.code + '</span>'
+      + confBadgeHtml(e.conf)
+      + '</div>';
+  }).join('');
+
+  var bsRows = bsEntries.map(function(e) {
+    var rc = RISK_C[e.risk] || RISK_C.Low;
+    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + rowStyle + '">'
+      + '<span style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.label + '</span>'
+      + '<span style="font-size:10px;font-family:monospace;color:var(--faint);flex-shrink:0">' + e.id + '</span>'
+      + '<span style="font-size:10px;font-weight:600;background:' + rc.bg + ';border:1px solid ' + rc.b + ';color:' + rc.c + ';border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0">' + e.risk + '</span>'
+      + confBadgeHtml(e.conf)
+      + '</div>';
+  }).join('');
+
+  var showIab = (lsSignalMode !== 'brand-safety');
+  var showBs  = (lsSignalMode !== 'iab');
+
+  var iabSection = '<div data-ls-section="iab" style="' + (showIab ? '' : 'display:none') + '">'
+    + '<div style="' + catStyle + '">IAB Taxonomy</div>'
+    + iabRows
+    + '</div>';
+
+  var bsSection = '<div data-ls-section="bs" style="margin-top:10px;' + (showBs ? '' : 'display:none') + '">'
+    + '<div style="' + catStyle + '">Brand Safety</div>'
+    + bsRows
+    + '</div>';
+
+  return '<div data-ls-type="group" style="padding:14px 0;border-bottom:1px solid var(--border)">'
+    + '<div style="font-size:10px;color:var(--faint);margin-bottom:8px">' + ts + '</div>'
+    + iabSection
+    + bsSection
+    + '</div>';
+}
+
+function lsInitTooltip() {
+  var existing = document.getElementById('ls-tooltip');
+  if (existing) existing.remove();
+
+  var tip = document.createElement('div');
+  tip.id = 'ls-tooltip';
+  tip.style.cssText = 'position:fixed;z-index:9999;max-width:260px;background:#1a1a1a;color:#fff;font-size:11px;line-height:1.6;padding:8px 12px;border-radius:8px;pointer-events:none;opacity:0;transition:opacity .15s;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+  document.body.appendChild(tip);
+
+  var feed = document.getElementById('ls-scan-feed');
+  if (!feed) return;
+
+  feed.addEventListener('mouseover', function(e) {
+    var row = e.target.closest && e.target.closest('.ls-row');
+    if (!row) return;
+    var r = row.getAttribute('data-reasoning');
+    if (!r) return;
+    tip.textContent = r;
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top  = (e.clientY - 44) + 'px';
+    tip.style.opacity = '1';
+  });
+
+  feed.addEventListener('mousemove', function(e) {
+    if (tip.style.opacity === '1') {
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 44) + 'px';
+    }
+  });
+
+  feed.addEventListener('mouseout', function(e) {
+    var row = e.target.closest && e.target.closest('.ls-row');
+    if (!row) return;
+    if (row.contains(e.relatedTarget)) return;
+    tip.style.opacity = '0';
+  });
 }
 
 function lsStartScan() {
   lsStopScan();
+  lsInitTooltip();
   function tick() {
     var feed = document.getElementById('ls-scan-feed');
     if (!feed) return;
-    // Pick type based on current filter
-    var type;
-    if (lsSignalMode === 'iab') type = 'iab';
-    else if (lsSignalMode === 'brand-safety') type = 'bs';
-    else type = Math.random() < 0.55 ? 'iab' : 'bs';
-    var html = lsScanItemHtml(type);
-    // Insert at top
+    var html = lsScanGroupHtml();
     var wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     var item = wrapper.firstChild;
-    // animate in
     item.style.opacity = '0';
     item.style.transform = 'translateY(-6px)';
     item.style.transition = 'opacity .35s ease, transform .35s ease';
@@ -146,15 +213,16 @@ function lsStartScan() {
         item.style.transform = 'translateY(0)';
       });
     });
-    var delay = 3500 + Math.floor(Math.random() * 4000); // 3.5s – 7.5s
+    var delay = 3500 + Math.floor(Math.random() * 4000);
     lsScanTimeout = setTimeout(tick, delay);
   }
-  // First item after a short delay
   lsScanTimeout = setTimeout(tick, 1800);
 }
 
 function lsStopScan() {
   if (lsScanTimeout) { clearTimeout(lsScanTimeout); lsScanTimeout = null; }
+  var tip = document.getElementById('ls-tooltip');
+  if (tip) tip.remove();
 }
 
 var lsFilterOpen        = false;
@@ -429,18 +497,14 @@ var lsSignalMode = 'all';
 
 function lsSetSignal(v) {
   lsSignalMode = v || 'all';
-  // Filter existing feed items
   var feed = document.getElementById('ls-scan-feed');
-  if (feed) {
-    var items = feed.querySelectorAll('[data-ls-type]');
-    items.forEach(function(el) {
-      var t = el.getAttribute('data-ls-type');
-      var show = lsSignalMode === 'all'
-        || (lsSignalMode === 'iab' && t === 'iab')
-        || (lsSignalMode === 'brand-safety' && t === 'bs');
-      el.style.display = show ? '' : 'none';
-    });
-  }
+  if (!feed) return;
+  feed.querySelectorAll('[data-ls-section="iab"]').forEach(function(el) {
+    el.style.display = (lsSignalMode !== 'brand-safety') ? '' : 'none';
+  });
+  feed.querySelectorAll('[data-ls-section="bs"]').forEach(function(el) {
+    el.style.display = (lsSignalMode !== 'iab') ? '' : 'none';
+  });
 }
 
 function lsSetView(v) {
