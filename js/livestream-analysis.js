@@ -106,6 +106,10 @@ function lsScanGroupHtml() {
 
   var RISK_COLOR = { High: '#dc2626', Medium: '#d97706', Low: '#16a34a' };
   function confColor(c) { return c >= 90 ? '#16a34a' : c >= 75 ? '#d97706' : '#dc2626'; }
+  function confBadge(c) {
+    var cc = lsConfColor(c);
+    return '<span style="font-size:10px;font-weight:600;background:' + cc.bg + ';border:1px solid ' + cc.border + ';color:' + cc.color + ';border-radius:20px;padding:2px 8px;white-space:nowrap">' + c + '%</span>';
+  }
 
   var catStyle  = 'font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px';
   var colHdrRow = 'display:grid;grid-template-columns:1fr 70px 58px 80px;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--border)';
@@ -124,7 +128,7 @@ function lsScanGroupHtml() {
       + '<span style="display:flex;align-items:center;gap:5px;overflow:hidden">'
       + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.label + '</span>'
       + infoIcon + '</span>'
-      + '<span style="font-size:12px;color:' + confColor(e.conf) + ';text-align:right">' + e.conf + '%</span>'
+      + '<span style="text-align:right;display:flex;justify-content:flex-end">' + confBadge(e.conf) + '</span>'
       + '<span style="font-size:12px;color:' + (RISK_COLOR[e.risk] || '#16a34a') + ';text-align:right;font-weight:500">' + e.risk + '</span>'
       + '<span style="font-size:11px;color:var(--faint);font-family:monospace;text-align:right">' + e.id.replace('BS-0','') + '</span>'
       + '</div>';
@@ -135,7 +139,7 @@ function lsScanGroupHtml() {
       + '<span style="display:flex;align-items:center;gap:5px;overflow:hidden">'
       + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.tag + '</span>'
       + infoIcon + '</span>'
-      + '<span style="font-size:12px;color:' + confColor(e.conf) + ';text-align:right">' + e.conf + '%</span>'
+      + '<span style="text-align:right;display:flex;justify-content:flex-end">' + confBadge(e.conf) + '</span>'
       + '<span style="font-size:12px;color:var(--faint);text-align:right">—</span>'
       + '<span style="font-size:11px;color:var(--faint);font-family:monospace;text-align:right">' + e.code + '</span>'
       + '</div>';
