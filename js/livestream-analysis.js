@@ -108,8 +108,8 @@ function lsScanGroupHtml() {
   function confColor(c) { return c >= 90 ? '#16a34a' : c >= 75 ? '#d97706' : '#dc2626'; }
 
   var catStyle  = 'font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px';
-  var colHdrRow = 'display:grid;grid-template-columns:1fr 70px 58px 40px;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--border)';
-  var dataRow   = 'display:grid;grid-template-columns:1fr 70px 58px 40px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:default';
+  var colHdrRow = 'display:grid;grid-template-columns:1fr 70px 58px 80px;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--border)';
+  var dataRow   = 'display:grid;grid-template-columns:1fr 70px 58px 80px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:default';
   var colHdrTxt = 'font-size:11px;color:var(--muted)';
 
   var colHdr = '<div style="' + colHdrRow + '">'
