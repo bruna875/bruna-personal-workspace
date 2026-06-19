@@ -114,14 +114,17 @@ function lsScanGroupHtml() {
     return '<span style="font-size:10px;font-weight:600;background:' + cc.bg + ';border:1px solid ' + cc.border + ';color:' + cc.color + ';border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0">' + conf + '%</span>';
   }
 
-  var rowStyle = 'display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:default';
-  var catStyle = 'font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding-bottom:4px';
+  var infoIcon = '<svg style="flex-shrink:0;opacity:.35" width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+  var rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:var(--bg);margin-bottom:4px;cursor:default';
+  var catStyle = 'font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px';
 
   var iabRows = iabEntries.map(function(e) {
     return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + rowStyle + '">'
       + '<span style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.tag + '</span>'
       + '<span style="font-size:10px;font-family:monospace;color:var(--faint);flex-shrink:0">' + e.code + '</span>'
       + confBadgeHtml(e.conf)
+      + infoIcon
       + '</div>';
   }).join('');
 
@@ -132,6 +135,7 @@ function lsScanGroupHtml() {
       + '<span style="font-size:10px;font-family:monospace;color:var(--faint);flex-shrink:0">' + e.id + '</span>'
       + '<span style="font-size:10px;font-weight:600;background:' + rc.bg + ';border:1px solid ' + rc.b + ';color:' + rc.c + ';border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0">' + e.risk + '</span>'
       + confBadgeHtml(e.conf)
+      + infoIcon
       + '</div>';
   }).join('');
 
@@ -143,13 +147,13 @@ function lsScanGroupHtml() {
     + iabRows
     + '</div>';
 
-  var bsSection = '<div data-ls-section="bs" style="margin-top:10px;' + (showBs ? '' : 'display:none') + '">'
+  var bsSection = '<div data-ls-section="bs" style="margin-top:12px;' + (showBs ? '' : 'display:none') + '">'
     + '<div style="' + catStyle + '">Brand Safety</div>'
     + bsRows
     + '</div>';
 
-  return '<div data-ls-type="group" style="padding:14px 0;border-bottom:1px solid var(--border)">'
-    + '<div style="font-size:10px;color:var(--faint);margin-bottom:8px">' + ts + '</div>'
+  return '<div data-ls-type="group" style="padding:14px 0;border-bottom:2px solid var(--border)">'
+    + '<div style="font-size:10px;color:var(--faint);margin-bottom:10px">' + ts + '</div>'
     + iabSection
     + bsSection
     + '</div>';
