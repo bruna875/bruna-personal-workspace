@@ -74,12 +74,11 @@ var LS_BS_POOL = [
 
 function lsNowLabel() {
   var d = new Date();
-  var h = d.getHours() % 12 || 12;
-  var m = d.getMinutes().toString().padStart(2, '0');
-  var ampm = d.getHours() >= 12 ? 'PM' : 'AM';
-  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return h + ':' + m + ' ' + ampm + ' · ' + days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate();
+  var months = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  var hh = d.getHours().toString().padStart(2,'0');
+  var mm = d.getMinutes().toString().padStart(2,'0');
+  var ss = d.getSeconds().toString().padStart(2,'0');
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ', ' + hh + ':' + mm + ':' + ss;
 }
 
 function lsConfColor(score) {
@@ -103,59 +102,69 @@ function lsScanGroupHtml() {
     return { label: e.label, id: e.id, risk: e.risk, reasoning: e.reasoning, conf: 72 + Math.floor(Math.random() * 27) };
   });
 
-  var RISK_C = {
-    High:   { c: '#dc2626', bg: '#fef2f2', b: '#fecaca' },
-    Medium: { c: '#d97706', bg: '#fffbeb', b: '#fde68a' },
-    Low:    { c: '#16a34a', bg: '#f0fdf4', b: '#bbf7d0' }
-  };
+  var infoIcon = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;color:var(--accent)" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
-  function confBadgeHtml(conf) {
-    var cc = lsConfColor(conf);
-    return '<span style="font-size:10px;font-weight:600;background:' + cc.bg + ';border:1px solid ' + cc.border + ';color:' + cc.color + ';border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0">' + conf + '%</span>';
-  }
+  var RISK_COLOR = { High: '#dc2626', Medium: '#d97706', Low: '#16a34a' };
+  function confColor(c) { return c >= 90 ? '#16a34a' : c >= 75 ? '#d97706' : '#dc2626'; }
 
-  var infoIcon = '<svg style="flex-shrink:0;opacity:.35" width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  var catStyle  = 'font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px';
+  var colHdrRow = 'display:grid;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--border)';
+  var dataRow   = 'display:grid;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:default';
+  var colHdrTxt = 'font-size:11px;color:var(--muted)';
 
-  var rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:var(--bg);margin-bottom:4px;cursor:default';
-  var catStyle = 'font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px';
-
-  var iabRows = iabEntries.map(function(e) {
-    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + rowStyle + '">'
-      + '<span style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.tag + '</span>'
-      + '<span style="font-size:10px;font-family:monospace;color:var(--faint);flex-shrink:0">' + e.code + '</span>'
-      + confBadgeHtml(e.conf)
-      + infoIcon
+  // ── Brand Safety ─────────────────────────────────────────────────────────
+  var bsGrid = '1fr 70px 58px 36px';
+  var bsColHdr = '<div style="' + colHdrRow + ';grid-template-columns:' + bsGrid + '">'
+    + '<span style="' + colHdrTxt + '">Name</span>'
+    + '<span style="' + colHdrTxt + ';text-align:right">Confidence</span>'
+    + '<span style="' + colHdrTxt + ';text-align:right">Risk</span>'
+    + '<span style="' + colHdrTxt + ';text-align:right">ID</span>'
+    + '</div>';
+  var bsDataRows = bsEntries.map(function(e) {
+    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + dataRow + ';grid-template-columns:' + bsGrid + '">'
+      + '<span style="display:flex;align-items:center;gap:5px;overflow:hidden">'
+      + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.label + '</span>'
+      + infoIcon + '</span>'
+      + '<span style="font-size:12px;color:' + confColor(e.conf) + ';text-align:right">' + e.conf + '%</span>'
+      + '<span style="font-size:12px;color:' + (RISK_COLOR[e.risk] || '#16a34a') + ';text-align:right;font-weight:500">' + e.risk + '</span>'
+      + '<span style="font-size:11px;color:var(--faint);font-family:monospace;text-align:right">' + e.id.replace('BS-0','') + '</span>'
       + '</div>';
   }).join('');
 
-  var bsRows = bsEntries.map(function(e) {
-    var rc = RISK_C[e.risk] || RISK_C.Low;
-    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + rowStyle + '">'
-      + '<span style="flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.label + '</span>'
-      + '<span style="font-size:10px;font-family:monospace;color:var(--faint);flex-shrink:0">' + e.id + '</span>'
-      + '<span style="font-size:10px;font-weight:600;background:' + rc.bg + ';border:1px solid ' + rc.b + ';color:' + rc.c + ';border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0">' + e.risk + '</span>'
-      + confBadgeHtml(e.conf)
-      + infoIcon
+  // ── IAB Taxonomy ──────────────────────────────────────────────────────────
+  var iabGrid = '1fr 70px 50px';
+  var iabColHdr = '<div style="' + colHdrRow + ';grid-template-columns:' + iabGrid + '">'
+    + '<span style="' + colHdrTxt + '">Name</span>'
+    + '<span style="' + colHdrTxt + ';text-align:right">Confidence</span>'
+    + '<span style="' + colHdrTxt + ';text-align:right">ID</span>'
+    + '</div>';
+  var iabDataRows = iabEntries.map(function(e) {
+    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + dataRow + ';grid-template-columns:' + iabGrid + '">'
+      + '<span style="display:flex;align-items:center;gap:5px;overflow:hidden">'
+      + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.tag + '</span>'
+      + infoIcon + '</span>'
+      + '<span style="font-size:12px;color:' + confColor(e.conf) + ';text-align:right">' + e.conf + '%</span>'
+      + '<span style="font-size:11px;color:var(--faint);font-family:monospace;text-align:right">' + e.code + '</span>'
       + '</div>';
   }).join('');
 
   var showIab = (lsSignalMode !== 'brand-safety');
   var showBs  = (lsSignalMode !== 'iab');
 
-  var iabSection = '<div data-ls-section="iab" style="' + (showIab ? '' : 'display:none') + '">'
-    + '<div style="' + catStyle + '">IAB Taxonomy</div>'
-    + iabRows
-    + '</div>';
-
-  var bsSection = '<div data-ls-section="bs" style="margin-top:12px;' + (showBs ? '' : 'display:none') + '">'
+  var bsSection = '<div data-ls-section="bs" style="' + (showBs ? '' : 'display:none') + '">'
     + '<div style="' + catStyle + '">Brand Safety</div>'
-    + bsRows
+    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' + bsColHdr + bsDataRows + '</div>'
     + '</div>';
 
-  return '<div data-ls-type="group" style="padding:14px 0;border-bottom:2px solid var(--border)">'
-    + '<div style="font-size:10px;color:var(--faint);margin-bottom:10px">' + ts + '</div>'
-    + iabSection
+  var iabSection = '<div data-ls-section="iab" style="margin-top:14px;' + (showIab ? '' : 'display:none') + '">'
+    + '<div style="' + catStyle + '">IAB Taxonomy</div>'
+    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' + iabColHdr + iabDataRows + '</div>'
+    + '</div>';
+
+  return '<div data-ls-type="group" style="padding:16px 0;border-bottom:1px solid var(--border)">'
+    + '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px">' + ts + '</div>'
     + bsSection
+    + iabSection
     + '</div>';
 }
 
