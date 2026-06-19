@@ -108,20 +108,19 @@ function lsScanGroupHtml() {
   function confColor(c) { return c >= 90 ? '#16a34a' : c >= 75 ? '#d97706' : '#dc2626'; }
 
   var catStyle  = 'font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px';
-  var colHdrRow = 'display:grid;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--border)';
-  var dataRow   = 'display:grid;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:default';
+  var colHdrRow = 'display:grid;grid-template-columns:1fr 70px 58px 40px;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--border)';
+  var dataRow   = 'display:grid;grid-template-columns:1fr 70px 58px 40px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;cursor:default';
   var colHdrTxt = 'font-size:11px;color:var(--muted)';
 
-  // ── Brand Safety ─────────────────────────────────────────────────────────
-  var bsGrid = '1fr 70px 58px 36px';
-  var bsColHdr = '<div style="' + colHdrRow + ';grid-template-columns:' + bsGrid + '">'
+  var colHdr = '<div style="' + colHdrRow + '">'
     + '<span style="' + colHdrTxt + '">Name</span>'
     + '<span style="' + colHdrTxt + ';text-align:right">Confidence</span>'
     + '<span style="' + colHdrTxt + ';text-align:right">Risk</span>'
     + '<span style="' + colHdrTxt + ';text-align:right">ID</span>'
     + '</div>';
+
   var bsDataRows = bsEntries.map(function(e) {
-    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + dataRow + ';grid-template-columns:' + bsGrid + '">'
+    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + dataRow + '">'
       + '<span style="display:flex;align-items:center;gap:5px;overflow:hidden">'
       + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.label + '</span>'
       + infoIcon + '</span>'
@@ -131,19 +130,13 @@ function lsScanGroupHtml() {
       + '</div>';
   }).join('');
 
-  // ── IAB Taxonomy ──────────────────────────────────────────────────────────
-  var iabGrid = '1fr 70px 50px';
-  var iabColHdr = '<div style="' + colHdrRow + ';grid-template-columns:' + iabGrid + '">'
-    + '<span style="' + colHdrTxt + '">Name</span>'
-    + '<span style="' + colHdrTxt + ';text-align:right">Confidence</span>'
-    + '<span style="' + colHdrTxt + ';text-align:right">ID</span>'
-    + '</div>';
   var iabDataRows = iabEntries.map(function(e) {
-    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + dataRow + ';grid-template-columns:' + iabGrid + '">'
+    return '<div class="ls-row" data-reasoning="' + e.reasoning.replace(/"/g, '&quot;') + '" style="' + dataRow + '">'
       + '<span style="display:flex;align-items:center;gap:5px;overflow:hidden">'
       + '<span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + e.tag + '</span>'
       + infoIcon + '</span>'
       + '<span style="font-size:12px;color:' + confColor(e.conf) + ';text-align:right">' + e.conf + '%</span>'
+      + '<span style="font-size:12px;color:var(--faint);text-align:right">—</span>'
       + '<span style="font-size:11px;color:var(--faint);font-family:monospace;text-align:right">' + e.code + '</span>'
       + '</div>';
   }).join('');
@@ -153,12 +146,12 @@ function lsScanGroupHtml() {
 
   var bsSection = '<div data-ls-section="bs" style="' + (showBs ? '' : 'display:none') + '">'
     + '<div style="' + catStyle + '">Brand Safety</div>'
-    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' + bsColHdr + bsDataRows + '</div>'
+    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' + colHdr + bsDataRows + '</div>'
     + '</div>';
 
   var iabSection = '<div data-ls-section="iab" style="margin-top:14px;' + (showIab ? '' : 'display:none') + '">'
     + '<div style="' + catStyle + '">IAB Taxonomy</div>'
-    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' + iabColHdr + iabDataRows + '</div>'
+    + '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' + colHdr + iabDataRows + '</div>'
     + '</div>';
 
   return '<div data-ls-type="group" style="padding:16px 0;border-bottom:1px solid var(--border)">'
