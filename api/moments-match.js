@@ -44,9 +44,12 @@ export default async function handler(req, res) {
           -- campaigns.moments_match_analysis_id for rows linked before the back-write was added.
           COALESCE(c.campaign_name,  c2.campaign_name)  AS campaign_name,
           COALESCE(c.status,         c2.status)         AS campaign_status,
+          COALESCE(c.start_date,     c2.start_date)     AS start_date,
+          COALESCE(c.end_date,       c2.end_date)       AS end_date,
           COALESCE(o.client_name,  o2.client_name,  o3.client_name)      AS client_name,
           COALESCE(a.advertiser_name, a2.advertiser_name, a3.advertiser_name) AS advertiser_name,
-          cr.creative_name
+          cr.creative_name,
+          cr.creative_preview
         FROM moments_match mm
         LEFT JOIN campaigns            c  ON mm.campaign_id   = c.campaign_id
         -- Reverse-lookup: campaign that has analysis_id pointing to this row
