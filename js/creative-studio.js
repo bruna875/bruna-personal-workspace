@@ -1931,7 +1931,8 @@ function csRenderBriefLibrary() {
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
       + '</button></td>';
 
-    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+    var idxSafe = JSON.stringify(item).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<tr style="cursor:pointer" onclick="csOpenBriefItem(' + itemId + ')" onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
       + thumb + name + camp + adv + client + mt + mom + date + actions + '</tr>';
   }).join('');
 
@@ -1958,6 +1959,95 @@ function csRenderBriefLibrary() {
     subtitle: BRIEF_LIBRARY.length + ' brief' + (BRIEF_LIBRARY.length !== 1 ? 's' : ''),
     padding: '0',
     bodyHtml: searchBar + UI.tableScroll(cols, rows, 'cs-brief-tbody', 0, null, { inCard: true }),
+  });
+}
+
+function csOpenBriefItem(id) {
+  var item = BRIEF_LIBRARY.find(function(i) { return i.moments_match_analysis_id === id; });
+  if (!item) return;
+  var t = (item.asset_type || '').toLowerCase();
+  if (t === 'doc' || t === 'document') {
+    csOpenDocModal(item);
+  } else {
+    csOpenBriefModal(item);
+  }
+}
+
+function csOpenBriefModal(item) {
+  var title = item.moments_match_analysis_name || 'Brief';
+  var text  = item.brief || '';
+  var overlay = document.createElement('div');
+  overlay.id = 'cs-brief-view-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;opacity:0;transition:opacity .18s ease';
+  overlay.innerHTML =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22);font-family:inherit;transform:translateY(6px);transition:transform .2s ease">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">'
+    +   '<div>'
+    +     '<div style="font-size:14px;font-weight:600;color:var(--text)">' + title.replace(/</g,'&lt;') + '</div>'
+    +     (item.campaign_name ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + item.campaign_name + (item.advertiser_name ? ' · ' + item.advertiser_name : '') + '</div>' : '')
+    +   '</div>'
+    +   '<button type="button" onclick="document.getElementById(\'cs-brief-view-overlay\').remove()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);line-height:1;border-radius:4px" onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--muted)\'">'
+    +     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    +   '</button>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;padding:24px;font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap">' + text.replace(/</g,'&lt;') + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  requestAnimationFrame(function() {
+    overlay.style.opacity = '1';
+    var inner = overlay.querySelector('div');
+    if (inner) inner.style.transform = 'translateY(0)';
+  });
+}
+
+function csOpenDocModal(item) {
+  var title   = item.moments_match_analysis_name || item.doc || 'Document';
+  var docName = item.doc || 'document.pdf';
+  var overlay = document.createElement('div');
+  overlay.id = 'cs-brief-view-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;opacity:0;transition:opacity .18s ease';
+  overlay.innerHTML =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:820px;height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22);font-family:inherit;transform:translateY(6px);transition:transform .2s ease">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;gap:12px">'
+    +   '<div style="display:flex;align-items:center;gap:10px;min-width:0">'
+    +     '<div style="width:30px;height:30px;border-radius:6px;background:rgba(3,105,161,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+    +       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+    +     '</div>'
+    +     '<div style="min-width:0">'
+    +       '<div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + title.replace(/</g,'&lt;') + '</div>'
+    +       '<div style="font-size:11px;color:var(--muted);margin-top:1px">' + docName + '</div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+    +     '<a href="#" download="' + docName + '" onclick="event.preventDefault()" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 14px;border:1px solid var(--border-md);border-radius:8px;font-size:12px;font-weight:500;color:var(--text);background:var(--surface);cursor:pointer;font-family:inherit;text-decoration:none;transition:border .13s" onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'var(--border-md)\';this.style.color=\'var(--text)\'">'
+    +       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+    +       'Download'
+    +     '</a>'
+    +     '<button type="button" onclick="document.getElementById(\'cs-brief-view-overlay\').remove()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);line-height:1;border-radius:4px" onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--muted)\'">'
+    +       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    +     '</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="flex:1;background:#f3f4f6;position:relative;border-radius:0 0 14px 14px;overflow:hidden">'
+    +   '<iframe src="about:blank" style="width:100%;height:100%;border:none;display:block"></iframe>'
+    +   '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none">'
+    +     '<div style="width:56px;height:56px;border-radius:12px;background:rgba(3,105,161,.1);display:flex;align-items:center;justify-content:center">'
+    +       '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'
+    +     '</div>'
+    +     '<div style="text-align:center">'
+    +       '<div style="font-size:13px;font-weight:600;color:#374151">' + docName + '</div>'
+    +       '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Document preview will appear here once the file is uploaded</div>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  requestAnimationFrame(function() {
+    overlay.style.opacity = '1';
+    var inner = overlay.querySelector('div');
+    if (inner) inner.style.transform = 'translateY(0)';
   });
 }
 
