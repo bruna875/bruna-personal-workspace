@@ -69,11 +69,11 @@ var _CS_THUMBS = [
 var CS_LIBRARY = [];
 var csLibCollapsedCampaigns = {};
 var BRIEF_LIBRARY = [
-  { moments_match_analysis_name: 'Q2 Brand Awareness — Spring Campaign', creative_asset_type: 'text', brief: 'We are launching a spring awareness push targeting 25–44 year olds across premium streaming. The tone should be warm, optimistic and lifestyle-forward. Key messages: sustainability, family, outdoor living.', campaign_name: 'Spring 2025', advertiser_name: 'Patagonia', client_name: 'Apex Media', moments: ['Outdoor adventure','Family moments','Sustainability','Spring lifestyle'], date: '12 Apr 2025' },
-  { moments_match_analysis_name: 'Q1 Content Brief — Product Launch', creative_asset_type: 'doc', brief: null, doc: 'Q1-product-launch-brief.pdf', campaign_name: 'Product Launch Q1', advertiser_name: 'Samsung', client_name: 'Global Tech Group', moments: ['Tech innovation','Unboxing','Modern living','Urban lifestyle'], date: '3 Feb 2025' },
-  { moments_match_analysis_name: 'Holiday Season Contextual Brief', creative_asset_type: 'text', brief: 'Target emotionally engaged audiences during holiday programming. Focus on gift-giving, family gatherings and festive moments. Premium placement across CTV and OTT environments.', campaign_name: 'Holiday 2024', advertiser_name: 'Amazon', client_name: 'Retail Co', moments: ['Holiday gifting','Family gatherings','Festive cooking','Winter moments'], date: '18 Nov 2024' },
-  { moments_match_analysis_name: 'Sports Sponsorship Analysis — NFL', creative_asset_type: 'doc', brief: null, doc: 'nfl-sponsorship-brief.docx', campaign_name: 'NFL Sponsorship Q3', advertiser_name: 'Gatorade', client_name: 'PepsiCo', moments: ['Game day','Athletic performance','Team spirit','Victory moments'], date: '5 Sep 2024' },
-  { moments_match_analysis_name: 'Travel & Tourism Summer Push', creative_asset_type: 'text', brief: 'Drive consideration for international travel among affluent 30–55 demographics. Context: travel documentaries, lifestyle content and premium news. Avoid conflict and negative news adjacency.', campaign_name: 'Summer Travel 2025', advertiser_name: 'Expedia', client_name: 'Travel Alliance', moments: ['Travel planning','Beach holidays','City exploration','Cultural experiences'], date: '22 May 2025' },
+  { _isSample: true, moments_match_analysis_name: 'Q2 Brand Awareness — Spring Campaign', creative_asset_type: 'text', brief: 'We are launching a spring awareness push targeting 25–44 year olds across premium streaming. The tone should be warm, optimistic and lifestyle-forward. Key messages: sustainability, family, outdoor living.', campaign_name: 'Spring 2025', advertiser_name: 'Patagonia', client_name: 'Apex Media', moments: ['Outdoor adventure','Family moments','Sustainability','Spring lifestyle'], date: '12 Apr 2025' },
+  { _isSample: true, moments_match_analysis_name: 'Q1 Content Brief — Product Launch', creative_asset_type: 'doc', brief: null, doc: 'Q1-product-launch-brief.pdf', campaign_name: 'Product Launch Q1', advertiser_name: 'Samsung', client_name: 'Global Tech Group', moments: ['Tech innovation','Unboxing','Modern living','Urban lifestyle'], date: '3 Feb 2025' },
+  { _isSample: true, moments_match_analysis_name: 'Holiday Season Contextual Brief', creative_asset_type: 'text', brief: 'Target emotionally engaged audiences during holiday programming. Focus on gift-giving, family gatherings and festive moments. Premium placement across CTV and OTT environments.', campaign_name: 'Holiday 2024', advertiser_name: 'Amazon', client_name: 'Retail Co', moments: ['Holiday gifting','Family gatherings','Festive cooking','Winter moments'], date: '18 Nov 2024' },
+  { _isSample: true, moments_match_analysis_name: 'Sports Sponsorship Analysis — NFL', creative_asset_type: 'doc', brief: null, doc: 'nfl-sponsorship-brief.docx', campaign_name: 'NFL Sponsorship Q3', advertiser_name: 'Gatorade', client_name: 'PepsiCo', moments: ['Game day','Athletic performance','Team spirit','Victory moments'], date: '5 Sep 2024' },
+  { _isSample: true, moments_match_analysis_name: 'Travel & Tourism Summer Push', creative_asset_type: 'text', brief: 'Drive consideration for international travel among affluent 30–55 demographics. Context: travel documentaries, lifestyle content and premium news. Avoid conflict and negative news adjacency.', campaign_name: 'Summer Travel 2025', advertiser_name: 'Expedia', client_name: 'Travel Alliance', moments: ['Travel planning','Beach holidays','City exploration','Cultural experiences'], date: '22 May 2025' },
 ];
 
 // ── L-Bar config panel ───────────────────────────────────────────────────────
@@ -1839,6 +1839,7 @@ function csLibSearch(q) {
 
 // ── Brief Library DB loader ───────────────────────────────────────────────────
 function csLoadBriefLibraryFromDB() {
+  var samples = BRIEF_LIBRARY.filter(function(i) { return i._isSample; });
   var qs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
     ? '?client_org_id=' + selectedClientOrgId
     : '';
@@ -1846,10 +1847,11 @@ function csLoadBriefLibraryFromDB() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var analyses = data.analyses || data || [];
-      BRIEF_LIBRARY = analyses.filter(function(a) {
+      var fromDB = analyses.filter(function(a) {
         var t = (a.creative_asset_type || a.asset_type || '').toLowerCase();
         return t === 'brief' || t === 'text' || t === 'doc' || t === 'document';
       });
+      BRIEF_LIBRARY = fromDB.length ? fromDB.concat(samples) : samples;
       csRenderBriefLibrary();
     })
     .catch(function(e) { console.warn('moments-match API unavailable:', e.message); });
