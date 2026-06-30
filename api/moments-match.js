@@ -36,6 +36,7 @@ export default async function handler(req, res) {
           mm.lookback_window,
           mm.moments,
           mm.moments_groups,
+          mm.asset_type,
           mm.brief,
           mm.doc,
           mm.created_by,
