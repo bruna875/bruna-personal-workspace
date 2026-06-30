@@ -1928,8 +1928,14 @@ function csRenderBriefLibrary() {
     var dateVal = item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : (item.date || '—');
     var date = '<td style="' + TD + ';color:var(--muted);font-size:11px">' + dateVal + '</td>';
 
+    var itemId = item.moments_match_analysis_id;
+    var actions = '<td style="' + TD + ';padding-right:8px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">'
+      + '<button onclick="event.stopPropagation();csDeleteBrief(' + itemId + ')" style="width:28px;height:28px;border:none;background:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);transition:background .12s,color .12s" onmouseover="this.style.background=\'var(--subtle)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.background=\'none\';this.style.color=\'var(--muted)\'">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+      + '</button></td>';
+
     return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
-      + thumb + name + camp + adv + client + mt + mom + date + '</tr>';
+      + thumb + name + camp + adv + client + mt + mom + date + actions + '</tr>';
   }).join('');
 
   var cols = [
@@ -1941,6 +1947,7 @@ function csRenderBriefLibrary() {
     { label: 'Type',       width: '100px' },
     { label: 'Moments',    width: '100px' },
     { label: 'Date',       width: '110px' },
+    { label: '',           width: '50px',  align: 'right' },
   ];
 
   var searchBar = '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'
@@ -1955,6 +1962,19 @@ function csRenderBriefLibrary() {
     padding: '0',
     bodyHtml: searchBar + UI.tableScroll(cols, rows, 'cs-brief-tbody', 0, null, { inCard: true }),
   });
+}
+
+function csDeleteBrief(id) {
+  if (!id) return;
+  if (!confirm('Delete this brief? This cannot be undone.')) return;
+  fetch('/api/moments-match?moments_match_analysis_id=' + id, { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert('Error: ' + data.error); return; }
+      BRIEF_LIBRARY = BRIEF_LIBRARY.filter(function(i) { return i.moments_match_analysis_id !== id; });
+      csRenderBriefLibrary();
+    })
+    .catch(function(e) { alert('Delete failed: ' + e.message); });
 }
 
 function csBriefSearch(q) {
