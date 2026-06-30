@@ -240,6 +240,7 @@ function pageFromPath() {
   if (csBuildMatch) return { id: 'creative-studio', label: 'Creative Studio', openEditor: true, csAssetId: csBuildMatch[1] };
   if (path === 'creative-studio/build-template') return { id: 'creative-studio', label: 'Creative Studio', openEditor: true };
   if (path === 'creative-studio/creative-library') return { id: 'creative-studio', label: 'Creative Studio', openLibrary: true };
+  if (path === 'creative-studio/brief-library') return { id: 'creative-studio', label: 'Creative Studio', openBriefLibrary: true };
   if (path === 'campaign-management/draft-campaign/build-ad-group') return { id: 'build-ad-group', label: 'Build Moments Group' };
   var cmDetailMatch = path.match(/^campaign-management\/(draft-campaign|pacing-campaign)\/(.+)$/);
   if (cmDetailMatch) return { id: 'campaign-management', label: 'Campaign Management', cmCampaignId: cmDetailMatch[2] };
@@ -829,8 +830,9 @@ function login() {
     fetch('/api/advertisers').then(function(r){ return r.json(); }).then(function(d) {
       _appDbAdvertisers = d.advertisers || [];
     }).catch(function() { /* keep empty */ });
-    if (startItem.openEditor)    { setTimeout(function() { csBuildTemplates(0, startItem.csAssetId); }, 80); }
-    if (startItem.openLibrary)   { setTimeout(function() { csSwitchTab('library'); }, 80); }
+    if (startItem.openEditor)       { setTimeout(function() { csBuildTemplates(0, startItem.csAssetId); }, 80); }
+    if (startItem.openLibrary)      { setTimeout(function() { csSwitchTab('library'); }, 80); }
+    if (startItem.openBriefLibrary) { setTimeout(function() { csSwitchTab('brief-library'); }, 80); }
     if (startItem.cmCampaignId)  { setTimeout(function() { cmOpenDetail(startItem.cmCampaignId, true); }, 80); }
     if (startItem.mp2Tab)        { setTimeout(function() { mp2SwitchHomeTab(startItem.mp2Tab); }, 80); }
     if (startItem.mp2AdGroupId)     { setTimeout(function() { mp2OpenPlanById(startItem.mp2AdGroupId, true); }, 80); }

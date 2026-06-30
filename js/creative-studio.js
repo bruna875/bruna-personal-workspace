@@ -68,6 +68,7 @@ var _CS_THUMBS = [
 ];
 var CS_LIBRARY = [];
 var csLibCollapsedCampaigns = {};
+var BRIEF_LIBRARY = [];
 
 // ── L-Bar config panel ───────────────────────────────────────────────────────
 function csAdTemplateSelected(value) {
@@ -619,7 +620,7 @@ function renderCreativeStudio() {
   CS_UPLOADED_ASSETS = (_csPendingAssets && _csPendingAssets.length) ? _csPendingAssets : [];
   _csPendingAssets = null;
   csSelectedCampaign = null; csCampaignName = '';
-  var tabs = [{id:'new',label:'New Creative'},{id:'library',label:'Creative Library',dividerBefore:true}];
+  var tabs = [{id:'new',label:'New Creative'},{id:'library',label:'Creative Library',dividerBefore:true},{id:'brief-library',label:'Brief Library'}];
   setTimeout(function() { csRenderContent('new'); }, 0);
   return UI.pageHeader({ title:'Creative Studio', subtitle:'Build contextual ad creatives from your assets across every format and platform.' })
     + '<div id="cs-tabs" style="margin-bottom:20px">' + UI.tabNav(tabs, 'new', 'csSwitchTab') + '</div>'
@@ -627,18 +628,19 @@ function renderCreativeStudio() {
 }
 
 function csSwitchTab(tab) {
-  var tabs = [{id:'new',label:'New Creative'},{id:'library',label:'Creative Library',dividerBefore:true}];
+  var tabs = [{id:'new',label:'New Creative'},{id:'library',label:'Creative Library',dividerBefore:true},{id:'brief-library',label:'Brief Library'}];
   var el = document.getElementById('cs-tabs');
   if (el) el.innerHTML = UI.tabNav(tabs, tab, 'csSwitchTab');
   csRenderContent(tab);
-  var url = tab === 'library' ? '/creative-studio/creative-library' : '/creative-studio';
+  var url = tab === 'brief-library' ? '/creative-studio/brief-library' : tab === 'library' ? '/creative-studio/creative-library' : '/creative-studio';
   history.replaceState({ id: 'creative-studio', label: 'Creative Studio' }, '', url);
 }
 
 function csRenderContent(tab) {
   var outer = document.getElementById('cs-outer');
-  if (outer) outer.style.padding = tab === 'library' ? '0' : '32px';
+  if (outer) outer.style.padding = (tab === 'library' || tab === 'brief-library') ? '0' : '32px';
   if (tab === 'library') { csRenderLibrary(); setTimeout(csLoadLibraryFromDB, 0); return; }
+  if (tab === 'brief-library') { csRenderBriefLibrary(); setTimeout(csLoadBriefLibraryFromDB, 0); return; }
   // If assets were pre-loaded by an external caller (e.g. campaign preview), skip reset and go straight to builder
   if (CS_UPLOADED_ASSETS.length) { csBuildTemplates(0); return; }
   csStep = 1; CS_UPLOADED_ASSETS = [];
@@ -1824,6 +1826,140 @@ function csDeleteCreative(id) {
 function csLibSearch(q) {
   var term = (q || '').toLowerCase().trim();
   var rows = document.querySelectorAll('#cs-lib-tbody tr');
+  rows.forEach(function(tr) {
+    tr.style.display = (!term || tr.textContent.toLowerCase().indexOf(term) >= 0) ? '' : 'none';
+  });
+}
+
+// ── Brief Library DB loader ───────────────────────────────────────────────────
+function csLoadBriefLibraryFromDB() {
+  var qs = (typeof _appIsSuperOrg === 'function' && !_appIsSuperOrg() && typeof selectedClientOrgId !== 'undefined' && selectedClientOrgId)
+    ? '?client_org_id=' + selectedClientOrgId
+    : '';
+  fetch('/api/moments-match' + qs)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var analyses = data.analyses || data || [];
+      BRIEF_LIBRARY = analyses.filter(function(a) {
+        var t = (a.creative_asset_type || a.asset_type || '').toLowerCase();
+        return t === 'brief' || t === 'text' || t === 'doc' || t === 'document';
+      });
+      csRenderBriefLibrary();
+    })
+    .catch(function(e) { console.warn('moments-match API unavailable:', e.message); });
+}
+
+// ── Brief Library ─────────────────────────────────────────────────────────────
+function csRenderBriefLibrary() {
+  var body = document.getElementById('cs-body');
+  if (!body) return;
+
+  if (BRIEF_LIBRARY.length === 0) {
+    body.innerHTML = UI.cardHeader({
+      title: 'Brief Library', subtitle: '0 briefs',  padding: '40px 24px',
+      bodyHtml: '<div style="text-align:center;color:var(--faint);font-size:13px">No briefs yet. Run a Moments Match analysis using a brief or document to populate this library.</div>',
+    });
+    return;
+  }
+
+  var BADGE = 'font-size:9px;font-weight:600;border-radius:4px;padding:2px 7px;border:1px solid;white-space:nowrap';
+  var TD    = 'padding:10px 16px;vertical-align:middle;border-bottom:1px solid var(--border)';
+
+  // Icon for brief type
+  function briefTypeIcon(type) {
+    var t = (type || '').toLowerCase();
+    if (t === 'doc' || t === 'document') {
+      // Document / PDF icon
+      return '<div style="width:56px;height:32px;display:flex;align-items:center;justify-content:center">'
+        + '<svg width="22" height="26" viewBox="0 0 32 32" fill="none" style="color:var(--accent)">'
+        + '<path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8" fill="var(--subtle)"/>'
+        + '<path d="M20 4v6h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+        + '<path d="M10 14h12M10 18h12M10 22h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+        + '</svg></div>';
+    }
+    // Brief / text icon
+    return '<div style="width:56px;height:32px;display:flex;align-items:center;justify-content:center">'
+      + '<svg width="22" height="26" viewBox="0 0 32 32" fill="none" style="color:#7c3aed">'
+      + '<rect x="4" y="2" width="24" height="28" rx="3" stroke="currentColor" stroke-width="1.8" fill="#f5f3ff"/>'
+      + '<path d="M9 10h14M9 15h14M9 20h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+      + '</svg></div>';
+  }
+
+  // Badge for media type column
+  function briefTypeBadge(type) {
+    var t = (type || '').toLowerCase();
+    if (t === 'doc' || t === 'document') {
+      return '<span style="' + BADGE + ';color:#0369a1;background:#f0f9ff;border-color:#bae6fd">Document</span>';
+    }
+    return '<span style="' + BADGE + ';color:#7c3aed;background:#f5f3ff;border-color:#ddd6fe">Brief</span>';
+  }
+
+  var sorted = BRIEF_LIBRARY.slice().sort(function(a, b) {
+    var na = (a.moments_match_analysis_name || a.name || '').toLowerCase();
+    var nb = (b.moments_match_analysis_name || b.name || '').toLowerCase();
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  });
+
+  var rows = sorted.map(function(item) {
+    var assetType = item.creative_asset_type || item.asset_type || 'brief';
+    var itemName  = item.moments_match_analysis_name || item.name || '—';
+    var itemNameDisplay = itemName.length > 92 ? itemName.slice(0, 92) + '…' : itemName;
+
+    var thumb = '<td style="' + TD + ';padding-right:6px;width:60px">' + briefTypeIcon(assetType) + '</td>';
+
+    var name = '<td style="' + TD + '">'
+      + '<div style="font-weight:600;color:var(--text);font-size:12px" title="' + itemName.replace(/"/g,'&quot;') + '">' + itemNameDisplay + '</div>'
+      + (item.brief ? '<div style="font-size:10px;color:var(--faint);margin-top:2px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.brief.slice(0, 120) + '</div>' : '')
+      + '</td>';
+
+    var camp = '<td style="' + TD + ';font-size:12px">' + (item.campaign_name || item.campaign || '—') + '</td>';
+
+    var adv  = '<td style="' + TD + ';font-size:12px">' + (item.advertiser_name || item.advertiser || '—') + '</td>';
+
+    var client = '<td style="' + TD + ';font-size:12px;color:var(--muted)">' + (item.client_name || item.client || '—') + '</td>';
+
+    var mt = '<td style="' + TD + '">' + briefTypeBadge(assetType) + '</td>';
+
+    var moments = item.moments
+      ? '<span style="font-size:11px;color:var(--text);font-weight:500">' + (Array.isArray(item.moments) ? item.moments.length : '—') + ' moments</span>'
+      : '<span style="font-size:11px;color:var(--faint)">—</span>';
+    var mom = '<td style="' + TD + '">' + moments + '</td>';
+
+    var dateVal = item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : (item.date || '—');
+    var date = '<td style="' + TD + ';color:var(--muted);font-size:11px">' + dateVal + '</td>';
+
+    return '<tr onmouseover="this.style.background=\'var(--hover)\'" onmouseout="this.style.background=\'\'">'
+      + thumb + name + camp + adv + client + mt + mom + date + '</tr>';
+  }).join('');
+
+  var cols = [
+    { label: '',           width: '60px'  },
+    { label: 'Brief / Doc'               },
+    { label: 'Campaign',   width: '160px' },
+    { label: 'Advertiser', width: '130px' },
+    { label: 'Client',     width: '130px' },
+    { label: 'Type',       width: '100px' },
+    { label: 'Moments',    width: '100px' },
+    { label: 'Date',       width: '110px' },
+  ];
+
+  var searchBar = '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">'
+    + '<div style="position:relative;max-width:320px">'
+    + '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+    + '<input id="cs-brief-search" type="text" placeholder="Search briefs, campaigns, advertisers…" oninput="csBriefSearch(this.value)" style="width:100%;height:32px;border:1px solid var(--border-md);border-radius:8px;padding:0 10px 0 30px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;box-sizing:border-box;transition:border-color .12s" onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border-md)\'">'
+    + '</div></div>';
+
+  body.innerHTML = UI.cardHeader({
+    title: 'Brief Library',
+    subtitle: BRIEF_LIBRARY.length + ' brief' + (BRIEF_LIBRARY.length !== 1 ? 's' : ''),
+    padding: '0',
+    bodyHtml: searchBar + UI.tableScroll(cols, rows, 'cs-brief-tbody', 0, null, { inCard: true }),
+  });
+}
+
+function csBriefSearch(q) {
+  var term = (q || '').toLowerCase().trim();
+  var rows = document.querySelectorAll('#cs-brief-tbody tr');
   rows.forEach(function(tr) {
     tr.style.display = (!term || tr.textContent.toLowerCase().indexOf(term) >= 0) ? '' : 'none';
   });
