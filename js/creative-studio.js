@@ -1869,20 +1869,17 @@ function csRenderBriefLibrary() {
   function briefTypeIcon(type) {
     var t = (type || '').toLowerCase();
     if (t === 'doc' || t === 'document') {
-      // Document / PDF icon
       return '<div style="width:56px;height:32px;display:flex;align-items:center;justify-content:center">'
-        + '<svg width="22" height="26" viewBox="0 0 32 32" fill="none" style="color:var(--accent)">'
-        + '<path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8" fill="var(--subtle)"/>'
-        + '<path d="M20 4v6h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
-        + '<path d="M10 14h12M10 18h12M10 22h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
-        + '</svg></div>';
+        + '<div style="width:32px;height:32px;border-radius:6px;background:rgba(3,105,161,.12);display:flex;align-items:center;justify-content:center">'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+        + '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>'
+        + '</svg></div></div>';
     }
-    // Brief / text icon
     return '<div style="width:56px;height:32px;display:flex;align-items:center;justify-content:center">'
-      + '<svg width="22" height="26" viewBox="0 0 32 32" fill="none" style="color:#7c3aed">'
-      + '<rect x="4" y="2" width="24" height="28" rx="3" stroke="currentColor" stroke-width="1.8" fill="#f5f3ff"/>'
-      + '<path d="M9 10h14M9 15h14M9 20h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
-      + '</svg></div>';
+      + '<div style="width:32px;height:32px;border-radius:6px;background:rgba(124,58,237,.12);display:flex;align-items:center;justify-content:center">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>'
+      + '</svg></div></div>';
   }
 
   // Badge for media type column
