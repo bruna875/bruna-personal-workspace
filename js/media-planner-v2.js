@@ -2974,10 +2974,15 @@ function mp2SelectInput(type) {
 
 function mp2BriefHtml() {
   return '<div style="border:1px solid var(--border-md);border-radius:8px;overflow:hidden;background:var(--surface)">'
-    + '<textarea id="tx2-text-input"'
-    + ' placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…"'
-    + ' oninput="if(this.value.trim())mp2ClearStep3Error()"'
-    + ' style="width:100%;box-sizing:border-box;min-height:110px;resize:none;border:none;outline:none;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;display:block"></textarea>'
+    + '<div style="position:relative">'
+    +   '<textarea id="tx2-text-input"'
+    +   ' placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…"'
+    +   ' oninput="if(this.value.trim())mp2ClearStep3Error()"'
+    +   ' style="width:100%;box-sizing:border-box;min-height:110px;resize:none;border:none;outline:none;padding:10px 36px 10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:transparent;display:block"></textarea>'
+    +   '<button type="button" onclick="mp2OpenBriefExpand()" title="Expand" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;padding:3px;color:var(--muted);line-height:1;border-radius:4px;transition:color .13s,background .13s" onmouseenter="this.style.color=\'var(--text)\';this.style.background=\'var(--bg)\'" onmouseleave="this.style.color=\'var(--muted)\';this.style.background=\'none\'">'
+    +     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
+    +   '</button>'
+    + '</div>'
     + '<div style="height:1px;background:var(--border)"></div>'
     + '<label for="tx2-file-input-doc" id="tx2-brief-upload-label"'
     +   ' style="display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;color:var(--muted);font-size:12px;transition:background .13s,color .13s;border-radius:0 0 8px 8px"'
@@ -2989,6 +2994,84 @@ function mp2BriefHtml() {
     + '<input type="file" id="tx2-file-input-doc" style="display:none" accept=".pdf,.doc,.docx"'
     +   ' onchange="var n=this.files[0]?this.files[0].name:\'\';document.getElementById(\'tx2-brief-file-label\').textContent=n||\'Upload Doc or PDF\';mp2TaxInputType=n?\'doc\':\'text\';if(n)mp2ClearStep3Error()">'
     + '</div>';
+}
+
+function mp2OpenBriefExpand() {
+  var ta = document.getElementById('tx2-text-input');
+  var currentText = ta ? ta.value : '';
+  var fileLabel = (document.getElementById('tx2-brief-file-label') || {}).textContent || 'Upload Doc or PDF';
+  var hasFile = fileLabel !== 'Upload Doc or PDF';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'mp2-brief-expand-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box';
+
+  overlay.style.opacity = '0';
+  overlay.style.transition = 'opacity .18s ease';
+
+  overlay.innerHTML =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:780px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22);font-family:inherit;transform:translateY(6px);transition:transform .2s ease;opacity:1">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">'
+    +   '<div style="font-size:14px;font-weight:600;color:var(--text)">Campaign Brief</div>'
+    +   '<button type="button" onclick="mp2CloseBriefExpand()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);line-height:1;border-radius:4px" onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--muted)\'">'
+    +     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    +   '</button>'
+    + '</div>'
+    + '<textarea id="mp2-brief-expand-ta" placeholder="Paste or type your brief here. The AI will analyse topics, sentiments, moments and taxonomy classifications…"'
+    +   ' style="flex:1;width:100%;box-sizing:border-box;resize:none;border:none;outline:none;padding:16px 20px;font-size:13px;line-height:1.7;font-family:inherit;color:var(--text);background:transparent;min-height:420px">'
+    + (currentText ? currentText.replace(/</g,'&lt;') : '')
+    + '</textarea>'
+    + '<div style="border-top:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px">'
+    +   '<label for="mp2-brief-expand-file" id="mp2-brief-expand-file-label" style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--muted);font-size:12px;transition:color .13s" onmouseenter="this.style.color=\'var(--text)\'" onmouseleave="this.style.color=\'var(--muted)\'">'
+    +     '<svg width="13" height="13" viewBox="0 0 32 32" fill="none"><path d="M6 4h14l6 6v18a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v6h6M10 14h12M10 18h12M10 22h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+    +     '<span id="mp2-brief-expand-file-name">' + (hasFile ? fileLabel : 'Upload Doc or PDF') + '</span>'
+    +   '</label>'
+    +   '<input type="file" id="mp2-brief-expand-file" style="display:none" accept=".pdf,.doc,.docx" onchange="mp2BriefExpandFileChange(this)">'
+    +   '<button type="button" onclick="mp2CloseBriefExpand()" style="height:32px;padding:0 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Apply</button>'
+    + '</div>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function() {
+    overlay.style.opacity = '1';
+    var inner = overlay.querySelector('div');
+    if (inner) inner.style.transform = 'translateY(0)';
+  });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) mp2CloseBriefExpand(); });
+
+  var expandTa = document.getElementById('mp2-brief-expand-ta');
+  if (expandTa) { expandTa.focus(); expandTa.setSelectionRange(expandTa.value.length, expandTa.value.length); }
+}
+
+function mp2BriefExpandFileChange(input) {
+  var n = input.files[0] ? input.files[0].name : '';
+  var lbl = document.getElementById('mp2-brief-expand-file-name');
+  if (lbl) lbl.textContent = n || 'Upload Doc or PDF';
+}
+
+function mp2CloseBriefExpand() {
+  var expandTa = document.getElementById('mp2-brief-expand-ta');
+  var mainTa   = document.getElementById('tx2-text-input');
+  if (expandTa && mainTa) {
+    mainTa.value = expandTa.value;
+    if (mainTa.value.trim()) mp2ClearStep3Error();
+  }
+
+  // sync file if one was selected in the modal
+  var expandFile = document.getElementById('mp2-brief-expand-file');
+  var mainFile   = document.getElementById('tx2-file-input-doc');
+  var mainLbl    = document.getElementById('tx2-brief-file-label');
+  if (expandFile && expandFile.files && expandFile.files.length && mainFile && mainLbl) {
+    var dt = new DataTransfer();
+    dt.items.add(expandFile.files[0]);
+    mainFile.files = dt.files;
+    mainLbl.textContent = expandFile.files[0].name;
+    mp2TaxInputType = 'doc';
+    mp2ClearStep3Error();
+  }
+
+  var overlay = document.getElementById('mp2-brief-expand-overlay');
+  if (overlay) overlay.remove();
 }
 
 function mp2Analyze() {
